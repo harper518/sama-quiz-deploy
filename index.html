@@ -558,6 +558,8 @@ textarea { min-height: 180px; resize: vertical; line-height: 1.8; }
     <button class="btn btn-outline" onclick="showMergeModal()" style="padding:10px 18px">🔀 合并</button>
   </div>
   <input type="file" id="fileInput" class="file-input" accept=".json,.txt,.csv,.docx,.pdf,.xlsx,.xls" onchange="loadFile(this)">
+  <input type="file" id="fileQuestionsInput" class="file-input" accept=".txt,.csv,.docx,.pdf,.xlsx,.xls" onchange="loadFileToTextarea(this, 'pasteQuestions')">
+  <input type="file" id="fileAnswersInput" class="file-input" accept=".txt,.csv" onchange="loadFileToTextarea(this, 'pasteAnswers')">
   <div id="fileProgress" style="display:none;margin-top:8px;padding:8px 12px;background:var(--primary-light);border-radius:8px;font-size:13px;text-align:center"></div>
   <div id="bankList"></div>
 </div>
@@ -745,6 +747,7 @@ textarea { min-height: 180px; resize: vertical; line-height: 1.8; }
         <button class="btn btn-sm" style="background:var(--bg-input);border:none;font-size:12px;flex:1" onclick="clipboardPasteTo('pasteQuestions')">📋 粘贴</button>
         <button class="btn btn-sm" style="background:var(--bg-input);border:none;font-size:12px;flex:1" onclick="copyTextFrom('pasteQuestions')">📝 复制</button>
         <button class="btn btn-sm" style="background:var(--bg-input);border:none;font-size:12px;flex:1;color:var(--danger)" onclick="clearTextArea('pasteQuestions')">🗑 清空</button>
+        <button class="btn btn-sm" style="background:var(--bg-input);border:none;font-size:12px;flex:1" onclick="document.getElementById('fileQuestionsInput').click()">📂 上传</button>
       </div>
       <label style="font-size:13px;font-weight:600">✅ 答案（仅答案）</label>
       <textarea id="pasteAnswers" placeholder="粘贴答案，每行一个，如：&#10;A&#10;B&#10;C&#10;D..." style="min-height:100px;margin-bottom:6px"></textarea>
@@ -752,6 +755,7 @@ textarea { min-height: 180px; resize: vertical; line-height: 1.8; }
         <button class="btn btn-sm" style="background:var(--bg-input);border:none;font-size:12px;flex:1" onclick="clipboardPasteTo('pasteAnswers')">📋 粘贴</button>
         <button class="btn btn-sm" style="background:var(--bg-input);border:none;font-size:12px;flex:1" onclick="copyTextFrom('pasteAnswers')">📝 复制</button>
         <button class="btn btn-sm" style="background:var(--bg-input);border:none;font-size:12px;flex:1;color:var(--danger)" onclick="clearTextArea('pasteAnswers')">🗑 清空</button>
+        <button class="btn btn-sm" style="background:var(--bg-input);border:none;font-size:12px;flex:1" onclick="document.getElementById('fileAnswersInput').click()">📂 上传</button>
       </div>
     </div>
     <button class="btn btn-primary btn-block" onclick="importFromPaste()">📥 导入题库</button>
@@ -1508,6 +1512,104 @@ function showFileProgress(msg) {
 function hideFileProgress() {
   var el = document.getElementById('fileProgress');
   if (el) el.style.display = 'none';
+}
+
+// 文件加载到文本框（用于题目/答案分开的上传）
+function loadFileToTextarea(input, textareaId) {
+  var file = input.files[0];
+  if (!file) return;
+  var ext = file.name.split('.').pop().toLowerCase();
+  var reader = new FileReader();
+  var textarea = document.getElementById(textareaId);
+  if (!textarea) { input.value = ''; return; }
+
+  function fillTextarea(text) {
+    textarea.value = text;
+    toast('✅ 文件已加载：' + file.name);
+  }
+
+  // TXT / CSV / JSON 直接读文本
+  if (ext === 'txt' || ext === 'csv' || ext === 'json') {
+    reader.onload = function(e) { fillTextarea(e.target.result); };
+    reader.readAsText(file);
+    input.value = '';
+    return;
+  }
+
+  // DOCX
+  if (ext === 'docx') {
+    showFileProgress('正在解析 Word 文档...');
+    loadMammoth(function() {
+      reader.onload = function(e) {
+        try {
+          mammoth.extractRawText({ arrayBuffer: e.target.result }).then(function(result) {
+            hideFileProgress();
+            fillTextarea(result.value);
+          }).catch(function() { hideFileProgress(); toast('❌ Word解析失败'); });
+        } catch(err) { hideFileProgress(); toast('❌ Word解析失败'); }
+      };
+      reader.readAsArrayBuffer(file);
+    });
+    input.value = '';
+    return;
+  }
+
+  // XLSX / XLS
+  if (ext === 'xlsx' || ext === 'xls') {
+    showFileProgress('正在解析 Excel 表格...');
+    loadXLSX(function() {
+      reader.onload = function(e) {
+        try {
+          var wb = XLSX.read(e.target.result, { type: 'array' });
+          var text = '';
+          var sheetName = wb.SheetNames[0];
+          var sheet = wb.Sheets[sheetName];
+          var data = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+          for (var i = 0; i < data.length; i++) {
+            text += data[i].join('\t') + '\n';
+          }
+          hideFileProgress();
+          fillTextarea(text);
+        } catch(err) { hideFileProgress(); toast('❌ Excel解析失败'); }
+      };
+      reader.readAsArrayBuffer(file);
+    });
+    input.value = '';
+    return;
+  }
+
+  // PDF
+  if (ext === 'pdf') {
+    showFileProgress('正在解析 PDF 文件...');
+    loadPDFJS(function() {
+      reader.onload = function(e) {
+        try {
+          var typedarray = new Uint8Array(e.target.result);
+          pdfjsLib.getDocument({ data: typedarray }).promise.then(function(pdf) {
+            var pages = [];
+            var promises = [];
+            for (var i = 1; i <= pdf.numPages; i++) {
+              promises.push(pdf.getPage(i).then(function(page) {
+                return page.getTextContent().then(function(content) {
+                  pages.push(content.items.map(function(item) { return item.str; }).join(' '));
+                });
+              }));
+            }
+            Promise.all(promises).then(function() {
+              hideFileProgress();
+              fillTextarea(pages.join('\n'));
+            }).catch(function() { hideFileProgress(); toast('❌ PDF解析失败'); });
+          }).catch(function() { hideFileProgress(); toast('❌ PDF解析失败，文件可能损坏'); });
+        } catch(err) { hideFileProgress(); toast('❌ PDF解析失败'); }
+      };
+      reader.readAsArrayBuffer(file);
+    });
+    input.value = '';
+    return;
+  }
+
+  toast('❌ 不支持的文件格式：.' + ext);
+  input.value = '';
 }
 
 function finishFileImport(name, questions) {
