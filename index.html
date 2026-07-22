@@ -190,6 +190,7 @@ body {
   font-size: var(--font-size);
   -webkit-tap-highlight-color: transparent;
   -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
   max-width: 480px;
   margin: 0 auto;
   min-height: 100dvh;
@@ -234,8 +235,8 @@ body {
 @keyframes slideUp { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: translateY(0); } }
 
 /* ====== Header ====== */
-.header { text-align: center; padding: 12px 0 8px; }
-.header h1 { font-size: 20px; color: var(--text); letter-spacing: -.02em; }
+.header { padding: 0; margin-bottom: 16px; }
+.header h1 { font-size: 24px; font-weight: 800; color: var(--text); letter-spacing: -.02em; }
 .header .subtitle { font-size: 13px; color: var(--text-secondary); margin-top: 2px; }
 
 /* ====== Cards ====== */
@@ -262,12 +263,14 @@ body {
   min-height: 44px;
   touch-action: manipulation;
   letter-spacing: .01em;
+  white-space: nowrap;
 }
 .btn:active { transform: scale(0.97); }
-.btn-primary { background: var(--primary); color: #fff; width: 100%; }
+.btn-primary { background: var(--primary); color: #fff; box-shadow: 0 2px 8px rgba(124,58,237,.3); }
+.btn-primary:active { box-shadow: 0 1px 3px rgba(124,58,237,.2); }
 .btn-success { background: var(--success); color: #fff; }
 .btn-danger { background: var(--danger); color: #fff; }
-.btn-outline { background: var(--card); color: var(--primary); border: 2px solid var(--primary); width: 100%; }
+.btn-outline { background: var(--card); color: var(--primary); border: 2px solid var(--primary); }
 .btn-ghost { background: var(--bg-input); color: var(--text); border: none; }
 .btn-sm { padding: 6px 14px; font-size: 13px; min-height: 34px; border-radius: var(--radius-xs); }
 .btn-block { width: 100%; justify-content: center; }
@@ -611,7 +614,7 @@ textarea { min-height: 180px; resize: vertical; line-height: 1.8; }
         <p style="font-size:12px;color:var(--text-secondary);margin-top:4px" id="modeDesc">选完立即显示对错和解析</p>
       </div>
       <div id="categoryFilter" style="margin-top:10px"></div>
-      <button class="btn btn-primary mt-12" onclick="startQuiz()">🚀 开始刷题</button>
+      <button class="btn btn-primary btn-block mt-12" onclick="startQuiz()">🚀 开始刷题</button>
     </div>
   </div>
   <div id="quizActive" style="display:none">
@@ -751,7 +754,7 @@ textarea { min-height: 180px; resize: vertical; line-height: 1.8; }
         <button class="btn btn-sm" style="background:var(--bg-input);border:none;font-size:12px;flex:1;color:var(--danger)" onclick="clearTextArea('pasteAnswers')">🗑 清空</button>
       </div>
     </div>
-    <button class="btn btn-primary" onclick="importFromPaste()">📥 导入题库</button>
+    <button class="btn btn-primary btn-block" onclick="importFromPaste()">📥 导入题库</button>
   </div>
 </div>
 
