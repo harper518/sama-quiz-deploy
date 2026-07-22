@@ -1760,35 +1760,67 @@ function finishFileImport(name, questions) {
   showImportPreview(name, questions);
 }
 
-// ====== 导入预览 ======
-var previewImportData = null; // { name, questions }
+// ====== 跳过标签和建议 ======
+var SKIP_LABELS = { noOptions: "未找到ABCD选项", noQuestion: "题干提取失败", missingOpts: "选项不完整" };
+var SKIP_SUGGEST = {
+  noOptions: "这段可能不是题目（如答案页、说明文字），或格式不兼容。可尝试合并断行或去空行后重试。",
+  noQuestion: "题号后未检测到有效题目文本。请确保题号后有题目内容。",
+  missingOpts: "选项不完整（需A/B/C/D齐全）。可点击补全模板快速填充缺失选项。"
+};
 
 function showImportPreview(name, questions, stats) {
-  previewImportData = { name: name, questions: questions };
-  // 创建全屏预览弹窗
-  var ov = document.createElement('div');
-  ov.className = 'modal-overlay';
-  ov.id = 'importPreviewOverlay';
-  ov.style.cssText = 'align-items:flex-start;overflow-y:auto;padding:16px;padding-bottom:100px;z-index:250';
-  ov.addEventListener('click', function(e) { if (e.target === ov) closeImportPreview(); });
+  var skipped = (stats && stats.skipped) ? stats.skipped : [];
+  previewImportData = { name: name, questions: questions, skipped: skipped };
+  var ov = document.createElement("div");
+  ov.className = "modal-overlay";
+  ov.id = "importPreviewOverlay";
+  ov.style.cssText = "align-items:flex-start;overflow-y:auto;padding:16px;padding-bottom:100px;z-index:250";
+  ov.addEventListener("click", function(e) { if (e.target === ov) closeImportPreview(); });
 
-  // 构建统计面板
-  var statsHtml = '';
-  if (stats && (stats.noOptions > 0 || stats.missingOpts > 0 || stats.noAnswer > 0 || stats.answerMismatch)) {
+  // 统计汇总
+  var statsHtml = "";
+  var hasIssues = (stats && (stats.noOptions > 0 || stats.noQuestion > 0 || stats.missingOpts > 0 || stats.noAnswer > 0 || stats.answerMismatch));
+  if (hasIssues || (stats && stats.multiSelect > 0)) {
     statsHtml = '<div style="background:#fffbeb;border:1px solid #f59e0b;border-radius:10px;padding:12px;margin-bottom:14px;font-size:12px;line-height:1.8">' +
       '<div style="font-weight:700;color:#b45309;margin-bottom:6px">⚠️ 部分内容未能导入</div>';
     if (stats.noOptions) statsHtml += '<div>· ' + stats.noOptions + ' 条：<b>未找到ABCD选项</b>（可能是答案页、说明文字或格式不符）</div>';
     if (stats.noQuestion) statsHtml += '<div>· ' + stats.noQuestion + ' 条：<b>题干提取失败</b>（题号后无有效题目文本）</div>';
     if (stats.missingOpts) statsHtml += '<div>· ' + stats.missingOpts + ' 条：<b>选项不完整</b>（缺少A/B/C/D中的某些选项）</div>';
-    if (stats.noAnswer) statsHtml += '<div>· ' + stats.noAnswer + ' 条：<b>未识别到答案</b>（缺少"答案：X"行）</div>';
+    if (stats.noAnswer) statsHtml += '<div>· ' + stats.noAnswer + ' 条：<b>未识别到答案</b>（缺少答案：X行）</div>';
     if (stats.answerMismatch) statsHtml += '<div>· <b>答案不匹配：</b>' + stats.answerMismatch + '</div>';
     if (stats.multiSelect) statsHtml += '<div style="margin-top:4px;color:var(--success)">✅ 识别到 ' + stats.multiSelect + ' 道<b>多选题</b></div>';
-    if (stats.samples && stats.samples.length) {
-      statsHtml += '<div style="margin-top:6px;padding-top:6px;border-top:1px solid #fcd34d"><span style="color:#92400e">被跳过示例：</span>';
-      stats.samples.forEach(function(s) { statsHtml += '<div style="color:#a16207;margin:2px 0">「' + escHtml(s) + '…」</div>'; });
-      statsHtml += '</div>';
-    }
+    if (stats.imported > 0) statsHtml += '<div style="margin-top:4px;color:var(--success)">✅ 成功导入 ' + stats.imported + ' 题</div>';
     statsHtml += '</div>';
+  }
+
+  // 被跳过条目（可折叠）
+  var skippedHtml = "";
+  if (skipped.length > 0) {
+    skippedHtml = '<div style="margin-bottom:14px">' +
+      '<button id="toggleSkippedBtn" class="btn btn-sm" style="background:var(--bg-input);border:1px solid var(--border);font-size:12px;width:100%;text-align:left;padding:10px 14px;min-height:44px" onclick="toggleSkippedList()">📋 查看全部 ' + skipped.length + ' 条被跳过内容 ▸</button>' +
+      '<div id="skippedListContainer" style="display:none;margin-top:8px"></div>' +
+    '</div>';
+  }
+
+  // 跳转导航
+  var jumpHtml = "";
+  if (questions.length > 0) {
+    jumpHtml = '<div class="flex items-center gap-8 mb-12" style="flex-wrap:wrap;padding:10px 14px;background:var(--bg-input);border-radius:10px;font-size:13px">' +
+      '<span style="color:var(--text-secondary);white-space:nowrap">🔍 跳到第</span>' +
+      '<input type="number" id="jumpCardInput" min="1" max="' + questions.length + '" placeholder="题号" style="width:56px;padding:6px 8px;border:2px solid var(--border);border-radius:6px;font-size:13px;text-align:center;background:var(--card);color:var(--text)">' +
+      '<span style="color:var(--text-secondary);white-space:nowrap">题</span>' +
+      '<button class="btn btn-sm" style="background:var(--primary);color:#fff;border:none;font-size:12px;padding:6px 14px;min-height:36px" onclick="jumpToPreviewCard()">GO</button>';
+    if (questions.length > 30) {
+      var gs = 20;
+      var grps = Math.ceil(questions.length / gs);
+      for (var g = 0; g < Math.min(grps, 6); g++) {
+        var from = g * gs + 1;
+        var to = Math.min((g + 1) * gs, questions.length);
+        jumpHtml += '<button class="btn btn-sm" style="background:var(--card);border:1px solid var(--border);font-size:11px;padding:4px 8px;min-height:32px;margin:2px" onclick="jumpToPreviewCard(' + from + ')">' + from + '-' + to + '</button>';
+      }
+      if (grps > 6) jumpHtml += '<span style="color:var(--text-tertiary);font-size:11px">...</span>';
+    }
+    jumpHtml += '</div>';
   }
 
   ov.innerHTML = '<div class="modal" style="border-radius:18px;max-width:520px;width:100%;margin:0 auto;padding:20px;animation:none">' +
@@ -1797,6 +1829,8 @@ function showImportPreview(name, questions, stats) {
       '<button class="btn btn-sm" style="background:var(--border);border:none" onclick="closeImportPreview()">✕</button>' +
     '</div>' +
     statsHtml +
+    skippedHtml +
+    jumpHtml +
     '<div id="importPreviewCards"></div>' +
     '<div class="flex gap-8 mt-16" style="position:sticky;bottom:0;background:var(--card);padding:12px 0">' +
       '<button class="btn btn-outline flex-1" onclick="closeImportPreview()">取消</button>' +
@@ -1805,88 +1839,139 @@ function showImportPreview(name, questions, stats) {
   '</div>';
   document.body.appendChild(ov);
   renderImportPreviewCards();
+  if (skipped.length > 0) renderSkippedItems();
 }
 
-function renderImportPreviewCards() {
-  if (!previewImportData) return;
-  var container = document.getElementById('importPreviewCards');
+// ====== 跳过条目渲染 ======
+function renderSkippedItems() {
+  if (!previewImportData || !previewImportData.skipped) return;
+  var container = document.getElementById("skippedListContainer");
   if (!container) return;
-  var cards = previewImportData.questions;
-  container.innerHTML = cards.map(function(card, i) {
-    if (card._editing) {
-      return '<div class="card mb-12" style="padding:14px;border:2px solid var(--primary)">' +
-        '<div style="font-size:13px;font-weight:700;color:var(--primary);margin-bottom:10px">✏️ 编辑第' + (i+1) + '题</div>' +
-        '<label style="font-size:12px;color:var(--text-secondary)">题目</label>' +
-        '<textarea id="editQ_' + i + '" style="width:100%;min-height:50px;font-size:14px;padding:8px;border:2px solid var(--border);border-radius:8px;margin-bottom:8px;background:var(--card);color:var(--text)">' + escHtml(card.question) + '</textarea>' +
-        '<label style="font-size:12px;color:var(--text-secondary)">选项</label>' +
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 8px;margin-bottom:8px">' +
-          ['A','B','C','D','E'].map(function(l) {
-            return '<div style="display:flex;align-items:center;gap:4px"><span style="font-size:13px;font-weight:700;min-width:20px">' + l + '.</span><input id="edit' + l + '_' + i + '" value="' + escHtml(card[l] || '') + '" style="flex:1;font-size:13px;padding:6px 8px;border:2px solid var(--border);border-radius:6px;background:var(--card);color:var(--text)"></div>';
-          }).join('') +
-        '</div>' +
-        '<label style="font-size:12px;color:var(--text-secondary)">答案</label>' +
-        '<input id="editAns_' + i + '" value="' + escHtml(card.answer) + '" style="width:100%;font-size:14px;padding:8px;border:2px solid var(--border);border-radius:8px;margin-bottom:8px;background:var(--card);color:var(--text)" placeholder="如：A 或 ABC">' +
-        '<label style="font-size:12px;color:var(--text-secondary)">解析（可选）</label>' +
-        '<input id="editExp_' + i + '" value="' + escHtml(card.explanation || '') + '" style="width:100%;font-size:13px;padding:8px;border:2px solid var(--border);border-radius:8px;margin-bottom:10px;background:var(--card);color:var(--text)" placeholder="题目解析...">' +
-        '<div class="flex gap-8">' +
-          '<button class="btn btn-sm flex-1" style="background:var(--border);border:none" onclick="toggleEditImportCard(' + i + ')">取消</button>' +
-          '<button class="btn btn-primary btn-sm flex-1" onclick="saveEditImportCard(' + i + ')">💾 保存</button>' +
-        '</div>' +
-      '</div>';
+  var skipped = previewImportData.skipped;
+  container.innerHTML = skipped.map(function(item, i) {
+    var isEdit = item._editing;
+    var label = SKIP_LABELS[item.reason] || item.reason;
+    var suggest = SKIP_SUGGEST[item.reason] || "";
+    var txt = item.text || "";
+    var borderColor = item.reason === "missingOpts" ? "#f59e0b" : "#ef4444";
+    var bgColor = item.reason === "missingOpts" ? "#fef3c7" : "#fee2e2";
+    var tc = item.reason === "missingOpts" ? "#92400e" : "#991b1b";
+    var h = '<div class="card mb-8" style="padding:12px 14px;border-left:3px solid ' + borderColor + '" id="skippedItem_' + i + '">';
+    h += '<div class="flex between items-center mb-6">';
+    h += '<div><span style="font-size:11px;font-weight:700;padding:2px 6px;border-radius:4px;background:' + bgColor + ';color:' + tc + '">#' + item.index + '</span>';
+    h += ' <span style="font-size:12px;font-weight:600;color:var(--text)">' + label + '</span></div>';
+    if (!isEdit) h += '<span style="font-size:11px;color:var(--text-tertiary)">' + txt.length + '字</span>';
+    h += '</div>';
+    if (isEdit) {
+      h += '<textarea id="skippedEdit_' + i + '" style="width:100%;min-height:100px;font-size:13px;padding:8px;border:2px solid var(--primary);border-radius:8px;margin-bottom:8px;background:var(--card);color:var(--text);font-family:monospace;line-height:1.6">' + escHtml(txt) + '</textarea>';
+      h += '<div class="flex gap-4" style="flex-wrap:wrap;margin-bottom:6px">';
+      h += '<button class="btn btn-sm" style="background:var(--bg-input);border:none;font-size:11px;padding:4px 8px;min-height:32px" onclick="autoFixSkipped(' + i + ',\'cleanEmpty\')">🧹 去空行</button>';
+      h += '<button class="btn btn-sm" style="background:var(--bg-input);border:none;font-size:11px;padding:4px 8px;min-height:32px" onclick="autoFixSkipped(' + i + ',\'mergeLines\')">↔️ 合并断行</button>';
+      h += '<button class="btn btn-sm" style="background:var(--bg-input);border:none;font-size:11px;padding:4px 8px;min-height:32px" onclick="autoFixSkipped(' + i + ',\'cleanHtml\')">🏷️ 去HTML</button>';
+      if (item.reason === "missingOpts") h += '<button class="btn btn-sm" style="background:var(--success-light);border:none;font-size:11px;padding:4px 8px;min-height:32px;color:#065f46" onclick="autoFixSkipped(' + i + ',\'fillTemplate\')">📋 补全模板</button>';
+      h += '</div>';
+      h += '<div class="flex gap-8"><button class="btn btn-sm flex-1" style="background:var(--border);border:none" onclick="toggleSkippedEdit(' + i + ')">取消</button>';
+      h += '<button class="btn btn-primary btn-sm flex-1" onclick="retrySkippedBlock(' + i + ')" style="min-height:44px">🔄 重试解析</button></div>';
+    } else {
+      h += '<div style="font-size:12px;color:var(--text-secondary);line-height:1.6;white-space:pre-wrap;word-break:break-all;max-height:120px;overflow-y:auto;background:var(--bg);padding:8px 10px;border-radius:6px;margin-bottom:8px;font-family:monospace">' + escHtml(txt) + '</div>';
+      h += '<div style="font-size:11px;color:var(--text-tertiary);margin-bottom:6px">💡 ' + suggest + '</div>';
+      h += '<div style="display:flex;flex-wrap:wrap;gap:4px">';
+      h += '<button class="btn btn-sm" style="background:var(--bg-input);border:none;font-size:11px;padding:4px 8px;min-height:36px" onclick="autoFixSkipped(' + i + ',\'cleanEmpty\')">🧹 去空行</button>';
+      h += '<button class="btn btn-sm" style="background:var(--bg-input);border:none;font-size:11px;padding:4px 8px;min-height:36px" onclick="autoFixSkipped(' + i + ',\'mergeLines\')">↔️ 合并断行</button>';
+      if (item.reason === "missingOpts") h += '<button class="btn btn-sm" style="background:var(--success-light);border:none;font-size:11px;padding:4px 8px;min-height:36px;color:#065f46" onclick="autoFixSkipped(' + i + ',\'fillTemplate\')">📋 补全选项模板</button>';
+      h += '<button class="btn btn-sm" style="background:var(--primary-light);border:none;font-size:11px;padding:4px 8px;min-height:36px;color:var(--primary)" onclick="toggleSkippedEdit(' + i + ')">✏️ 手动编辑</button>';
+      h += '<button class="btn btn-sm" style="background:transparent;border:1px solid var(--border);font-size:11px;padding:4px 8px;min-height:36px;color:var(--text-tertiary)" onclick="dismissSkippedItem(' + i + ')">🚫 忽略</button>';
+      h += '</div>';
     }
-    var opts = ['A','B','C','D'];
-    if (card.E && card.E.trim()) opts.push('E');
-    return '<div class="card mb-8" style="padding:12px 14px;cursor:default">' +
-      '<div class="flex between items-center mb-6">' +
-        '<span style="font-size:12px;font-weight:700;color:var(--primary)">第' + (i+1) + '题</span>' +
-        '<button class="btn btn-sm" style="background:var(--bg-input);border:none;font-size:12px;padding:4px 10px" onclick="toggleEditImportCard(' + i + ')">✏️</button>' +
-      '</div>' +
-      '<div style="font-size:14px;font-weight:600;margin-bottom:8px;line-height:1.6">' + escHtml(card.question) + '</div>' +
-      '<div style="font-size:13px;color:var(--text-secondary);margin-bottom:6px;line-height:1.8">' +
-        opts.map(function(l) { return '<span style="margin-right:12px"><b>' + l + '.</b> ' + escHtml(card[l] || '') + '</span>'; }).join('') +
-      '</div>' +
-      '<div style="font-size:13px;padding:6px 10px;background:var(--success-light);border-radius:6px;display:inline-block;font-weight:600;color:#065F46">✅ ' + escHtml(card.answer) + '</div>' +
-      (card.explanation ? '<div style="font-size:12px;color:var(--text-secondary);margin-top:6px">💡 ' + escHtml(card.explanation) + '</div>' : '') +
-    '</div>';
-  }).join('');
+    h += '</div>';
+    return h;
+  }).join("");
 }
 
-function toggleEditImportCard(idx) {
-  if (!previewImportData || !previewImportData.questions[idx]) return;
-  previewImportData.questions[idx]._editing = !previewImportData.questions[idx]._editing;
-  renderImportPreviewCards();
-  if (previewImportData.questions[idx]._editing) {
-    setTimeout(function() {
-      var el = document.getElementById('editQ_' + idx);
-      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }, 100);
+function toggleSkippedList() {
+  var c = document.getElementById("skippedListContainer");
+  var b = document.getElementById("toggleSkippedBtn");
+  if (!c || !b) return;
+  if (c.style.display !== "none") { c.style.display = "none"; b.innerHTML = "📋 查看全部 " + previewImportData.skipped.length + " 条被跳过内容 ▸"; }
+  else { c.style.display = "block"; b.innerHTML = "📋 收起跳过内容 ▾"; renderSkippedItems(); }
+}
+
+function toggleSkippedEdit(idx) {
+  if (!previewImportData || !previewImportData.skipped || !previewImportData.skipped[idx]) return;
+  previewImportData.skipped[idx]._editing = !previewImportData.skipped[idx]._editing;
+  renderSkippedItems();
+  if (previewImportData.skipped[idx]._editing) setTimeout(function() { var e = document.getElementById("skippedEdit_" + idx); if (e) e.scrollIntoView({ behavior: "smooth", block: "center" }); }, 100);
+}
+
+function autoFixSkipped(idx, action) {
+  if (!previewImportData || !previewImportData.skipped || !previewImportData.skipped[idx]) return;
+  var item = previewImportData.skipped[idx];
+  var text = item._editing ? document.getElementById("skippedEdit_" + idx).value : item.text;
+  if (action === "cleanEmpty") { text = text.split("\n").filter(function(l) { return l.trim(); }).join("\n"); toast("✅ 已去空行"); }
+  else if (action === "mergeLines") {
+    text = text.split(/\n/).reduce(function(acc, l) {
+      var t = l.trim(); if (!t) { acc.push(""); return acc; }
+      if (acc.length > 0 && acc[acc.length-1] !== "" && !/^\d/.test(t) && !/^[①-⑩]/.test(t) && !/^\(/.test(t) && !/^（/.test(t) && !/^[A-E][.、．）)]/.test(t) && !/^答案/.test(t)) { acc[acc.length-1] += t; }
+      else { acc.push(t); }
+      return acc;
+    }, []).join("\n"); toast("✅ 已合并断行");
+  }
+  else if (action === "cleanHtml") { text = text.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&").replace(/&quot;/g, '"'); toast("✅ 已去除HTML标签"); }
+  else if (action === "fillTemplate") {
+    var miss = [];
+    if (!/[Cc][.、．）)]/.test(text)) miss.push("C. [请填写选项C内容]");
+    if (!/[Dd][.、．）)]/.test(text)) miss.push("D. [请填写选项D内容]");
+    if (!/答案/.test(text)) miss.push("答案：[请填写]");
+    if (miss.length) { text = text.trim() + "\n" + miss.join("\n"); toast("✅ 已补全选项模板"); }
+    else { toast("选项已完整，无需补全"); }
+  }
+  if (item._editing) { var ta = document.getElementById("skippedEdit_" + idx); if (ta) ta.value = text; }
+  else { item.text = text; renderSkippedItems(); }
+}
+
+function dismissSkippedItem(idx) {
+  if (!previewImportData || !previewImportData.skipped) return;
+  previewImportData.skipped.splice(idx, 1);
+  renderSkippedItems();
+  var btn = document.getElementById("toggleSkippedBtn");
+  if (btn && previewImportData.skipped.length > 0) btn.innerHTML = "📋 查看全部 " + previewImportData.skipped.length + " 条被跳过内容 ▸";
+  else if (btn) btn.parentElement.style.display = "none";
+  toast("已忽略");
+}
+
+function retrySkippedBlock(idx) {
+  if (!previewImportData || !previewImportData.skipped || !previewImportData.skipped[idx]) return;
+  var ta = document.getElementById("skippedEdit_" + idx);
+  if (!ta || !ta.value.trim()) { toast("内容不能为空"); return; }
+  var text = normalizeText(ta.value.trim());
+  var result = parseMergedFormat(text);
+  if (result.questions.length > 0) {
+    var sid = previewImportData.questions.length;
+    for (var qi = 0; qi < result.questions.length; qi++) { result.questions[qi].id = sid + qi + 1; previewImportData.questions.push(result.questions[qi]); }
+    previewImportData.skipped.splice(idx, 1);
+    renderSkippedItems(); renderImportPreviewCards();
+    toast("✅ 已修复 " + result.questions.length + " 题并加入预览");
+  } else {
+    var rs = result.stats;
+    var reason = rs.noOptions > 0 ? "noOptions" : (rs.noQuestion > 0 ? "noQuestion" : (rs.missingOpts > 0 ? "missingOpts" : "noOptions"));
+    previewImportData.skipped[idx].text = text; previewImportData.skipped[idx].reason = reason;
+    previewImportData.skipped[idx]._editing = false; renderSkippedItems();
+    toast("⚠️ 仍无法解析（" + (SKIP_LABELS[reason] || reason) + "），请继续修改");
   }
 }
 
-function saveEditImportCard(idx) {
-  if (!previewImportData || !previewImportData.questions[idx]) return;
-  var card = previewImportData.questions[idx];
-  var newQ = document.getElementById('editQ_' + idx);
-  var newAns = document.getElementById('editAns_' + idx);
-  var newExp = document.getElementById('editExp_' + idx);
-  if (!newQ || !newQ.value.trim()) { toast('题目不能为空'); return; }
-  if (!newAns || !newAns.value.trim()) { toast('答案不能为空'); return; }
-  card.question = newQ.value.trim();
-  card.answer = newAns.value.trim().toUpperCase();
-  card.explanation = newExp ? newExp.value.trim() : '';
-  // 更新选项
-  ['A','B','C','D','E'].forEach(function(l) {
-    var el = document.getElementById('edit' + l + '_' + idx);
-    if (el) card[l] = el.value.trim();
-  });
-  // 检测多选
-  var letters = card.answer.split('').filter(function(ch) { return ch >= 'A' && ch <= 'E'; });
-  letters = letters.filter(function(ch, i2) { return letters.indexOf(ch) === i2; }).sort();
-  card.answer = letters.join('');
-  card.type = letters.length > 1 ? 'multi' : 'single';
-  card._editing = false;
-  renderImportPreviewCards();
-  toast('✅ 已保存');
+function jumpToPreviewCard(n) {
+  if (arguments.length === 0 || n === undefined) {
+    var input = document.getElementById("jumpCardInput");
+    n = input ? parseInt(input.value, 10) : NaN;
+    if (isNaN(n) || n < 1) { toast("请输入有效题号"); return; }
+  }
+  var card = document.getElementById("previewCard_" + (n - 1));
+  if (!card) { toast("题号超出范围"); return; }
+  card.scrollIntoView({ behavior: "smooth", block: "center" });
+  card.style.transition = "box-shadow 0.3s";
+  card.style.boxShadow = "0 0 0 3px #f59e0b";
+  setTimeout(function() { card.style.boxShadow = ""; }, 1500);
 }
 
 function closeImportPreview() {
@@ -2080,7 +2165,7 @@ function importFromPaste() {
       mismatchParts.push('多余' + (aParsed.length - blockResults.length) + '行答案被忽略');
     }
     if (mismatchParts.length) {
-      if (!stats) stats = { totalBlocks: 0, noOptions: 0, noQuestion: 0, missingOpts: 0, noAnswer: 0, multiSelect: 0, imported: 0, samples: [] };
+      if (!stats) stats = { totalBlocks: 0, noOptions: 0, noQuestion: 0, missingOpts: 0, noAnswer: 0, multiSelect: 0, imported: 0, skipped: [] };
       stats.answerMismatch = mismatchParts.join('；');
     }
   }
@@ -2173,7 +2258,7 @@ function normalizeText(text) {
 
 function parseMergedFormat(text) {
   text = normalizeText(text);
-  var stats = { totalBlocks: 0, noOptions: 0, noQuestion: 0, missingOpts: 0, noAnswer: 0, multiSelect: 0, imported: 0, samples: [] };
+  var stats = { totalBlocks: 0, noOptions: 0, noQuestion: 0, missingOpts: 0, noAnswer: 0, multiSelect: 0, imported: 0, skipped: [] };
   // 按题号分割
   var blocks = text.split(/\n(?=\d+[.、．）)])/);
   stats.totalBlocks = blocks.length;
@@ -2181,16 +2266,16 @@ function parseMergedFormat(text) {
   for (var bi = 0; bi < blocks.length; bi++) {
     var block = blocks[bi];
     var hasOptions = /[A-E][.、．）)]\s*\S/.test(block);
-    if (!hasOptions) { stats.noOptions++; continue; }
+    if (!hasOptions) { stats.noOptions++; stats.skipped.push({ reason: 'noOptions', index: bi + 1, text: block.substring(0, 300) }); continue; }
 
     var qText = block.replace(/^\d+[.、．）)]\s*/, '');
     var firstOpt = qText.search(/[A-E][.、．）)]\s*\S/);
-    if (firstOpt === -1) { stats.noQuestion++; continue; }
+    if (firstOpt === -1) { stats.noQuestion++; stats.skipped.push({ reason: "noQuestion", index: bi + 1, text: block.substring(0, 300) }); continue; }
 
     var question = qText.slice(0, firstOpt).trim().replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
     var optsPart = qText.slice(firstOpt);
     var opts = extractOptions(optsPart);
-    if (!opts.A || !opts.B || !opts.C || !opts.D) { stats.missingOpts++; if (stats.samples.length < 3) stats.samples.push(block.substring(0, 80)); continue; }
+    if (!opts.A || !opts.B || !opts.C || !opts.D) { stats.missingOpts++; stats.skipped.push({ reason: "missingOpts", index: bi + 1, text: block.substring(0, 300) }); continue; }
 
     var ansInfo = extractAnswer(block);
     if (ansInfo.answer === '?') stats.noAnswer++;
@@ -2206,7 +2291,7 @@ function parseMergedFormat(text) {
 
 function parseQuestionsOnly(text) {
   text = normalizeText(text);
-  var stats = { totalBlocks: 0, noOptions: 0, noQuestion: 0, missingOpts: 0, noAnswer: 0, multiSelect: 0, imported: 0, samples: [] };
+  var stats = { totalBlocks: 0, noOptions: 0, noQuestion: 0, missingOpts: 0, noAnswer: 0, multiSelect: 0, imported: 0, skipped: [] };
   var blocks = text.split(/\n(?=\d+[.、．）)])/);
   stats.totalBlocks = blocks.length;
   var questions = [];
@@ -2214,14 +2299,14 @@ function parseQuestionsOnly(text) {
   for (var bi = 0; bi < blocks.length; bi++) {
     var block = blocks[bi];
     var hasOptions = /[A-E][.、．）)]\s*\S/.test(block);
-    if (!hasOptions) { stats.noOptions++; blockResults.push(null); continue; }
+    if (!hasOptions) { stats.noOptions++; stats.skipped.push({ reason: "noOptions", index: bi + 1, text: block.substring(0, 300) }); blockResults.push(null); continue; }
     var qText = block.replace(/^\d+[.、．）)]\s*/, '');
     var firstOpt = qText.search(/[A-E][.、．）)]\s*\S/);
-    if (firstOpt === -1) { stats.noQuestion++; blockResults.push(null); continue; }
+    if (firstOpt === -1) { stats.noQuestion++; stats.skipped.push({ reason: 'noQuestion', index: bi + 1, text: block.substring(0, 300) }); blockResults.push(null); continue; }
     var question = qText.slice(0, firstOpt).trim().replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
     var optsPart = qText.slice(firstOpt);
     var opts = extractOptions(optsPart);
-    if (!opts.A || !opts.B || !opts.C || !opts.D) { stats.missingOpts++; if (stats.samples.length < 3) stats.samples.push(block.substring(0, 80)); blockResults.push(null); continue; }
+    if (!opts.A || !opts.B || !opts.C || !opts.D) { stats.missingOpts++; stats.skipped.push({ reason: "missingOpts", index: bi + 1, text: block.substring(0, 300) }); blockResults.push(null); continue; }
     var qObj = { id: questions.length + 1, question: question, A: opts.A, B: opts.B, C: opts.C, D: opts.D, answer: '', type: 'single', explanation: '' };
     if (opts.E) qObj.E = opts.E;
     questions.push(qObj);
