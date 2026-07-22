@@ -1291,8 +1291,9 @@ function renderBrowseStart() {
     c.innerHTML = '<div class="empty"><span class="icon">📖</span><h3>还没有题库</h3><p>请先在「题库」页面导入题目</p></div>';
     return;
   }
-  var bankName = names[0];
+  var bankName = arguments[0] || names[0];
   var bank = appData.banks[bankName];
+  if (!bank) { bankName = names[0]; bank = appData.banks[bankName]; }
   browseState2 = { bankName: bankName, cards: bank, index: 0, view: 'list', searchQuery: '', filter: 'all', _filteredCards: bank };
   c.innerHTML = '<div class="flex justify-between items-center mb-12">' +
     '<h1 style="font-size:20px;font-weight:800;margin:0">📖 目录</h1>' +
@@ -1312,7 +1313,7 @@ function changeBrowseBank() {
   if (!sel) return;
   var bankName = sel.value;
   var bank = appData.banks[bankName];
-  if (bank) { browseState2 = { bankName: bankName, cards: bank, index: 0, view: 'list', searchQuery: '', filter: 'all', _filteredCards: bank }; renderBrowseStart(); }
+  if (bank) { browseState2 = { bankName: bankName, cards: bank, index: 0, view: 'list', searchQuery: '', filter: 'all', _filteredCards: bank }; renderBrowseStart(bankName); }
 }
 function doBrowseSearch() {
   var input = document.getElementById('browseSearchInput');
