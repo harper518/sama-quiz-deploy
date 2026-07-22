@@ -596,9 +596,9 @@ textarea { min-height: 180px; resize: vertical; line-height: 1.8; }
     <button class="btn btn-outline" onclick="showMergeModal()" style="padding:10px 18px">🔀 合并</button>
   </div>
   <input type="file" id="fileInput" class="file-input" accept=".json,.txt,.csv,.docx,.pdf,.xlsx,.xls" onchange="loadFile(this)">
-  <input type="file" id="fileContentInput" class="file-input" accept=".txt,.csv,.json,.docx,.pdf,.xlsx,.xls" onchange="loadFileToTextarea(this, 'pasteContent')">
-  <input type="file" id="fileQuestionsInput" class="file-input" accept=".txt,.csv,.docx,.pdf,.xlsx,.xls" onchange="loadFileToTextarea(this, 'pasteQuestions')">
-  <input type="file" id="fileAnswersInput" class="file-input" accept=".txt,.csv,.json,.docx" onchange="loadFileToTextarea(this, 'pasteAnswers')">
+  <input type="file" id="fileContentInput" class="file-input" accept=".txt,.csv,.json,.docx,.wps,.pdf,.xlsx,.xls" onchange="loadFileToTextarea(this, 'pasteContent')">
+  <input type="file" id="fileQuestionsInput" class="file-input" accept=".txt,.csv,.docx,.wps,.pdf,.xlsx,.xls" onchange="loadFileToTextarea(this, 'pasteQuestions')">
+  <input type="file" id="fileAnswersInput" class="file-input" accept=".txt,.csv,.json,.docx,.wps" onchange="loadFileToTextarea(this, 'pasteAnswers')">
   <div id="fileProgress" style="display:none;margin-top:8px;padding:8px 12px;background:var(--primary-light);border-radius:8px;font-size:13px;text-align:center"></div>
   <div id="bankList"></div>
 </div>
@@ -1744,7 +1744,9 @@ function loadFileToTextarea(input, textareaId) {
     return;
   }
 
-  toast('❌ 不支持的文件格式：.' + ext);
+  // 兜底：其他格式（wps/rtf/md等）尝试读文本
+  reader.onload = function(e) { fillTextarea(e.target.result); };
+  reader.readAsText(file);
   input.value = '';
 }
 
