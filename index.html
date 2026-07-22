@@ -2159,11 +2159,11 @@ function extractExplanation(text) {
 // ====== 文本标准化：去除Word碎渣、全角空格、不可见字符 ======
 function normalizeText(text) {
   // 1. 零宽字符（Word粘贴常见乱码）
-  text = text.replace(/[​-‏ - ﻿ ]/g, '');
+  text = text.replace(/[​-‏\u2028- ﻿ ]/g, '');
   // 2. 全角空格 → 半角空格
   text = text.replace(/　/g, ' ');
   // 3. 软连字符、不可见控制字符
-  text = text.replace(/[­ -   ]/g, '');
+  text = text.replace(/[­ - \u2028\u2029]/g, '');
   // 4. 题干末尾多余标点换行：去掉题干和选项之间的多余空行
   text = text.replace(/\n{3,}/g, '\n\n');
   // 5. 每行首尾去空格
