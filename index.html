@@ -1948,31 +1948,46 @@ function copyTextFrom(targetId) {
 
 // ====== 文本清洗工具 ======
 function cleanMergeLines() {
-  var ta = document.getElementById('pasteContent');
-  if (!ta || !ta.value.trim()) return;
-  ta.value = ta.value.split(/\n/).reduce(function(acc, l) {
-    var t = l.trim();
-    if (!t) { acc.push(''); return acc; }
-    if (acc.length > 0 && acc[acc.length - 1] !== '' && !/^\d/.test(t) && !/^[①-⑩]/.test(t) && !/^\(/.test(t) && !/^（/.test(t) && !/^[A-E][.、．）)]/.test(t) && !/^答案/.test(t)) {
-      acc[acc.length - 1] += t;
-    } else { acc.push(t); }
-    return acc;
-  }, []).filter(function(l) { return l !== ''; }).join('\n');
-  toast('✅ 断行已合并');
+  var targets = ['pasteContent', 'pasteQuestions', 'pasteAnswers'];
+  var cleaned = 0;
+  targets.forEach(function(id) {
+    var ta = document.getElementById(id);
+    if (!ta || !ta.value.trim()) return;
+    ta.value = ta.value.split(/\n/).reduce(function(acc, l) {
+      var t = l.trim();
+      if (!t) { acc.push(''); return acc; }
+      if (acc.length > 0 && acc[acc.length - 1] !== '' && !/^\d/.test(t) && !/^[①-⑩]/.test(t) && !/^\(/.test(t) && !/^（/.test(t) && !/^[A-E][.、．）)]/.test(t) && !/^答案/.test(t)) {
+        acc[acc.length - 1] += t;
+      } else { acc.push(t); }
+      return acc;
+    }, []).filter(function(l) { return l !== ''; }).join('\n');
+    cleaned++;
+  });
+  toast('✅ 断行已合并' + (cleaned > 1 ? '（' + cleaned + '个框）' : ''));
 }
 
 function cleanEmptyLines() {
-  var ta = document.getElementById('pasteContent');
-  if (!ta) return;
-  ta.value = ta.value.split(/\n/).filter(function(l) { return l.trim(); }).join('\n');
-  toast('✅ 空行已删除');
+  var targets = ['pasteContent', 'pasteQuestions', 'pasteAnswers'];
+  var cleaned = 0;
+  targets.forEach(function(id) {
+    var ta = document.getElementById(id);
+    if (!ta || !ta.value.trim()) return;
+    ta.value = ta.value.split(/\n/).filter(function(l) { return l.trim(); }).join('\n');
+    cleaned++;
+  });
+  toast('✅ 空行已删除' + (cleaned > 1 ? '（' + cleaned + '个框）' : ''));
 }
 
 function cleanHtmlTags() {
-  var ta = document.getElementById('pasteContent');
-  if (!ta) return;
-  ta.value = ta.value.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&quot;/g, '"');
-  toast('✅ HTML标签已去除');
+  var targets = ['pasteContent', 'pasteQuestions', 'pasteAnswers'];
+  var cleaned = 0;
+  targets.forEach(function(id) {
+    var ta = document.getElementById(id);
+    if (!ta || !ta.value.trim()) return;
+    ta.value = ta.value.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&quot;/g, '"');
+    cleaned++;
+  });
+  toast('✅ HTML标签已去除' + (cleaned > 1 ? '（' + cleaned + '个框）' : ''));
 }
 
 function copyFormatPrompt() {
