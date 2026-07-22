@@ -408,6 +408,14 @@ textarea { min-height: 180px; resize: vertical; line-height: 1.8; }
 .bank-actions { display: flex; gap: 6px; flex-shrink: 0; margin-left: 8px; }
 .bank-actions .act-btn { padding: 6px 10px; font-size: 12px; border-radius: var(--radius-xs); border: 1px solid var(--border); background: var(--card); cursor: pointer; transition: all var(--transition); }
 .bank-actions .act-btn:active { background: var(--primary-soft); }
+.bank-item .actions { display: flex; gap: 4px; flex-shrink: 0; margin-left: 8px; }
+.bank-item .actions .btn-icon { width: 36px; height: 36px; padding: 0; border-radius: 50%; background: var(--bg-input); border: none; color: var(--text-secondary); font-size: var(--font-size); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all var(--transition); }
+.bank-item .actions .btn-icon:active { background: var(--primary-soft); color: var(--primary); }
+.btn-sort { width: 24px; height: 20px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: var(--bg-input); color: var(--text-tertiary); font-size: 9px; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1; transition: all var(--transition); }
+.btn-sort:active { background: var(--primary-soft); color: var(--primary); }
+.browse-dir-item { display: flex; align-items: center; gap: 10px; padding: 11px 14px; background: var(--card); border-bottom: 1px solid var(--border); cursor: pointer; transition: background var(--transition); }
+.browse-dir-item:active { background: var(--bg-input); }
+.browse-dir-item:first-of-type { border-radius: var(--radius) var(--radius) 0 0; }
 
 .batch-row { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
 .batch-row input { width: 80px; text-align: center; }
@@ -530,21 +538,27 @@ textarea { min-height: 180px; resize: vertical; line-height: 1.8; }
 
 <!-- ====== Page 0: 题库 ====== -->
 <div class="page active" id="page-banks">
-  <div class="header"><h1>📚 题库管理</h1></div>
-  <div class="card">
-    <div class="card-title">📥 导入新题库</div>
-    <div class="chip-group mb-8">
-      <button class="btn btn-outline btn-sm" onclick="document.getElementById('fileInput').click()" style="width:auto;flex:1">📁 导入文件</button>
-      <button class="btn btn-outline btn-sm" onclick="showPasteModal()" style="width:auto;flex:1">📋 粘贴题目</button>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+    <div>
+      <h1 style="font-size:24px;font-weight:800;margin:0;letter-spacing:-.02em">📚 我的题库</h1>
+      <p style="font-size:12px;color:var(--text-secondary);margin:4px 0 0">📂 管理你的选择题库</p>
     </div>
-    <input type="file" id="fileInput" class="file-input" accept=".json,.txt,.csv,.docx,.pdf,.xlsx,.xls" onchange="loadFile(this)">
-    <p style="font-size:12px;color:var(--text-secondary);margin-top:4px">支持 JSON / TXT / CSV / Word / PDF / Excel</p>
-    <div id="fileProgress" style="display:none;margin-top:8px;padding:8px 12px;background:var(--primary-light);border-radius:8px;font-size:13px;text-align:center"></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-primary btn-sm" onclick="document.getElementById('fileInput').click()" style="padding:10px 16px">＋ 导入</button>
+      <button class="btn btn-outline btn-sm" onclick="showMergeModal()" style="padding:10px 16px">🔀 合并</button>
+    </div>
   </div>
+  <input type="file" id="fileInput" class="file-input" accept=".json,.txt,.csv,.docx,.pdf,.xlsx,.xls" onchange="loadFile(this)">
+  <div id="fileProgress" style="display:none;margin-top:8px;padding:8px 12px;background:var(--primary-light);border-radius:8px;font-size:13px;text-align:center"></div>
   <div id="bankList"></div>
 </div>
 
-<!-- ====== Page 1: 刷题 ====== -->
+<!-- ====== Page 1: 浏览 ====== -->
+<div class="page" id="page-browse">
+  <div id="browseContainer"></div>
+</div>
+
+<!-- ====== Page 2: 刷题 ====== -->
 <div class="page" id="page-quiz">
   <div id="quizSetup">
     <div class="header"><h1>📝 开始刷题</h1></div>
@@ -590,6 +604,7 @@ textarea { min-height: 180px; resize: vertical; line-height: 1.8; }
         </div>
         <p style="font-size:12px;color:var(--text-secondary);margin-top:4px" id="modeDesc">选完立即显示对错和解析</p>
       </div>
+      <div id="categoryFilter" style="margin-top:10px"></div>
       <button class="btn btn-primary mt-12" onclick="startQuiz()">🚀 开始刷题</button>
     </div>
   </div>
@@ -669,6 +684,7 @@ textarea { min-height: 180px; resize: vertical; line-height: 1.8; }
 <!-- ====== Tab Bar ====== -->
 <div class="tab-bar">
   <button class="tab-btn active" data-page="banks" onclick="switchPage('banks', this)"><span class="icon">📚</span>题库</button>
+  <button class="tab-btn" data-page="browse" onclick="switchPage('browse', this)"><span class="icon">📖</span>浏览</button>
   <button class="tab-btn" data-page="quiz" onclick="switchPage('quiz', this)"><span class="icon">📝</span>刷题</button>
   <button class="tab-btn" data-page="wrong" onclick="switchPage('wrong', this)"><span class="icon">❌</span>错题<span class="badge-count" id="wrongBadge" style="display:none">0</span></button>
   <button class="tab-btn" data-page="stats" onclick="switchPage('stats', this)"><span class="icon">📊</span>统计</button>
@@ -745,10 +761,11 @@ function loadData() {
     if (!data.stats) data.stats = {};
     if (!data.wrongBooks) data.wrongBooks = {};
     if (!data.quizHistory) data.quizHistory = {};
+    if (!data.bankMeta) data.bankMeta = {};
     if (!data.settings) data.settings = { color: 'purple', darkMode: false, fontSize: 16 };
     return data;
   }
-  catch(e) { return { banks: {}, stats: {}, wrongBooks: {}, quizHistory: {}, settings: { color: 'purple', darkMode: false, fontSize: 16 } }; }
+  catch(e) { return { banks: {}, stats: {}, wrongBooks: {}, quizHistory: {}, bankMeta: {}, settings: { color: 'purple', darkMode: false, fontSize: 16 } }; }
 }
 function saveData(data) { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
 
@@ -774,6 +791,24 @@ const BANK______json = [{"id":1,"question":"春秋时期，周天子的权威日
   }
 })();
 
+
+function fmtDate(ts) { var d = new Date(ts); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function generateId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+function getBankMeta(name) {
+  if (!appData.bankMeta) appData.bankMeta = {};
+  if (!appData.bankMeta[name]) appData.bankMeta[name] = { createdAt: Date.now(), order: Date.now() };
+  return appData.bankMeta[name];
+}
+function getSortedBankNames() {
+  var names = Object.keys(appData.banks);
+  names.sort(function(a, b) {
+    var ma = getBankMeta(a), mb = getBankMeta(b);
+    var oa = ma.order != null ? ma.order : ma.createdAt;
+    var ob = mb.order != null ? mb.order : mb.createdAt;
+    return oa - ob;
+  });
+  return names;
+}
 
 function getSetting(key, defVal) {
   if (!appData.settings) appData.settings = {};
@@ -921,6 +956,7 @@ function switchPage(page, btn) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
   if (page === 'banks') renderBanks();
+  if (page === 'browse') renderBrowseStart();
   if (page === 'quiz') {
     if (quizState) {
       // 正在刷题中，保持进度
@@ -953,30 +989,134 @@ function switchPage(page, btn) {
 function renderBanks() {
   const container = document.getElementById('bankList');
   const banks = appData.banks;
-  const names = Object.keys(banks);
+  const names = getSortedBankNames();
   if (names.length === 0) {
-    container.innerHTML = '<div class="empty"><div class="icon">📭</div><p>还没有题库<br>点击上方按钮导入</p></div>';
+    container.innerHTML = '<div class="empty"><div class="icon">📚</div><h3>还没有题库</h3><p>点击右上角「＋ 导入」粘贴文本或上传文件开始使用</p><button class="btn btn-primary" onclick="restorePresetBanks()" style="margin-top:16px;padding:10px 20px">🔄 恢复预设题库</button></div>';
     return;
   }
-  container.innerHTML = names.map(name => {
-    const qs = banks[name];
-    const total = qs.length;
-    const stats = appData.stats[name] || { answered: 0, correct: 0 };
-    const wrongCount = (appData.wrongBooks[name] || []).length;
-    return `<div class="bank-item" onclick="event.preventDefault()">
-      <div class="info">
-        <div class="name">${escHtml(name)}</div>
-        <div class="count">${total} 题 | 正确率 ${stats.answered > 0 ? Math.round(stats.correct/stats.answered*100) : 0}% | 错题 ${wrongCount}</div>
-      </div>
-      <div class="bank-actions">
-        <button class="act-btn" onclick="event.stopPropagation();deleteBank('${escHtml(name)}')" style="color:var(--danger)">🗑</button>
-      </div>
-    </div>`;
+  var now = Date.now();
+  container.innerHTML = names.map(function(name, idx) {
+    var qs = banks[name];
+    var total = qs.length;
+    var stats = appData.stats[name] || { answered: 0, correct: 0 };
+    var wrongCount = (appData.wrongBooks[name] || []).length;
+    var dueCount = 0;
+    for (var i = 0; i < qs.length; i++) {
+      if (qs[i].srNextReview && qs[i].srNextReview <= now) dueCount++;
+    }
+    var meta = getBankMeta(name);
+    var isFirst = idx === 0, isLast = idx === names.length - 1;
+    var dueHtml = dueCount > 0 ? ' | 📅 待复习 ' + dueCount : '';
+    return '<div class="bank-item" onclick="event.preventDefault()">' +
+      '<div class="info">' +
+        '<div class="name" onclick="event.stopPropagation();renameBankPrompt(this,\'' + escHtml(name) + '\')" title="点击修改名称" style="cursor:pointer">' + escHtml(name) + '</div>' +
+        '<div class="meta">' + total + ' 题 | 正确率 ' + (stats.answered > 0 ? Math.round(stats.correct / stats.answered * 100) : 0) + '% | 错题 ' + wrongCount + dueHtml + ' <span style="margin-left:4px">' + fmtDate(meta.createdAt) + '</span>' +
+          '<span style="margin-left:8px;display:inline-flex;gap:2px"><button class="btn-sort" onclick="event.stopPropagation();event.preventDefault();moveBankUp(\'' + escHtml(name) + '\')"' + (isFirst ? ' disabled style="opacity:.2"' : '') + ' title="上移">↑</button><button class="btn-sort" onclick="event.stopPropagation();event.preventDefault();moveBankDown(\'' + escHtml(name) + '\')"' + (isLast ? ' disabled style="opacity:.2"' : '') + ' title="下移">↓</button></span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="actions">' +
+        '<button class="btn-icon" onclick="event.stopPropagation();exportBank(\'' + escHtml(name) + '\')" title="导出">📤</button>' +
+        '<button class="btn-icon" onclick="event.stopPropagation();deleteBankConfirm(\'' + escHtml(name) + '\')" title="删除">🗑️</button>' +
+      '</div>' +
+    '</div>';
   }).join('');
 }
 
+function renameBankPrompt(el, name) {
+  var oldName = name;
+  var input = document.createElement('input');
+  input.type = 'text'; input.value = oldName;
+  input.style.cssText = 'font-size:inherit;font-weight:700;border:none;border-bottom:2px solid var(--primary);background:transparent;color:var(--text);width:100%;padding:2px 0';
+  el.innerHTML = '';
+  el.appendChild(input);
+  input.focus(); input.select();
+  var save = function() {
+    var v = input.value.trim() || oldName;
+    if (v !== oldName) {
+      appData.banks[v] = appData.banks[oldName];
+      delete appData.banks[oldName];
+      if (appData.stats[oldName]) { appData.stats[v] = appData.stats[oldName]; delete appData.stats[oldName]; }
+      if (appData.wrongBooks[oldName]) { appData.wrongBooks[v] = appData.wrongBooks[oldName]; delete appData.wrongBooks[oldName]; }
+      if (appData.quizHistory[oldName]) { appData.quizHistory[v] = appData.quizHistory[oldName]; delete appData.quizHistory[oldName]; }
+      if (appData.seqProgress && appData.seqProgress[oldName]) { appData.seqProgress[v] = appData.seqProgress[oldName]; delete appData.seqProgress[oldName]; }
+      if (appData.doneSets && appData.doneSets[oldName]) { appData.doneSets[v] = appData.doneSets[oldName]; delete appData.doneSets[oldName]; }
+      if (appData.favorites && appData.favorites[oldName]) { appData.favorites[v] = appData.favorites[oldName]; delete appData.favorites[oldName]; }
+      if (appData.bankMeta && appData.bankMeta[oldName]) { appData.bankMeta[v] = appData.bankMeta[oldName]; delete appData.bankMeta[oldName]; }
+      saveData(appData);
+    }
+    el.textContent = v;
+  };
+  input.onblur = save;
+  input.onkeydown = function(e) { if (e.key === 'Enter') { e.preventDefault(); save(); } if (e.key === 'Escape') { el.textContent = oldName; } };
+}
+
+function moveBankUp(name) {
+  var names = getSortedBankNames();
+  var idx = names.indexOf(name);
+  if (idx <= 0) return;
+  var ma = getBankMeta(names[idx]), mb = getBankMeta(names[idx - 1]);
+  var tmp = ma.order != null ? ma.order : ma.createdAt;
+  ma.order = mb.order != null ? mb.order : mb.createdAt;
+  mb.order = tmp;
+  saveData(appData);
+  renderBanks();
+}
+function moveBankDown(name) {
+  var names = getSortedBankNames();
+  var idx = names.indexOf(name);
+  if (idx < 0 || idx >= names.length - 1) return;
+  var ma = getBankMeta(names[idx]), mb = getBankMeta(names[idx + 1]);
+  var tmp = ma.order != null ? ma.order : ma.createdAt;
+  ma.order = mb.order != null ? mb.order : mb.createdAt;
+  mb.order = tmp;
+  saveData(appData);
+  renderBanks();
+}
+
+function exportBank(name) {
+  var bank = appData.banks[name];
+  if (!bank) return;
+  var lines = [];
+  for (var i = 0; i < bank.length; i++) {
+    var q = bank[i];
+    var opts = ['A','B','C','D'];
+    if (q.E && q.E.trim()) opts.push('E');
+    var optStr = opts.map(function(l) { return l + '. ' + (q[l] || ''); }).join('  ');
+    lines.push(q.question + '\n' + optStr + '\n答案：' + q.answer + (q.explanation ? '\n解析：' + q.explanation : ''));
+  }
+  showExportModal(name, lines.join('\n\n'));
+}
+function showExportModal(title, content) {
+  var ov = document.createElement('div'); ov.className = 'modal-overlay'; ov.style.animation = 'none';
+  ov.innerHTML = '<div class="modal" style="animation:none;max-width:420px;margin:auto;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);padding:20px;border-radius:var(--radius)"><h3 style="margin-bottom:6px">📤 ' + escHtml(title) + '</h3><textarea readonly style="width:100%;min-height:160px;max-height:50vh;font-size:13px;padding:10px;border:2px solid var(--border);border-radius:8px;background:var(--bg-input);color:var(--text);word-break:break-all;font-family:inherit" onclick="this.select()">' + escHtml(content) + '</textarea><p class="text-sm text-secondary mt-6" style="font-size:12px;color:var(--text-secondary);margin-top:6px">👆 点上方文字全选 → 复制</p><div class="flex gap-8 mt-10" style="display:flex;gap:10px;margin-top:12px"><button class="btn btn-primary flex-1" style="flex:1" onclick="copyExportContent(this)">📋 一键复制</button><button class="btn btn-ghost flex-1" style="flex:1" onclick="this.closest(\'.modal-overlay\').remove()">关闭</button></div></div>';
+  document.body.appendChild(ov);
+  ov._exportContent = content;
+  ov.addEventListener('click', function(e) { if (e.target === ov) ov.remove(); });
+}
+function copyExportContent(btn) {
+  var ov = btn.closest('.modal-overlay');
+  var content = ov._exportContent;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(content).then(function() { toast('✅ 已复制到剪贴板'); });
+  } else {
+    var ta = document.createElement('textarea');
+    ta.value = content; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); toast('✅ 已复制到剪贴板'); } catch(e) { toast('⚠️ 复制失败，请手动选择复制'); }
+    document.body.removeChild(ta);
+  }
+  ov.remove();
+}
+
+function deleteBankConfirm(name) {
+  var ov = document.createElement('div'); ov.className = 'modal-overlay'; ov.style.animation = 'none';
+  ov.innerHTML = '<div class="modal" style="animation:none;max-width:360px;margin:auto;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);padding:20px;border-radius:var(--radius);text-align:center"><h3 style="margin-bottom:10px">🗑️ 删除题库</h3><p style="color:var(--text-secondary);margin-bottom:16px">确定删除题库「' + escHtml(name) + '」吗？此操作不可恢复。</p><div style="display:flex;gap:10px"><button class="btn btn-ghost flex-1" style="flex:1" onclick="this.closest(\'.modal-overlay\').remove()">取消</button><button class="btn flex-1" style="flex:1;background:var(--danger);color:#fff;border:none" id="confirmDelBtn">确认删除</button></div></div>';
+  document.body.appendChild(ov);
+  ov.querySelector('#confirmDelBtn').onclick = function() { ov.remove(); deleteBank(name); };
+  ov.addEventListener('click', function(e) { if (e.target === ov) ov.remove(); });
+}
+
 function deleteBank(name) {
-  if (!confirm(`确定删除题库"${name}"吗？此操作不可恢复。`)) return;
   delete appData.banks[name];
   delete appData.stats[name];
   delete appData.wrongBooks[name];
@@ -984,9 +1124,270 @@ function deleteBank(name) {
   if (appData.seqProgress) delete appData.seqProgress[name];
   if (appData.doneSets) delete appData.doneSets[name];
   if (appData.favorites) delete appData.favorites[name];
+  if (appData.bankMeta) delete appData.bankMeta[name];
   saveData(appData);
   renderBanks();
   toast('题库已删除');
+}
+
+// ====== Merge Banks ======
+function showMergeModal() {
+  var names = getSortedBankNames();
+  if (names.length < 2) { toast('至少需要两个题库才能合并'); return; }
+  var ov = document.createElement('div'); ov.className = 'modal-overlay';
+  ov.innerHTML = '<div class="modal" style="max-width:360px;margin:auto;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);padding:20px 18px;border-radius:var(--radius)"><h3 style="margin-bottom:16px;font-size:17px">🔀 合并题库</h3><div style="margin-bottom:12px"><div style="font-size:13px;color:var(--text-secondary);margin-bottom:4px">将 A 题库合并到 B 题库</div><div style="font-size:12px;color:var(--text-tertiary);margin-bottom:8px">A 的所有题目会移入 B，A 将被删除</div><div style="margin-bottom:8px"><label style="font-size:13px;font-weight:600">A（源题库）</label><input type="hidden" id="mergeSrc" value="' + escHtml(names[0]) + '"><button class="btn btn-ghost btn-sm" id="mergeSrcBtn" onclick="showMergeBankPicker(\'src\')" style="width:100%;padding:8px;margin-top:4px;text-align:left;font-size:13px">' + escHtml(names[0]) + ' （' + appData.banks[names[0]].length + '题） ▾</button></div><div style="margin-bottom:12px"><label style="font-size:13px;font-weight:600">B（目标题库）</label><input type="hidden" id="mergeDst" value="' + escHtml(names[1] || names[0]) + '"><button class="btn btn-ghost btn-sm" id="mergeDstBtn" onclick="showMergeBankPicker(\'dst\')" style="width:100%;padding:8px;margin-top:4px;text-align:left;font-size:13px">' + escHtml(names[1] || names[0]) + ' （' + (appData.banks[names[1] || names[0]] || []).length + '题） ▾</button></div></div><div style="display:flex;gap:10px"><button class="btn btn-ghost flex-1" style="flex:1" id="mergeCancel">取消</button><button class="btn btn-primary flex-1" style="flex:1" id="mergeConfirm">确认合并</button></div></div>';
+  document.body.appendChild(ov);
+  ov.querySelector('#mergeCancel').onclick = function() { ov.remove(); };
+  ov.addEventListener('click', function(e) { if (e.target === ov) ov.remove(); });
+  ov.querySelector('#mergeConfirm').onclick = function() {
+    var srcName = ov.querySelector('#mergeSrc').value;
+    var dstName = ov.querySelector('#mergeDst').value;
+    if (!srcName || !dstName) { toast('请选择两个题库'); return; }
+    if (srcName === dstName) { toast('不能合并到同一个题库'); return; }
+    executeMerge(srcName, dstName);
+    ov.remove();
+  };
+}
+function showMergeBankPicker(which) {
+  var selId = which === 'src' ? 'mergeSrc' : 'mergeDst';
+  var btnId = which === 'src' ? 'mergeSrcBtn' : 'mergeDstBtn';
+  var currentVal = document.getElementById(selId).value;
+  var names = getSortedBankNames();
+  var ov = document.createElement('div'); ov.className = 'modal-overlay'; ov.style.animation = 'none';
+  var title = which === 'src' ? '源' : '目标';
+  var html = '<div class="modal" style="animation:none;border-radius:var(--radius);max-width:400px;margin:auto;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);padding:20px;max-height:70dvh;overflow-y:auto"><h3 style="margin-bottom:4px;font-size:18px">📚 选择' + title + '题库</h3><p style="color:var(--text-secondary);font-size:13px;margin-bottom:14px">点击选择一个题库</p>';
+  for (var i = 0; i < names.length; i++) {
+    var n = names[i], qs = appData.banks[n];
+    var isActive = n === currentVal;
+    var style = 'cursor:pointer;padding:10px 12px;margin-bottom:6px;border-radius:8px;' + (isActive ? 'border:2px solid var(--primary);background:var(--primary-light);font-weight:600' : 'border:2px solid var(--border)');
+    html += '<div style="' + style + '" data-bank-name="' + escHtml(n) + '" data-bank-count="' + qs.length + '" data-sel-id="' + selId + '" data-btn-id="' + btnId + '">' + escHtml(n) + ' <span style="color:var(--text-tertiary);font-size:12px">' + qs.length + ' 题</span></div>';
+  }
+  html += '</div>';
+  ov.innerHTML = html;
+  document.body.appendChild(ov);
+  ov.addEventListener('click', function(e) {
+    var item = e.target.closest('[data-bank-name]');
+    if (item) {
+      var bankName = item.getAttribute('data-bank-name');
+      var bankCount = item.getAttribute('data-bank-count');
+      var targetSelId = item.getAttribute('data-sel-id');
+      var targetBtnId = item.getAttribute('data-btn-id');
+      var sel = document.getElementById(targetSelId);
+      if (sel) sel.value = bankName;
+      var btn = document.getElementById(targetBtnId);
+      if (btn) btn.textContent = bankName + ' （' + bankCount + '题） ▾';
+      ov.remove();
+      return;
+    }
+    if (e.target === ov) ov.remove();
+  });
+}
+function executeMerge(srcName, dstName) {
+  var src = appData.banks[srcName];
+  var dst = appData.banks[dstName];
+  if (!src || !dst) return;
+  var count = src.length;
+  var idMap = {};
+  var maxId = 0;
+  for (var i = 0; i < dst.length; i++) { if (dst[i].id > maxId) maxId = dst[i].id; }
+  for (var j = 0; j < src.length; j++) {
+    var oldId = src[j].id;
+    var newId = ++maxId;
+    src[j].id = newId;
+    idMap[oldId] = newId;
+    dst.push(src[j]);
+  }
+  // 合并错题本
+  var srcWb = appData.wrongBooks[srcName];
+  var dstWb = appData.wrongBooks[dstName] || [];
+  if (srcWb) {
+    for (var k = 0; k < srcWb.length; k++) {
+      var wq = srcWb[k];
+      if (idMap[wq.id]) wq.id = idMap[wq.id];
+      dstWb.push(wq);
+    }
+    appData.wrongBooks[dstName] = dstWb;
+  }
+  delete appData.banks[srcName];
+  delete appData.stats[srcName];
+  delete appData.wrongBooks[srcName];
+  if (appData.bankMeta) delete appData.bankMeta[srcName];
+  if (appData.seqProgress) delete appData.seqProgress[srcName];
+  if (appData.doneSets) delete appData.doneSets[srcName];
+  if (appData.favorites) delete appData.favorites[srcName];
+  getBankMeta(dstName).updatedAt = Date.now();
+  saveData(appData);
+  toast('✅ 已合并！' + count + ' 题从「' + srcName + '」移入「' + dstName + '」');
+  renderBanks();
+}
+
+// ====== Browse Page ======
+var browseState2 = null;
+function renderBrowseStart() {
+  var c = document.getElementById('browseContainer');
+  var names = getSortedBankNames();
+  if (!names.length) {
+    c.innerHTML = '<div class="empty"><span class="icon">📖</span><h3>还没有题库</h3><p>请先在「题库」页面导入题目</p></div>';
+    return;
+  }
+  var bankName = names[0];
+  var bank = appData.banks[bankName];
+  browseState2 = { bankName: bankName, cards: bank, index: 0, view: 'list', searchQuery: '', _filteredCards: bank };
+  c.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h1 style="font-size:20px;font-weight:800">📖 目录</h1><select id="browseBankSelect" onchange="changeBrowseBank()" style="padding:8px 12px;border:2px solid var(--border);border-radius:10px;background:var(--card);color:var(--text);font-size:13px">' + names.map(function(n) { return '<option value="' + escHtml(n) + '">' + escHtml(n) + ' (' + appData.banks[n].length + '题)</option>'; }).join('') + '</select></div>' +
+    '<div style="margin-bottom:10px"><input type="search" id="browseSearchInput" placeholder="🔍 搜索题目..." style="width:100%;padding:10px 14px;border:2px solid var(--border);border-radius:10px;background:var(--card);color:var(--text);font-size:14px" oninput="doBrowseSearch()"></div>' +
+    '<div id="browseActive"></div>';
+  renderBrowseList();
+}
+function changeBrowseBank() {
+  var sel = document.getElementById('browseBankSelect');
+  if (!sel) return;
+  var bankName = sel.value;
+  var bank = appData.banks[bankName];
+  if (bank) { browseState2 = { bankName: bankName, cards: bank, index: 0, view: 'list', searchQuery: '', _filteredCards: bank }; renderBrowseList(); }
+}
+function doBrowseSearch() {
+  var input = document.getElementById('browseSearchInput');
+  if (browseState2) { browseState2.searchQuery = input ? input.value.trim().toLowerCase() : ''; renderBrowseList(); }
+}
+function renderBrowseList() {
+  var c = document.getElementById('browseActive');
+  var st = browseState2;
+  if (!st || !st.cards.length) { c.innerHTML = '<div class="empty"><p>题库为空</p></div>'; return; }
+  var cards = st.cards;
+  if (st.searchQuery) {
+    cards = cards.filter(function(ca) { return (ca.question || '').toLowerCase().indexOf(st.searchQuery) >= 0 || (ca.answer || '').toLowerCase().indexOf(st.searchQuery) >= 0; });
+  }
+  if (!cards.length) {
+    c.innerHTML = '<div class="empty"><p>未找到匹配「' + escHtml(st.searchQuery) + '」的题目</p></div>';
+    return;
+  }
+  st._filteredCards = cards;
+  var html = '';
+  for (var i = 0; i < cards.length; i++) {
+    var card = cards[i];
+    var qText = card.question.replace(/^[\d\.\、\s]+/, '').substring(0, 40);
+    var wb = appData.wrongBooks[st.bankName] || [];
+    var isWrong = wb.some(function(w) { return w.id === card.id; });
+    var isFav = appData.favorites && appData.favorites[st.bankName] && appData.favorites[st.bankName].some(function(f) { return f.id === card.id; });
+    html += '<div class="browse-dir-item" onclick="openBrowseDetail(' + i + ')"><span style="font-size:11px;color:var(--text-tertiary);min-width:28px">' + (i + 1) + '</span><span style="flex:1;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(qText) + '</span>' + (isWrong ? '<span style="font-size:13px;color:var(--danger)">❌</span>' : '') + (isFav ? '<span style="font-size:13px">⭐</span>' : '') + '</div>';
+  }
+  c.innerHTML = html;
+}
+function openBrowseDetail(idx) {
+  var st = browseState2;
+  if (!st) return;
+  st.index = idx;
+  var filtered = st._filteredCards || st.cards;
+  var card = filtered[st.index];
+  if (!card) return;
+  var cur = st.index + 1, total = filtered.length;
+  var opts = ['A','B','C','D'];
+  if (card.E && card.E.trim()) opts.push('E');
+  var optHtml = opts.map(function(l) { return '<div style="padding:6px 0;font-size:14px"><b>' + l + '.</b> ' + escHtml(card[l] || '') + '</div>'; }).join('');
+  var c = document.getElementById('browseActive');
+  c.innerHTML = '<div><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><button class="btn btn-ghost btn-sm" onclick="renderBrowseList()">← 目录</button><span style="font-size:12px;color:var(--text-secondary)">' + cur + ' / ' + total + '</span><button style="background:none;border:none;font-size:24px;cursor:pointer;padding:8px 12px;line-height:1;min-width:44px;min-height:44px" onclick="toggleBrowseStar()">⭐</button></div><div style="line-height:1.9;font-size:var(--font-size-lg)"><div style="margin-bottom:12px;font-weight:600">' + escHtml(card.question) + '</div>' + optHtml + '<div style="margin-top:12px;padding:10px 14px;background:var(--success-light);border-radius:var(--radius-sm);color:#065F46;font-weight:600">✅ 答案：' + escHtml(card.answer) + '</div>' + (card.explanation ? '<div style="margin-top:8px;padding:10px 14px;background:var(--bg);border-radius:var(--radius-sm);color:var(--text-secondary);font-size:14px">💡 解析：' + escHtml(card.explanation) + '</div>' : '') + '</div><div style="display:flex;gap:8px;margin-top:16px"><button class="btn btn-ghost flex-1" style="flex:1" onclick="browseDetailPrev()"' + (st.index === 0 ? ' disabled style="opacity:.4"' : '') + '>← 上一题</button><button class="btn btn-ghost flex-1" style="flex:1" onclick="browseDetailNext()"' + (st.index >= total - 1 ? ' disabled style="opacity:.4"' : '') + '>下一题 →</button></div></div>';
+}
+function browseDetailPrev() { if (browseState2 && browseState2.index > 0) { browseState2.index--; openBrowseDetail(browseState2.index); } }
+function browseDetailNext() { if (browseState2) { var total = (browseState2._filteredCards || browseState2.cards).length; if (browseState2.index < total - 1) { browseState2.index++; openBrowseDetail(browseState2.index); } } }
+function toggleBrowseStar() {
+  var st = browseState2;
+  if (!st) return;
+  var filtered = st._filteredCards || st.cards;
+  var card = filtered[st.index];
+  if (!card) return;
+  if (!appData.favorites) appData.favorites = {};
+  if (!appData.favorites[st.bankName]) appData.favorites[st.bankName] = [];
+  var favs = appData.favorites[st.bankName];
+  var idx = -1;
+  for (var i = 0; i < favs.length; i++) { if (favs[i].id === card.id) { idx = i; break; } }
+  if (idx >= 0) { favs.splice(idx, 1); toast('已取消收藏'); }
+  else { favs.push(card); toast('⭐ 已收藏'); }
+  saveData(appData);
+  openBrowseDetail(st.index);
+}
+
+// ====== Category Filter ======
+var categoryFilter = null;
+function extractCategories(bank) {
+  if (!bank || !bank.length) return [];
+  var cats = new Set();
+  for (var i = 0; i < bank.length; i++) {
+    var q = (bank[i].question || '').trim();
+    var matches = q.match(/（[^）]{1,8}）/g);
+    if (matches) for (var j = 0; j < matches.length; j++) cats.add(matches[j]);
+  }
+  var arr = []; cats.forEach(function(c) { arr.push(c); });
+  return arr.sort();
+}
+function renderCategoryFilter(bankName) {
+  var div = document.getElementById('categoryFilter');
+  if (!div) return;
+  var bank = appData.banks[bankName];
+  if (!bank) { div.innerHTML = ''; return; }
+  var cats = extractCategories(bank);
+  if (!cats.length) { div.innerHTML = ''; return; }
+  if (!categoryFilter) categoryFilter = new Set(cats);
+  var h = '<label style="font-size:13px;font-weight:600;display:block;margin-bottom:4px">🏷️ 分类筛选</label><div class="chip-group" style="margin-top:4px">';
+  h += '<span class="chip' + (categoryFilter.size === cats.length ? ' active' : '') + '" onclick="toggleAllCategories()">全部</span>';
+  for (var i = 0; i < cats.length; i++) {
+    h += '<span class="chip' + (categoryFilter.has(cats[i]) ? ' active' : '') + '" onclick="toggleCategory(\'' + escHtml(cats[i]) + '\')" style="margin-left:4px">' + cats[i] + '</span>';
+  }
+  h += '</div>';
+  div.innerHTML = h;
+}
+function toggleAllCategories() {
+  var bankName = document.getElementById('bankSelect').value;
+  var bank = appData.banks[bankName];
+  if (!bank) return;
+  var cats = extractCategories(bank);
+  if (categoryFilter && categoryFilter.size === cats.length) categoryFilter = new Set();
+  else categoryFilter = new Set(cats);
+  renderCategoryFilter(bankName);
+}
+function toggleCategory(cat) {
+  if (!categoryFilter) return;
+  if (categoryFilter.has(cat)) {
+    if (categoryFilter.size <= 1) return;
+    categoryFilter.delete(cat);
+  } else categoryFilter.add(cat);
+  renderCategoryFilter(document.getElementById('bankSelect').value);
+}
+function getFilteredCards(bank) {
+  if (!bank || !bank.length) return [];
+  if (!categoryFilter || !categoryFilter.size) return bank;
+  return bank.filter(function(c) {
+    var q = (c.question || '').trim();
+    var matches = q.match(/（[^）]{1,8}）/g) || [];
+    return matches.some(function(m) { return categoryFilter.has(m); });
+  });
+}
+
+// ====== Spaced Repetition ======
+function applySR(bankName, qId, wasCorrect) {
+  var bank = appData.banks[bankName];
+  if (!bank) return;
+  var card = null;
+  for (var i = 0; i < bank.length; i++) { if (bank[i].id === qId) { card = bank[i]; break; } }
+  if (!card) return;
+  if (!wasCorrect) {
+    card.srStage = card.srStage || 1;
+    card.srNextReview = Date.now() + 86400000;
+  } else if (card.srStage && card.srStage > 0) {
+    var intervals = [0, 86400000, 172800000, 345600000, 604800000];
+    card.srStage = Math.min(5, card.srStage + 1);
+    if (card.srStage >= 5) { card.srNextReview = null; card.srStage = 0; }
+    else card.srNextReview = Date.now() + intervals[card.srStage];
+  }
+  saveData(appData);
+}
+
+// ====== Restore Preset ======
+function restorePresetBanks() {
+  if (!appData.banks) appData.banks = {};
+  var hasContent = Object.keys(appData.banks).length > 0;
+  if (hasContent) { toast('已有题库，无需恢复'); return; }
+  // 预设题库由 build_standalone.js 注入，这里只是占位
+  toast('未找到预设题库数据');
 }
 
 // ====== Load File (multi-format) ======
@@ -1108,6 +1509,8 @@ function finishFileImport(name, questions) {
   appData.banks[name] = questions;
   if (!appData.stats[name]) appData.stats[name] = { answered: 0, correct: 0, rounds: 0 };
   if (!appData.wrongBooks[name]) appData.wrongBooks[name] = [];
+  getBankMeta(name).createdAt = Date.now();
+  getBankMeta(name).order = Date.now();
   saveData(appData);
   renderBanks();
   toast('✅ 导入成功：' + questions.length + ' 道题');
@@ -1203,6 +1606,8 @@ function importFromPaste() {
   appData.banks[name] = questions;
   if (!appData.stats[name]) appData.stats[name] = { answered: 0, correct: 0, rounds: 0 };
   if (!appData.wrongBooks[name]) appData.wrongBooks[name] = [];
+  getBankMeta(name).createdAt = Date.now();
+  getBankMeta(name).order = Date.now();
   saveData(appData);
   closePasteModal();
   renderBanks();
@@ -1598,20 +2003,22 @@ function loadXLSX(cb) {
 // ====== Quiz Setup ======
 function renderQuizSetup() {
   const select = document.getElementById('bankSelect');
-  const names = Object.keys(appData.banks);
+  const names = getSortedBankNames();
   select.innerHTML = names.length === 0
     ? '<option value="">-- 请先导入题库 --</option>'
     : names.map(n => `<option value="${escHtml(n)}">${escHtml(n)} (${appData.banks[n].length}题)</option>`).join('');
   if (names.length === 0) select.innerHTML = '<option value="">-- 请先导入题库 --</option>';
   updateSeqProgressUI();
-  // 顺序模式时显示进度
   document.getElementById('seqProgress').style.display = drawMode === 'sequential' ? '' : 'none';
+  // 分类筛选
+  var bankName = select.value;
+  if (bankName) renderCategoryFilter(bankName);
 }
 
-// 切换题库时更新进度
+// 切换题库时更新进度和分类筛选
 document.addEventListener('DOMContentLoaded', function() {
   var sel = document.getElementById('bankSelect');
-  if (sel) sel.addEventListener('change', function() { updateSeqProgressUI(); });
+  if (sel) sel.addEventListener('change', function() { updateSeqProgressUI(); renderCategoryFilter(sel.value); });
 });
 
 function selectCount(n, el) {
@@ -1635,6 +2042,12 @@ function startQuiz() {
   if (!bankName) { toast('请先选择题库'); return; }
   const bank = appData.banks[bankName];
   if (!bank || bank.length === 0) { toast('题库为空'); return; }
+
+  // 分类筛选
+  var filteredBank = getFilteredCards(bank);
+  if (filteredBank.length < bank.length) {
+    bank = filteredBank;
+  }
 
   const count = batchSize === 0 ? bank.length : Math.min(batchSize, bank.length);
   let selected;
@@ -1672,6 +2085,18 @@ function startQuiz() {
     const shuffled = [...bank].sort(() => Math.random() - 0.5);
     selected = shuffled.slice(0, count);
   }
+
+  // 间隔重复+错题优先排序
+  var wb = appData.wrongBooks[bankName] || [];
+  var nowSR = Date.now();
+  selected.sort(function(a, b) {
+    var aDue = a.srNextReview && a.srNextReview <= nowSR ? 1 : 0;
+    var bDue = b.srNextReview && b.srNextReview <= nowSR ? 1 : 0;
+    if (aDue !== bDue) return bDue - aDue;
+    var aWrong = wb.some(function(w) { return w.id === a.id; }) ? 1 : 0;
+    var bWrong = wb.some(function(w) { return w.id === b.id; }) ? 1 : 0;
+    return bWrong - aWrong;
+  });
 
   quizState = {
     bankName,
@@ -1911,6 +2336,7 @@ function selectAnswer(letter) {
 
     if (correct) quizState.correct++;
     else { quizState.wrong++; quizState.wrongIds.push(q.id); }
+    applySR(quizState.bankName, q.id, correct);
 
     document.getElementById('prevBtn').style.display = idx > 0 ? '' : 'none';
     var nextBtn = document.getElementById('nextBtn');
@@ -1981,6 +2407,7 @@ function confirmMultiAnswer() {
 
     if (correct) quizState.correct++;
     else { quizState.wrong++; quizState.wrongIds.push(q.id); }
+    applySR(quizState.bankName, q.id, correct);
 
     document.getElementById('prevBtn').style.display = idx > 0 ? '' : 'none';
     var nextBtn = document.getElementById('nextBtn');
@@ -2053,6 +2480,15 @@ function showResult() {
     quizState.correct = correct;
     quizState.wrong = wrong;
     quizState.wrongIds = wrongIds;
+  }
+
+  // 间隔重复：对所有答过的题更新SR
+  for (var si = 0; si < quizState.questions.length; si++) {
+    var sq = quizState.questions[si];
+    var sAns = quizState.userAnswers[si];
+    if (sAns !== null) {
+      applySR(quizState.bankName, sq.id, isMultiSelect(sq) ? sAns === sq.answer : sAns === sq.answer);
+    }
   }
 
   const total = quizState.total;
