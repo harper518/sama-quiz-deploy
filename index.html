@@ -90,6 +90,20 @@
   --primary: #555; --primary-hover: #333; --primary-light: #f0f0f0; --primary-soft: #e5e5e5;
   --border: #d4d4d4;
 }
+/* 护眼·米黄 */
+[data-color="cream"] {
+  --bg: #fffaf3; --card: #fff; --bg-input: #fffaf3;
+  --text: #4a3728; --text-secondary: #8b7355; --text-tertiary: #b8a590;
+  --primary: #c8965c; --primary-hover: #a6773f; --primary-light: #fff8f0; --primary-soft: #fef0e0;
+  --border: #e8d5c0;
+}
+/* 护眼·豆沙绿 */
+[data-color="sage"] {
+  --bg: #f4faf0; --card: #fff; --bg-input: #f4faf0;
+  --text: #2d4a2d; --text-secondary: #6b8e6b; --text-tertiary: #9cba9c;
+  --primary: #6b9e6b; --primary-hover: #4a7c4a; --primary-light: #f0f8f0; --primary-soft: #e0f0e0;
+  --border: #c8dcc8;
+}
 
 /* ====== 暗黑模式 ====== */
 [data-theme="dark"] {
@@ -153,10 +167,22 @@
   --primary: #aaa; --primary-hover: #ccc; --primary-light: #2a2a2a; --primary-soft: #333;
   --border: #444;
 }
+[data-theme="dark"][data-color="cream"] {
+  --bg: #2a2018; --card: #3d3028; --bg-input: #332820;
+  --text: #ffe8d5; --text-secondary: #c8b090; --text-tertiary: #987858;
+  --primary: #d4a060; --primary-hover: #e8c090; --primary-light: #3a2818; --primary-soft: #4a3828;
+  --border: #4a3828;
+}
+[data-theme="dark"][data-color="sage"] {
+  --bg: #1a2a1a; --card: #2a3a2a; --bg-input: #223022;
+  --text: #d5f0d5; --text-secondary: #90c090; --text-tertiary: #589058;
+  --primary: #7ab87a; --primary-hover: #a0d8a0; --primary-light: #1a3a1a; --primary-soft: #2a4a2a;
+  --border: #2a4a2a;
+}
 
 /* ====== 色点选择器 ====== */
-.color-dots { display:flex; gap:10px; flex-wrap:wrap; }
-.color-dot { width:30px; height:30px; border-radius:50%; cursor:pointer; border:3px solid transparent; transition:all var(--transition); display:inline-block; box-shadow:0 1px 3px rgba(0,0,0,.15); }
+.color-dots { display:grid; grid-template-columns:repeat(5,30px); gap:10px; justify-content:start; }
+.color-dot { width:30px; height:30px; border-radius:50%; cursor:pointer; border:3px solid transparent; transition:all var(--transition); box-shadow:0 1px 3px rgba(0,0,0,.15); }
 .color-dot.active { border-color:var(--text); transform:scale(1.18); box-shadow:0 2px 6px rgba(0,0,0,.25); }
 .color-dot:active { transform:scale(.92); }
 
@@ -3558,9 +3584,9 @@ function renderSettings() {
   if (s.darkMode === undefined) s.darkMode = false;
   if (!s.fontSize) s.fontSize = 16;
 
-  var colorNames = { teal: '青绿', purple: '浅紫', blue: '浅蓝', rose: '玫红', pink: '粉色', green: '浅绿', yellow: '浅黄', bw: '黑白' };
-  var colors = ['teal', 'purple', 'blue', 'rose', 'pink', 'green', 'yellow', 'bw'];
-  var colorBgs = { teal: '#0891b2', purple: '#9333ea', blue: '#3b82f6', rose: '#e11d48', pink: '#ec4899', green: '#22c55e', yellow: '#eab308', bw: '#555' };
+  var colorNames = { teal: '青绿', purple: '浅紫', blue: '浅蓝', rose: '玫红', pink: '粉色', green: '浅绿', yellow: '浅黄', bw: '黑白', cream: '护眼·米黄', sage: '护眼·豆沙绿' };
+  var colors = ['teal', 'purple', 'blue', 'rose', 'pink', 'green', 'yellow', 'bw', 'cream', 'sage'];
+  var colorBgs = { teal: '#0891b2', purple: '#9333ea', blue: '#3b82f6', rose: '#e11d48', pink: '#ec4899', green: '#22c55e', yellow: '#eab308', bw: '#555', cream: '#c8965c', sage: '#6b9e6b' };
 
   c.innerHTML = '<div class="section"><div class="section-title">数据管理</div>' +
     '<div class="setting-item" style="flex-direction:column;align-items:stretch;gap:10px">' +
