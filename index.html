@@ -433,7 +433,7 @@ textarea { min-height: 180px; resize: vertical; line-height: 1.8; }
 .explanation-box .content.show { display: block; }
 
 /* ====== File input hidden ====== */
-.file-input { display: none; }
+.file-input { opacity:0; position:fixed; left:-9999px; top:-9999px; }
 
 .bank-actions { display: flex; gap: 6px; flex-shrink: 0; margin-left: 8px; }
 .bank-actions .act-btn { padding: 6px 10px; font-size: 12px; border-radius: var(--radius-xs); border: 1px solid var(--border); background: var(--card); cursor: pointer; transition: all var(--transition); }
@@ -596,7 +596,7 @@ textarea { min-height: 180px; resize: vertical; line-height: 1.8; }
   </div>
   <input type="file" id="fileInput" class="file-input" accept=".json,.txt,.csv,.docx,.pdf,.xlsx,.xls" onchange="loadFile(this)">
   <input type="file" id="fileQuestionsInput" class="file-input" accept=".txt,.csv,.docx,.pdf,.xlsx,.xls" onchange="loadFileToTextarea(this, 'pasteQuestions')">
-  <input type="file" id="fileAnswersInput" class="file-input" accept=".txt,.csv" onchange="loadFileToTextarea(this, 'pasteAnswers')">
+  <input type="file" id="fileAnswersInput" class="file-input" accept=".txt,.csv,.json" onchange="loadFileToTextarea(this, 'pasteAnswers')">
   <div id="fileProgress" style="display:none;margin-top:8px;padding:8px 12px;background:var(--primary-light);border-radius:8px;font-size:13px;text-align:center"></div>
   <div id="bankList"></div>
 </div>
