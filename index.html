@@ -112,7 +112,7 @@
   --primary: #22d3ee; --primary-hover: #67e8f9; --primary-light: #164e63; --primary-soft: #155e75;
   --success: #34d399; --success-light: #064e3b;
   --danger: #f87171; --danger-light: #7f1d1d;
-  --warning: #fbbf24;
+  --warning: #fbbf24; --warning-light: #422006; --warning-text: #fde68a;
   --border: #11554e;
   --shadow-sm: 0 1px 2px rgba(0,0,0,.3);
   --shadow: 0 1px 3px rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.3);
@@ -273,6 +273,7 @@ body {
   margin-bottom: 12px;
   box-shadow: var(--shadow);
   border: 1px solid var(--border);
+  contain: layout style;
 }
 .card-title { font-size: 15px; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
 
@@ -1771,6 +1772,7 @@ var SKIP_SUGGEST = {
 function showImportPreview(name, questions, stats) {
   var skipped = (stats && stats.skipped) ? stats.skipped : [];
   previewImportData = { name: name, questions: questions, skipped: skipped };
+  _dismissedStack = [];
   var ov = document.createElement("div");
   ov.className = "modal-overlay";
   ov.id = "importPreviewOverlay";
@@ -1781,8 +1783,8 @@ function showImportPreview(name, questions, stats) {
   var statsHtml = "";
   var hasIssues = (stats && (stats.noOptions > 0 || stats.noQuestion > 0 || stats.missingOpts > 0 || stats.noAnswer > 0 || stats.answerMismatch));
   if (hasIssues || (stats && stats.multiSelect > 0)) {
-    statsHtml = '<div style="background:#fffbeb;border:1px solid #f59e0b;border-radius:10px;padding:12px;margin-bottom:14px;font-size:12px;line-height:1.8">' +
-      '<div style="font-weight:700;color:#b45309;margin-bottom:6px">⚠️ 部分内容未能导入</div>';
+    statsHtml = '<div id="importStatsPanel" style="background:var(--warning-light,#fffbeb);border:1px solid var(--warning);border-radius:10px;padding:12px;margin-bottom:14px;font-size:12px;line-height:1.8">' +
+      '<div style="font-weight:700;color:var(--warning-text,#b45309);margin-bottom:6px">⚠️ 部分内容未能导入</div>';
     if (stats.noOptions) statsHtml += '<div>· ' + stats.noOptions + ' 条：<b>未找到ABCD选项</b>（可能是答案页、说明文字或格式不符）</div>';
     if (stats.noQuestion) statsHtml += '<div>· ' + stats.noQuestion + ' 条：<b>题干提取失败</b>（题号后无有效题目文本）</div>';
     if (stats.missingOpts) statsHtml += '<div>· ' + stats.missingOpts + ' 条：<b>选项不完整</b>（缺少A/B/C/D中的某些选项）</div>';
@@ -1823,10 +1825,10 @@ function showImportPreview(name, questions, stats) {
     jumpHtml += '</div>';
   }
 
-  ov.innerHTML = '<div class="modal" style="border-radius:18px;max-width:520px;width:100%;margin:0 auto;padding:20px;animation:none">' +
+  ov.innerHTML = '<div class="modal" style="border-radius:18px;max-width:520px;width:100%;margin:0 auto;padding:20px;animation:none;border-top:3px solid var(--primary)">' +
     '<div class="flex-between mb-12">' +
-      '<div><h2 style="font-size:18px;margin:0">📋 导入预览</h2><p style="font-size:12px;color:var(--text-secondary);margin:4px 0 0">' + escHtml(name) + ' · ' + questions.length + ' 题' + (stats && stats.totalBlocks ? '（共扫描 ' + stats.totalBlocks + ' 条）' : '') + ' · 点击 ✏️ 编辑，确认后导入</p></div>' +
-      '<button class="btn btn-sm" style="background:var(--border);border:none" onclick="closeImportPreview()">✕</button>' +
+      '<div><h2 style="font-size:18px;margin:0;color:var(--text)">📋 导入预览</h2><p style="font-size:12px;color:var(--text-secondary);margin:4px 0 0">' + escHtml(name) + ' · ' + questions.length + ' 题' + (stats && stats.totalBlocks ? '（共扫描 ' + stats.totalBlocks + ' 条）' : '') + ' · 点击 ✏️ 编辑，确认后导入</p></div>' +
+      '<button class="btn btn-sm" style="background:var(--border);border:none;color:var(--text)" onclick="closeImportPreview()">✕</button>' +
     '</div>' +
     statsHtml +
     skippedHtml +
@@ -1843,12 +1845,31 @@ function showImportPreview(name, questions, stats) {
 }
 
 // ====== 跳过条目渲染 ======
+var _skipRenderTimer = null;
 function renderSkippedItems() {
   if (!previewImportData || !previewImportData.skipped) return;
   var container = document.getElementById("skippedListContainer");
   if (!container) return;
+  // Debounce: skip if already scheduled
+  if (_skipRenderTimer) return;
+  _skipRenderTimer = setTimeout(function() {
+    _skipRenderTimer = null;
+    _doRenderSkippedItems();
+  }, 0);
+}
+function _doRenderSkippedItems() {
+  if (!previewImportData || !previewImportData.skipped) return;
+  var container = document.getElementById("skippedListContainer");
+  if (!container) return;
   var skipped = previewImportData.skipped;
-  container.innerHTML = skipped.map(function(item, i) {
+  var hh = "";
+  if (_dismissedStack && _dismissedStack.length > 0) {
+    hh += '<div class="card mb-8" style="padding:10px 14px;background:var(--warning-light,#fef3c7);border-left:3px solid var(--warning);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">';
+    hh += '<span style="font-size:12px;color:var(--warning-text,#92400e)">已忽略 ' + _dismissedStack.length + ' 条（最后忽略：#' + _dismissedStack[_dismissedStack.length-1].item.index + '）</span>';
+    hh += '<button class="btn btn-sm" style="background:var(--warning);color:#fff;border:none;font-size:12px;padding:6px 14px;min-height:36px;border-radius:6px;font-weight:600" onclick="undoDismiss()">↩️ 撤销忽略</button>';
+    hh += '</div>';
+  }
+  container.innerHTML = hh + skipped.map(function(item, i) {
     var isEdit = item._editing;
     var label = SKIP_LABELS[item.reason] || item.reason;
     var suggest = SKIP_SUGGEST[item.reason] || "";
@@ -1870,6 +1891,7 @@ function renderSkippedItems() {
       h += '<button class="btn btn-sm" style="background:var(--bg-input);border:none;font-size:11px;padding:4px 8px;min-height:32px" onclick="autoFixSkipped(' + i + ',\'cleanHtml\')">🏷️ 去HTML</button>';
       if (item.reason === "missingOpts") h += '<button class="btn btn-sm" style="background:var(--success-light);border:none;font-size:11px;padding:4px 8px;min-height:32px;color:#065f46" onclick="autoFixSkipped(' + i + ',\'fillTemplate\')">📋 补全模板</button>';
       h += '</div>';
+      if (item._prevText) h += '<div class="flex gap-8" style="margin-bottom:6px"><button class="btn btn-sm flex-1" style="background:var(--warning-light,#fef3c7);border:1px solid var(--warning);font-size:11px;padding:4px 8px;min-height:36px;color:var(--warning-text,#92400e);font-weight:600" onclick="undoSkipFix(' + i + ')">↩️ 撤销修改</button></div>';
       h += '<div class="flex gap-8"><button class="btn btn-sm flex-1" style="background:var(--border);border:none" onclick="toggleSkippedEdit(' + i + ')">取消</button>';
       h += '<button class="btn btn-primary btn-sm flex-1" onclick="retrySkippedBlock(' + i + ')" style="min-height:44px">🔄 重试解析</button></div>';
     } else {
@@ -1880,12 +1902,41 @@ function renderSkippedItems() {
       h += '<button class="btn btn-sm" style="background:var(--bg-input);border:none;font-size:11px;padding:4px 8px;min-height:36px" onclick="autoFixSkipped(' + i + ',\'mergeLines\')">↔️ 合并断行</button>';
       if (item.reason === "missingOpts") h += '<button class="btn btn-sm" style="background:var(--success-light);border:none;font-size:11px;padding:4px 8px;min-height:36px;color:#065f46" onclick="autoFixSkipped(' + i + ',\'fillTemplate\')">📋 补全选项模板</button>';
       h += '<button class="btn btn-sm" style="background:var(--primary-light);border:none;font-size:11px;padding:4px 8px;min-height:36px;color:var(--primary)" onclick="toggleSkippedEdit(' + i + ')">✏️ 手动编辑</button>';
+      if (item._prevText) h += '<button class="btn btn-sm" style="background:var(--warning-light,#fef3c7);border:1px solid var(--warning);font-size:11px;padding:4px 8px;min-height:36px;color:var(--warning-text,#92400e);font-weight:600" onclick="undoSkipFix(' + i + ')">↩️ 撤销</button>';
       h += '<button class="btn btn-sm" style="background:transparent;border:1px solid var(--border);font-size:11px;padding:4px 8px;min-height:36px;color:var(--text-tertiary)" onclick="dismissSkippedItem(' + i + ')">🚫 忽略</button>';
       h += '</div>';
     }
     h += '</div>';
     return h;
   }).join("");
+}
+
+function undoSkipFix(idx) {
+  if (!previewImportData || !previewImportData.skipped || !previewImportData.skipped[idx]) return;
+  var item = previewImportData.skipped[idx];
+  if (!item._prevText) return;
+  item.text = item._prevText;
+  item._prevText = null;
+  // Direct DOM update for view mode
+  if (!item._editing) {
+    var card = document.getElementById("skippedItem_" + idx);
+    if (card) {
+      var txtDiv = card.querySelector('[style*="white-space:pre-wrap"]');
+      if (txtDiv) txtDiv.textContent = item.text;
+      var lenSpan = card.querySelector('[style*="font-size:11px;color:var(--text-tertiary)"]');
+      if (lenSpan) lenSpan.textContent = item.text.length + '字';
+      // Remove undo button
+      var undoBtns = card.querySelectorAll('[onclick*="undoSkipFix"]');
+      for (var ub = 0; ub < undoBtns.length; ub++) undoBtns[ub].remove();
+    }
+    // Schedule full rebuild to sync button states
+    renderSkippedItems();
+  } else {
+    // In edit mode, restore textarea and re-render since HTML structure changed
+    renderSkippedItems();
+  }
+  updateStatsPanel();
+  toast("\u21A9\uFE0F \u5DF2\u64A4\u9500");
 }
 
 function toggleSkippedList() {
@@ -1899,6 +1950,8 @@ function toggleSkippedList() {
 function toggleSkippedEdit(idx) {
   if (!previewImportData || !previewImportData.skipped || !previewImportData.skipped[idx]) return;
   previewImportData.skipped[idx]._editing = !previewImportData.skipped[idx]._editing;
+  if (previewImportData.skipped[idx]._editing) { if (!previewImportData.skipped[idx]._prevText) previewImportData.skipped[idx]._prevText = previewImportData.skipped[idx].text; }
+  else { previewImportData.skipped[idx]._prevText = null; }
   renderSkippedItems();
   if (previewImportData.skipped[idx]._editing) setTimeout(function() { var e = document.getElementById("skippedEdit_" + idx); if (e) e.scrollIntoView({ behavior: "smooth", block: "center" }); }, 100);
 }
@@ -1906,6 +1959,8 @@ function toggleSkippedEdit(idx) {
 function autoFixSkipped(idx, action) {
   if (!previewImportData || !previewImportData.skipped || !previewImportData.skipped[idx]) return;
   var item = previewImportData.skipped[idx];
+  // 保存原始文本以便撤销
+  if (!item._prevText) item._prevText = item._editing ? document.getElementById("skippedEdit_" + idx).value : item.text;
   var text = item._editing ? document.getElementById("skippedEdit_" + idx).value : item.text;
   if (action === "cleanEmpty") { text = text.split("\n").filter(function(l) { return l.trim(); }).join("\n"); toast("✅ 已去空行"); }
   else if (action === "mergeLines") {
@@ -1926,17 +1981,92 @@ function autoFixSkipped(idx, action) {
     else { toast("选项已完整，无需补全"); }
   }
   if (item._editing) { var ta = document.getElementById("skippedEdit_" + idx); if (ta) ta.value = text; }
-  else { item.text = text; renderSkippedItems(); }
+  else {
+    item.text = text;
+    // Direct DOM update for instant feedback
+    var card2 = document.getElementById("skippedItem_" + idx);
+    if (card2) {
+      var txtDiv2 = card2.querySelector('[style*="white-space:pre-wrap"]');
+      if (txtDiv2) txtDiv2.textContent = text;
+      var lenSpan = card2.querySelector('[style*="font-size:11px;color:var(--text-tertiary)"]');
+      if (lenSpan) lenSpan.textContent = text.length + '字';
+    }
+    // Schedule full rebuild to sync undo button visibility
+    renderSkippedItems();
+  }
 }
 
+var _dismissedStack = [];
 function dismissSkippedItem(idx) {
   if (!previewImportData || !previewImportData.skipped) return;
+  if (!previewImportData.skipped[idx]) return;
+  _dismissedStack.push({ item: previewImportData.skipped[idx], idx: idx, time: Date.now() });
   previewImportData.skipped.splice(idx, 1);
+  // Direct DOM removal - faster than full rebuild
+  var el = document.getElementById("skippedItem_" + idx);
+  if (el) { el.style.opacity = "0"; el.style.transform = "scale(0.95)"; el.style.transition = "opacity 0.15s, transform 0.15s"; setTimeout(function() { if (el.parentNode) el.remove(); }, 150); }
+  // Schedule full rebuild to fix DOM IDs for remaining items
   renderSkippedItems();
+  updateStatsPanel();
   var btn = document.getElementById("toggleSkippedBtn");
   if (btn && previewImportData.skipped.length > 0) btn.innerHTML = "📋 查看全部 " + previewImportData.skipped.length + " 条被跳过内容 ▸";
   else if (btn) btn.parentElement.style.display = "none";
-  toast("已忽略");
+  // Rebuild undo bar only
+  var cont = document.getElementById("skippedListContainer");
+  if (cont && cont.style.display !== "none") {
+    var undoBar = cont.querySelector('[style*="fef3c7"]');
+    if (_dismissedStack.length > 0) {
+      var barHtml = '<div class="card mb-8" style="padding:10px 14px;background:var(--warning-light,#fef3c7);border-left:3px solid var(--warning);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px"><span style="font-size:12px;color:var(--warning-text,#92400e)">已忽略 ' + _dismissedStack.length + ' 条（最后忽略：#' + _dismissedStack[_dismissedStack.length-1].item.index + '）</span><button class="btn btn-sm" style="background:var(--warning);color:#fff;border:none;font-size:12px;padding:6px 14px;min-height:36px;border-radius:6px;font-weight:600" onclick="undoDismiss()">↩️ 撤销忽略</button></div>';
+      if (undoBar) undoBar.outerHTML = barHtml;
+      else { var first = cont.firstChild; if (first) first.insertAdjacentHTML("beforebegin", barHtml); else cont.innerHTML = barHtml; }
+    } else if (undoBar) undoBar.remove();
+  }
+  toast("已忽略 - 可点击下方撤销");
+}
+
+function undoDismiss() {
+  if (!_dismissedStack.length) { toast("没有可撤销的忽略操作"); return; }
+  if (!previewImportData || !previewImportData.skipped) { previewImportData = { name: "", questions: [], skipped: [] }; }
+  var last = _dismissedStack.pop();
+  previewImportData.skipped.splice(last.idx, 0, last.item);
+  // Direct DOM insertion for instant feedback
+  var cont2 = document.getElementById("skippedListContainer");
+  if (cont2 && cont2.style.display !== "none") {
+    var itemHtml = _buildSkippedItemHtml(last.item, last.idx);
+    // Find where to insert - after the undo bar if present, or at the beginning
+    var insertAfter = cont2.querySelector('[style*="fef3c7"]');
+    if (!insertAfter) insertAfter = cont2.firstChild;
+    if (insertAfter) { insertAfter.insertAdjacentHTML("afterend", itemHtml); }
+    else { cont2.innerHTML = itemHtml; }
+  }
+  renderSkippedItems(); updateStatsPanel();
+  var btn = document.getElementById("toggleSkippedBtn");
+  if (btn) { btn.parentElement.style.display = "block"; btn.innerHTML = "📋 收起跳过内容 ▾"; }
+  toast("↩️ 已撤销忽略 #" + last.item.index);
+}
+
+// Build HTML for a single skipped item (used by direct DOM insert)
+function _buildSkippedItemHtml(item, idx) {
+  var label = SKIP_LABELS[item.reason] || item.reason;
+  var suggest = SKIP_SUGGEST[item.reason] || "";
+  var txt = item.text || "";
+  var borderColor = item.reason === "missingOpts" ? "#f59e0b" : "#ef4444";
+  var bgColor = item.reason === "missingOpts" ? "#fef3c7" : "#fee2e2";
+  var tc = item.reason === "missingOpts" ? "#92400e" : "#991b1b";
+  return '<div class="card mb-8" style="padding:12px 14px;border-left:3px solid ' + borderColor + '" id="skippedItem_' + idx + '">' +
+    '<div class="flex between items-center mb-6">' +
+    '<div><span style="font-size:11px;font-weight:700;padding:2px 6px;border-radius:4px;background:' + bgColor + ';color:' + tc + '">#' + item.index + '</span>' +
+    ' <span style="font-size:12px;font-weight:600;color:var(--text)">' + label + '</span></div>' +
+    '<span style="font-size:11px;color:var(--text-tertiary)">' + txt.length + '字</span></div>' +
+    '<div style="font-size:12px;color:var(--text-secondary);line-height:1.6;white-space:pre-wrap;word-break:break-all;max-height:120px;overflow-y:auto;background:var(--bg);padding:8px 10px;border-radius:6px;margin-bottom:8px;font-family:monospace">' + escHtml(txt) + '</div>' +
+    '<div style="font-size:11px;color:var(--text-tertiary);margin-bottom:6px">💡 ' + suggest + '</div>' +
+    '<div style="display:flex;flex-wrap:wrap;gap:4px">' +
+    '<button class="btn btn-sm" style="background:var(--bg-input);border:none;font-size:11px;padding:4px 8px;min-height:36px" onclick="autoFixSkipped(' + idx + ',\'cleanEmpty\')">🧹 去空行</button>' +
+    '<button class="btn btn-sm" style="background:var(--bg-input);border:none;font-size:11px;padding:4px 8px;min-height:36px" onclick="autoFixSkipped(' + idx + ',\'mergeLines\')">↔️ 合并断行</button>' +
+    (item.reason === "missingOpts" ? '<button class="btn btn-sm" style="background:var(--success-light);border:none;font-size:11px;padding:4px 8px;min-height:36px;color:#065f46" onclick="autoFixSkipped(' + idx + ',\'fillTemplate\')">📋 补全选项模板</button>' : '') +
+    '<button class="btn btn-sm" style="background:var(--primary-light);border:none;font-size:11px;padding:4px 8px;min-height:36px;color:var(--primary)" onclick="toggleSkippedEdit(' + idx + ')">✏️ 手动编辑</button>' +
+    '<button class="btn btn-sm" style="background:transparent;border:1px solid var(--border);font-size:11px;padding:4px 8px;min-height:36px;color:var(--text-tertiary)" onclick="dismissSkippedItem(' + idx + ')">🚫 忽略</button>' +
+    '</div></div>';
 }
 
 function retrySkippedBlock(idx) {
@@ -1949,17 +2079,31 @@ function retrySkippedBlock(idx) {
     var sid = previewImportData.questions.length;
     for (var qi = 0; qi < result.questions.length; qi++) { result.questions[qi].id = sid + qi + 1; previewImportData.questions.push(result.questions[qi]); }
     previewImportData.skipped.splice(idx, 1);
-    renderSkippedItems(); renderImportPreviewCards();
+    renderSkippedItems(); renderImportPreviewCards(); updateJumpNav(); updateStatsPanel();
     toast("✅ 已修复 " + result.questions.length + " 题并加入预览");
   } else {
     var rs = result.stats;
     var reason = rs.noOptions > 0 ? "noOptions" : (rs.noQuestion > 0 ? "noQuestion" : (rs.missingOpts > 0 ? "missingOpts" : "noOptions"));
     previewImportData.skipped[idx].text = text; previewImportData.skipped[idx].reason = reason;
-    previewImportData.skipped[idx]._editing = false; renderSkippedItems();
+    previewImportData.skipped[idx]._editing = false; renderSkippedItems(); updateStatsPanel();
     toast("⚠️ 仍无法解析（" + (SKIP_LABELS[reason] || reason) + "），请继续修改");
   }
 }
 
+function updateJumpNav() {
+  if (!previewImportData || !previewImportData.questions) return;
+  var questions = previewImportData.questions;
+  var input = document.getElementById('jumpCardInput');
+  if (input) input.max = questions.length;
+  // Rebuild group buttons - find the jump html container and update
+  var jumpContainer = input.closest('.flex.items-center.gap-8');
+  if (!jumpContainer) return;
+  // Remove old group buttons
+  var oldBtns = jumpContainer.querySelectorAll('button:not(:first-of-type)');
+  // Actually, simpler approach: just update the input max
+  // The group buttons are generated once in showImportPreview, re-rendering full overlay is expensive
+  // So just update the max attribute on the input
+}
 function jumpToPreviewCard(n) {
   if (arguments.length === 0 || n === undefined) {
     var input = document.getElementById("jumpCardInput");
@@ -1974,10 +2118,109 @@ function jumpToPreviewCard(n) {
   setTimeout(function() { card.style.boxShadow = ""; }, 1500);
 }
 
+function updateStatsPanel() {
+  if (!previewImportData) return;
+  var panel = document.getElementById('importStatsPanel');
+  if (!panel) return;
+  var skipped = previewImportData.skipped || [];
+  var questions = previewImportData.questions || [];
+  var noOptions = 0, noQuestion = 0, missingOpts = 0, noAnswer = 0;
+  for (var i = 0; i < skipped.length; i++) {
+    if (skipped[i].reason === 'noOptions') noOptions++;
+    else if (skipped[i].reason === 'noQuestion') noQuestion++;
+    else if (skipped[i].reason === 'missingOpts') missingOpts++;
+    else if (skipped[i].reason === 'noAnswer') noAnswer++;
+  }
+  var multiSelect = 0;
+  for (var j = 0; j < questions.length; j++) {
+    if (questions[j].type === 'multi') multiSelect++;
+  }
+  var h = '<div style="font-weight:700;color:var(--warning-text,#b45309);margin-bottom:6px">' + String.fromCharCode(0x26A0) + String.fromCharCode(0xFE0F) + ' 部分内容未能导入</div>';
+  if (noOptions) h += '<div>· ' + noOptions + ' 条：<b>未找到ABCD选项</b>（可能是答案页、说明文字或格式不符）</div>';
+  if (noQuestion) h += '<div>· ' + noQuestion + ' 条：<b>题干提取失败</b>（题号后无有效题目文本）</div>';
+  if (missingOpts) h += '<div>· ' + missingOpts + ' 条：<b>选项不完整</b>（缺少A/B/C/D中的某些选项）</div>';
+  if (noAnswer) h += '<div>· ' + noAnswer + ' 条：<b>未识别到答案</b>（缺少答案：X行）</div>';
+  if (multiSelect) h += '<div style="margin-top:4px;color:var(--success)">' + String.fromCharCode(0x2705) + ' 识别到 ' + multiSelect + ' 道<b>多选题</b></div>';
+  if (questions.length > 0) h += '<div style="margin-top:4px;color:var(--success)">' + String.fromCharCode(0x2705) + ' 成功导入 ' + questions.length + ' 题</div>';
+  if (!noOptions && !noQuestion && !missingOpts && !noAnswer && !multiSelect) h += '<div style="color:var(--success)">所有内容均已成功导入</div>';
+  panel.innerHTML = h;
+}
+function renderImportPreviewCards() {
+  if (!previewImportData || !previewImportData.questions) return;
+  var container = document.getElementById("importPreviewCards");
+  if (!container) return;
+  var questions = previewImportData.questions;
+  var h = '';
+  for (var i = 0; i < questions.length; i++) {
+    var q = questions[i];
+    var isMulti = q.type === 'multi';
+    var letters = q.E ? ['A','B','C','D','E'] : ['A','B','C','D'];
+    var isEditing = q._editing;
+    h += '<div class="card mb-8" id="previewCard_' + i + '" style="padding:14px;border:1px solid var(--border);border-radius:10px;transition:box-shadow 0.3s">';
+    h += '<div style="font-size:11px;font-weight:700;color:var(--primary);margin-bottom:6px">#' + (i + 1) + (isMulti ? ' 多选题' : '') + '</div>';
+    if (isEditing) {
+      // Edit mode
+      h += '<div style="margin-bottom:6px"><span style="font-size:11px;color:var(--text-tertiary)">题目：</span><input id="previewQ_' + i + '" value="' + escHtml(q.question) + '" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--card);color:var(--text);margin-top:2px"></div>';
+      for (var li = 0; li < letters.length; li++) {
+        var l = letters[li];
+        h += '<div style="margin-bottom:4px"><span style="font-size:11px;color:var(--text-tertiary)">' + l + '：</span><input id="previewOpt_' + i + '_' + l + '" value="' + escHtml(q[l] || '') + '" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--card);color:var(--text);margin-top:2px"></div>';
+      }
+      h += '<div style="margin-bottom:6px"><span style="font-size:11px;color:var(--text-tertiary)">答案：</span><input id="previewAns_' + i + '" value="' + escHtml(q.answer || '') + '" style="width:80px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--card);color:var(--text);margin-top:2px">';
+      h += ' <label style="font-size:12px;margin-left:8px"><input type="checkbox" id="previewMulti_' + i + '" ' + (isMulti ? 'checked' : '') + '> 多选题</label></div>';
+      if (q.explanation !== undefined) h += '<div style="margin-bottom:6px"><span style="font-size:11px;color:var(--text-tertiary)">解析：</span><input id="previewExp_' + i + '" value="' + escHtml(q.explanation || '') + '" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--card);color:var(--text);margin-top:2px"></div>';
+      h += '<div class="flex gap-8"><button class="btn btn-sm" style="background:var(--border);border:none;min-height:36px" onclick="togglePreviewEdit(' + i + ')">取消</button>';
+      h += '<button class="btn btn-primary btn-sm" style="min-height:36px" onclick="savePreviewEdit(' + i + ')">💾 保存</button></div>';
+    } else {
+      // View mode
+      h += '<div style="font-size:14px;line-height:1.6;margin-bottom:8px;word-break:break-word">' + escHtml(q.question) + '</div>';
+      for (var lj = 0; lj < letters.length; lj++) {
+        var lt = letters[lj];
+        h += '<div style="font-size:13px;padding:4px 0;color:var(--text-secondary)"><b style="color:var(--text)">' + lt + '.</b> ' + escHtml(q[lt] || '') + '</div>';
+      }
+      h += '<div style="margin-top:6px;font-size:12px"><span style="color:var(--text-tertiary)">答案：</span><b style="color:var(--success)">' + escHtml(q.answer || '?') + '</b>';
+      if (isMulti) h += ' <span style="background:var(--primary-light);color:var(--primary);padding:1px 6px;border-radius:3px;font-size:10px">多选</span>';
+      if (q.explanation) h += ' <span style="color:var(--text-tertiary);margin-left:8px">解析：' + escHtml(q.explanation) + '</span>';
+      h += '</div>';
+      h += '<button class="btn btn-sm" style="margin-top:8px;background:var(--bg-input);border:none;font-size:11px;min-height:32px" onclick="togglePreviewEdit(' + i + ')">✏️ 编辑</button>';
+    }
+    h += '</div>';
+  }
+  container.innerHTML = h;
+}
+
+function togglePreviewEdit(idx) {
+  if (!previewImportData || !previewImportData.questions || !previewImportData.questions[idx]) return;
+  previewImportData.questions[idx]._editing = !previewImportData.questions[idx]._editing;
+  renderImportPreviewCards();
+}
+
+function savePreviewEdit(idx) {
+  if (!previewImportData || !previewImportData.questions || !previewImportData.questions[idx]) return;
+  var q = previewImportData.questions[idx];
+  q.question = document.getElementById('previewQ_' + idx).value.trim();
+  var letters = q.E ? ['A','B','C','D','E'] : ['A','B','C','D'];
+  for (var li = 0; li < letters.length; li++) {
+    var l = letters[li];
+    var el = document.getElementById('previewOpt_' + idx + '_' + l);
+    if (el) q[l] = el.value.trim();
+  }
+  var ansEl = document.getElementById('previewAns_' + idx);
+  if (ansEl) q.answer = ansEl.value.trim().toUpperCase();
+  var multiEl = document.getElementById('previewMulti_' + idx);
+  if (multiEl) q.type = multiEl.checked ? 'multi' : 'single';
+  var expEl = document.getElementById('previewExp_' + idx);
+  if (expEl) q.explanation = expEl.value.trim();
+  if (q.type === 'multi' && q.answer.length === 1) q.type = 'single';
+  q._editing = false;
+  renderImportPreviewCards();
+  toast('✅ 第 ' + (idx + 1) + ' 题已更新');
+}
+
 function closeImportPreview() {
   var ov = document.getElementById('importPreviewOverlay');
   if (ov) ov.remove();
   previewImportData = null;
+  _dismissedStack = [];
 }
 
 function confirmImportFromPreview() {
