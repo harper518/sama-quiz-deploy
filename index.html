@@ -2042,7 +2042,8 @@ function importFromPaste() {
       questions = chatResult.questions;
       stats = chatResult.stats;
     } else if (pasteFormat === 'excel') {
-      questions = parseExcelPaste(content);
+      var excelResult = parseExcelPaste(content);
+      questions = excelResult.questions;
     } else {
       var result = parseMergedFormat(content);
       questions = result.questions;
@@ -2052,16 +2053,35 @@ function importFromPaste() {
     originalText = qText + '\n' + aText;
     const qParsed = parseQuestionsOnly(qText);
     const aParsed = parseAnswersOnly(aText);
-    questions = qParsed.questions.slice(0, Math.min(qParsed.questions.length, aParsed.length)).map(function(q, i) {
-      var ans = aParsed[i];
+    // 按分块位置一一对应匹配，被跳过的题目对应位置的答案也跳过
+    var skippedAnswers = 0;
+    questions = [];
+    var blockResults = qParsed.blockResults || [];
+    for (var bi = 0; bi < Math.min(blockResults.length, aParsed.length); bi++) {
+      var q = blockResults[bi];
+      if (!q) { skippedAnswers++; continue; } // 题目被跳过，对应位置答案也跳过
+      var ans = aParsed[bi];
       var letters = (ans || '').split('').filter(function(ch) { return ch >= 'A' && ch <= 'E'; });
       letters = letters.filter(function(ch, idx) { return letters.indexOf(ch) === idx; }).sort();
-      return { id: q.id, question: q.question, A: q.A, B: q.B, C: q.C, D: q.D, E: q.E, answer: letters.join(''), type: letters.length > 1 ? 'multi' : 'single', explanation: '' };
-    });
+      questions.push({ id: questions.length + 1, question: q.question, A: q.A, B: q.B, C: q.C, D: q.D, E: q.E, answer: letters.join(''), type: letters.length > 1 ? 'multi' : 'single', explanation: '' });
+    }
     stats = qParsed.stats;
-    if (aParsed.length < qParsed.questions.length) {
+    // 构建不匹配报告
+    var mismatchParts = [];
+    if (blockResults.length !== aParsed.length) {
+      mismatchParts.push('题目分块数(' + blockResults.length + ')与答案行数(' + aParsed.length + ')不一致');
+    }
+    if (skippedAnswers > 0) {
+      mismatchParts.push(skippedAnswers + '条答案因对应题目无效被跳过');
+    }
+    if (blockResults.length > aParsed.length) {
+      mismatchParts.push('末尾' + (blockResults.length - aParsed.length) + '题缺少答案');
+    } else if (aParsed.length > blockResults.length) {
+      mismatchParts.push('多余' + (aParsed.length - blockResults.length) + '行答案被忽略');
+    }
+    if (mismatchParts.length) {
       if (!stats) stats = { totalBlocks: 0, noOptions: 0, noQuestion: 0, missingOpts: 0, noAnswer: 0, multiSelect: 0, imported: 0, samples: [] };
-      stats.answerMismatch = '答案行数(' + aParsed.length + ')少于题目数(' + qParsed.questions.length + ')，末尾' + (qParsed.questions.length - aParsed.length) + '题未合并';
+      stats.answerMismatch = mismatchParts.join('；');
     }
   }
 
@@ -2190,23 +2210,25 @@ function parseQuestionsOnly(text) {
   var blocks = text.split(/\n(?=\d+[.、．）)])/);
   stats.totalBlocks = blocks.length;
   var questions = [];
+  var blockResults = []; // 每个分块对应一个元素，null=被跳过
   for (var bi = 0; bi < blocks.length; bi++) {
     var block = blocks[bi];
     var hasOptions = /[A-E][.、．）)]\s*\S/.test(block);
-    if (!hasOptions) { stats.noOptions++; continue; }
+    if (!hasOptions) { stats.noOptions++; blockResults.push(null); continue; }
     var qText = block.replace(/^\d+[.、．）)]\s*/, '');
     var firstOpt = qText.search(/[A-E][.、．）)]\s*\S/);
-    if (firstOpt === -1) { stats.noQuestion++; continue; }
+    if (firstOpt === -1) { stats.noQuestion++; blockResults.push(null); continue; }
     var question = qText.slice(0, firstOpt).trim().replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
     var optsPart = qText.slice(firstOpt);
     var opts = extractOptions(optsPart);
-    if (!opts.A || !opts.B || !opts.C || !opts.D) { stats.missingOpts++; if (stats.samples.length < 3) stats.samples.push(block.substring(0, 80)); continue; }
+    if (!opts.A || !opts.B || !opts.C || !opts.D) { stats.missingOpts++; if (stats.samples.length < 3) stats.samples.push(block.substring(0, 80)); blockResults.push(null); continue; }
     var qObj = { id: questions.length + 1, question: question, A: opts.A, B: opts.B, C: opts.C, D: opts.D, answer: '', type: 'single', explanation: '' };
     if (opts.E) qObj.E = opts.E;
     questions.push(qObj);
+    blockResults.push(qObj);
   }
   stats.imported = questions.length;
-  return { questions: questions, stats: stats };
+  return { questions: questions, stats: stats, blockResults: blockResults };
 }
 
 function parseAnswersOnly(text) {
