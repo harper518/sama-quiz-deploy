@@ -591,7 +591,7 @@ textarea { min-height: 180px; resize: vertical; line-height: 1.8; }
       <h1 style="font-size:24px;font-weight:800;letter-spacing:-.02em">我的题库</h1>
       <p style="font-size:12px;color:var(--text-secondary)">📚 管理你的选择题库</p>
     </div>
-    <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()" style="padding:10px 18px">＋ 导入</button>
+    <button class="btn btn-primary" onclick="showPasteModal()" style="padding:10px 18px">＋ 导入</button>
     <button class="btn btn-outline" onclick="showMergeModal()" style="padding:10px 18px">🔀 合并</button>
   </div>
   <input type="file" id="fileInput" class="file-input" accept=".json,.txt,.csv,.docx,.pdf,.xlsx,.xls" onchange="loadFile(this)">
