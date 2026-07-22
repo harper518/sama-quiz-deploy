@@ -417,6 +417,14 @@ textarea { min-height: 180px; resize: vertical; line-height: 1.8; }
 .browse-dir-item:active { background: var(--bg-input); }
 .browse-dir-item:first-of-type { border-radius: var(--radius) var(--radius) 0 0; }
 
+/* 工具类（对齐简答题） */
+.flex { display: flex; }
+.justify-between { justify-content: space-between; }
+.items-center { align-items: center; }
+.mb-16 { margin-bottom: 16px; }
+.text-sm { font-size: 12px; }
+.text-secondary { color: var(--text-secondary); }
+
 .batch-row { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
 .batch-row input { width: 80px; text-align: center; }
 
@@ -538,15 +546,13 @@ textarea { min-height: 180px; resize: vertical; line-height: 1.8; }
 
 <!-- ====== Page 0: 题库 ====== -->
 <div class="page active" id="page-banks">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
     <div>
-      <h1 style="font-size:24px;font-weight:800;margin:0;letter-spacing:-.02em">📚 我的题库</h1>
-      <p style="font-size:12px;color:var(--text-secondary);margin:4px 0 0">📂 管理你的选择题库</p>
+      <h1 style="font-size:24px;font-weight:800;letter-spacing:-.02em">我的题库</h1>
+      <p style="font-size:12px;color:var(--text-secondary)">📚 管理你的选择题库</p>
     </div>
-    <div style="display:flex;gap:8px">
-      <button class="btn btn-primary btn-sm" onclick="document.getElementById('fileInput').click()" style="padding:10px 16px">＋ 导入</button>
-      <button class="btn btn-outline btn-sm" onclick="showMergeModal()" style="padding:10px 16px">🔀 合并</button>
-    </div>
+    <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()" style="padding:10px 18px">＋ 导入</button>
+    <button class="btn btn-outline" onclick="showMergeModal()" style="padding:10px 18px">🔀 合并</button>
   </div>
   <input type="file" id="fileInput" class="file-input" accept=".json,.txt,.csv,.docx,.pdf,.xlsx,.xls" onchange="loadFile(this)">
   <div id="fileProgress" style="display:none;margin-top:8px;padding:8px 12px;background:var(--primary-light);border-radius:8px;font-size:13px;text-align:center"></div>
