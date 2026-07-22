@@ -1564,7 +1564,8 @@ function loadFile(input) {
       } else if (ext === 'csv') {
         questions = parseCSV(text);
       } else {
-        questions = parseMergedFormat(text);
+        var result = parseMergedFormat(text);
+        questions = result.questions;
       }
       finishFileImport(name, questions);
     };
@@ -1580,9 +1581,9 @@ function loadFile(input) {
       reader.onload = function(e) {
         try {
           mammoth.extractRawText({ arrayBuffer: e.target.result }).then(function(result) {
-            var questions = parseMergedFormat(result.value);
+            var mfResult = parseMergedFormat(result.value);
             hideFileProgress();
-            finishFileImport(name, questions);
+            finishFileImport(name, mfResult.questions);
           }).catch(function() { hideFileProgress(); toast('❌ Word解析失败'); input.value = ''; });
         } catch(err) { hideFileProgress(); toast('❌ Word解析失败：' + err.message); input.value = ''; }
       };
@@ -1626,9 +1627,9 @@ function loadFile(input) {
           }
           Promise.all(promises).then(function() {
             var fullText = pages.join('\n');
-            var questions = parseMergedFormat(fullText);
+            var mfResult = parseMergedFormat(fullText);
             hideFileProgress();
-            finishFileImport(name, questions);
+            finishFileImport(name, mfResult.questions);
           }).catch(function() { hideFileProgress(); toast('❌ PDF解析失败'); input.value = ''; });
         }).catch(function() { hideFileProgress(); toast('❌ PDF解析失败，文件可能损坏'); input.value = ''; });
       };
@@ -1762,7 +1763,7 @@ function finishFileImport(name, questions) {
 // ====== 导入预览 ======
 var previewImportData = null; // { name, questions }
 
-function showImportPreview(name, questions) {
+function showImportPreview(name, questions, stats) {
   previewImportData = { name: name, questions: questions };
   // 创建全屏预览弹窗
   var ov = document.createElement('div');
@@ -1770,11 +1771,32 @@ function showImportPreview(name, questions) {
   ov.id = 'importPreviewOverlay';
   ov.style.cssText = 'align-items:flex-start;overflow-y:auto;padding:16px;padding-bottom:100px;z-index:250';
   ov.addEventListener('click', function(e) { if (e.target === ov) closeImportPreview(); });
+
+  // 构建统计面板
+  var statsHtml = '';
+  if (stats && (stats.noOptions > 0 || stats.missingOpts > 0 || stats.noAnswer > 0 || stats.answerMismatch)) {
+    statsHtml = '<div style="background:#fffbeb;border:1px solid #f59e0b;border-radius:10px;padding:12px;margin-bottom:14px;font-size:12px;line-height:1.8">' +
+      '<div style="font-weight:700;color:#b45309;margin-bottom:6px">⚠️ 部分内容未能导入</div>';
+    if (stats.noOptions) statsHtml += '<div>· ' + stats.noOptions + ' 条：<b>未找到ABCD选项</b>（可能是答案页、说明文字或格式不符）</div>';
+    if (stats.noQuestion) statsHtml += '<div>· ' + stats.noQuestion + ' 条：<b>题干提取失败</b>（题号后无有效题目文本）</div>';
+    if (stats.missingOpts) statsHtml += '<div>· ' + stats.missingOpts + ' 条：<b>选项不完整</b>（缺少A/B/C/D中的某些选项）</div>';
+    if (stats.noAnswer) statsHtml += '<div>· ' + stats.noAnswer + ' 条：<b>未识别到答案</b>（缺少"答案：X"行）</div>';
+    if (stats.answerMismatch) statsHtml += '<div>· <b>答案不匹配：</b>' + stats.answerMismatch + '</div>';
+    if (stats.multiSelect) statsHtml += '<div style="margin-top:4px;color:var(--success)">✅ 识别到 ' + stats.multiSelect + ' 道<b>多选题</b></div>';
+    if (stats.samples && stats.samples.length) {
+      statsHtml += '<div style="margin-top:6px;padding-top:6px;border-top:1px solid #fcd34d"><span style="color:#92400e">被跳过示例：</span>';
+      stats.samples.forEach(function(s) { statsHtml += '<div style="color:#a16207;margin:2px 0">「' + escHtml(s) + '…」</div>'; });
+      statsHtml += '</div>';
+    }
+    statsHtml += '</div>';
+  }
+
   ov.innerHTML = '<div class="modal" style="border-radius:18px;max-width:520px;width:100%;margin:0 auto;padding:20px;animation:none">' +
     '<div class="flex-between mb-12">' +
-      '<div><h2 style="font-size:18px;margin:0">📋 导入预览</h2><p style="font-size:12px;color:var(--text-secondary);margin:4px 0 0">' + escHtml(name) + ' · ' + questions.length + ' 题 · 点击 ✏️ 编辑，确认后导入</p></div>' +
+      '<div><h2 style="font-size:18px;margin:0">📋 导入预览</h2><p style="font-size:12px;color:var(--text-secondary);margin:4px 0 0">' + escHtml(name) + ' · ' + questions.length + ' 题' + (stats && stats.totalBlocks ? '（共扫描 ' + stats.totalBlocks + ' 条）' : '') + ' · 点击 ✏️ 编辑，确认后导入</p></div>' +
       '<button class="btn btn-sm" style="background:var(--border);border:none" onclick="closeImportPreview()">✕</button>' +
     '</div>' +
+    statsHtml +
     '<div id="importPreviewCards"></div>' +
     '<div class="flex gap-8 mt-16" style="position:sticky;bottom:0;background:var(--card);padding:12px 0">' +
       '<button class="btn btn-outline flex-1" onclick="closeImportPreview()">取消</button>' +
@@ -2009,31 +2031,43 @@ function importFromPaste() {
   if (!name) { toast('请输入题库名称'); return; }
 
   let questions = [];
+  let stats = null;
+  let originalText = '';
 
   if (content) {
+    originalText = content;
     // 根据选择的格式解析
     if (pasteFormat === 'chat') {
-      questions = parseChatFormat(content);
+      var chatResult = parseChatFormat(content);
+      questions = chatResult.questions;
+      stats = chatResult.stats;
     } else if (pasteFormat === 'excel') {
       questions = parseExcelPaste(content);
     } else {
-      questions = parseMergedFormat(content);
+      var result = parseMergedFormat(content);
+      questions = result.questions;
+      stats = result.stats;
     }
   } else if (qText) {
+    originalText = qText + '\n' + aText;
     const qParsed = parseQuestionsOnly(qText);
     const aParsed = parseAnswersOnly(aText);
-    questions = qParsed.slice(0, Math.min(qParsed.length, aParsed.length)).map(function(q, i) {
+    questions = qParsed.questions.slice(0, Math.min(qParsed.questions.length, aParsed.length)).map(function(q, i) {
       var ans = aParsed[i];
-      // 检测多选
       var letters = (ans || '').split('').filter(function(ch) { return ch >= 'A' && ch <= 'E'; });
       letters = letters.filter(function(ch, idx) { return letters.indexOf(ch) === idx; }).sort();
       return { id: q.id, question: q.question, A: q.A, B: q.B, C: q.C, D: q.D, E: q.E, answer: letters.join(''), type: letters.length > 1 ? 'multi' : 'single', explanation: '' };
     });
+    stats = qParsed.stats;
+    if (aParsed.length < qParsed.questions.length) {
+      if (!stats) stats = { totalBlocks: 0, noOptions: 0, noQuestion: 0, missingOpts: 0, noAnswer: 0, multiSelect: 0, imported: 0, samples: [] };
+      stats.answerMismatch = '答案行数(' + aParsed.length + ')少于题目数(' + qParsed.questions.length + ')，末尾' + (qParsed.questions.length - aParsed.length) + '题未合并';
+    }
   }
 
   if (questions.length === 0) { toast('❌ 未识别到有效题目，请检查格式'); return; }
 
-  showImportPreview(name, questions);
+  showImportPreview(name, questions, stats);
 }
 
 var pasteFormat = 'standard';
@@ -2102,56 +2136,81 @@ function extractExplanation(text) {
   return '';
 }
 
+// ====== 文本标准化：去除Word碎渣、全角空格、不可见字符 ======
+function normalizeText(text) {
+  // 1. 零宽字符（Word粘贴常见乱码）
+  text = text.replace(/[​-‏ - ﻿ ]/g, '');
+  // 2. 全角空格 → 半角空格
+  text = text.replace(/　/g, ' ');
+  // 3. 软连字符、不可见控制字符
+  text = text.replace(/[­ -   ]/g, '');
+  // 4. 题干末尾多余标点换行：去掉题干和选项之间的多余空行
+  text = text.replace(/\n{3,}/g, '\n\n');
+  // 5. 每行首尾去空格
+  text = text.split('\n').map(function(l) { return l.trim(); }).join('\n');
+  return text;
+}
+
 function parseMergedFormat(text) {
+  text = normalizeText(text);
+  var stats = { totalBlocks: 0, noOptions: 0, noQuestion: 0, missingOpts: 0, noAnswer: 0, multiSelect: 0, imported: 0, samples: [] };
   // 按题号分割
   var blocks = text.split(/\n(?=\d+[.、．）)])/);
+  stats.totalBlocks = blocks.length;
   var questions = [];
   for (var bi = 0; bi < blocks.length; bi++) {
     var block = blocks[bi];
     var hasOptions = /[A-E][.、．）)]\s*\S/.test(block);
-    if (!hasOptions) continue;
+    if (!hasOptions) { stats.noOptions++; continue; }
 
     var qText = block.replace(/^\d+[.、．）)]\s*/, '');
     var firstOpt = qText.search(/[A-E][.、．）)]\s*\S/);
-    if (firstOpt === -1) continue;
+    if (firstOpt === -1) { stats.noQuestion++; continue; }
 
     var question = qText.slice(0, firstOpt).trim().replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
     var optsPart = qText.slice(firstOpt);
     var opts = extractOptions(optsPart);
-    if (!opts.A || !opts.B || !opts.C || !opts.D) continue;
+    if (!opts.A || !opts.B || !opts.C || !opts.D) { stats.missingOpts++; if (stats.samples.length < 3) stats.samples.push(block.substring(0, 80)); continue; }
 
     var ansInfo = extractAnswer(block);
-    var explanation = extractExplanation(block);
+    if (ansInfo.answer === '?') stats.noAnswer++;
+    if (ansInfo.type === 'multi') stats.multiSelect++;
 
-    var qObj = { id: questions.length + 1, question: question, A: opts.A, B: opts.B, C: opts.C, D: opts.D, answer: ansInfo.answer, type: ansInfo.type, explanation: explanation };
+    var qObj = { id: questions.length + 1, question: question, A: opts.A, B: opts.B, C: opts.C, D: opts.D, answer: ansInfo.answer, type: ansInfo.type, explanation: extractExplanation(block) };
     if (opts.E) qObj.E = opts.E;
     questions.push(qObj);
   }
-  return questions;
+  stats.imported = questions.length;
+  return { questions: questions, stats: stats };
 }
 
 function parseQuestionsOnly(text) {
+  text = normalizeText(text);
+  var stats = { totalBlocks: 0, noOptions: 0, noQuestion: 0, missingOpts: 0, noAnswer: 0, multiSelect: 0, imported: 0, samples: [] };
   var blocks = text.split(/\n(?=\d+[.、．）)])/);
+  stats.totalBlocks = blocks.length;
   var questions = [];
   for (var bi = 0; bi < blocks.length; bi++) {
     var block = blocks[bi];
     var hasOptions = /[A-E][.、．）)]\s*\S/.test(block);
-    if (!hasOptions) continue;
+    if (!hasOptions) { stats.noOptions++; continue; }
     var qText = block.replace(/^\d+[.、．）)]\s*/, '');
     var firstOpt = qText.search(/[A-E][.、．）)]\s*\S/);
-    if (firstOpt === -1) continue;
+    if (firstOpt === -1) { stats.noQuestion++; continue; }
     var question = qText.slice(0, firstOpt).trim().replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
     var optsPart = qText.slice(firstOpt);
     var opts = extractOptions(optsPart);
-    if (!opts.A || !opts.B || !opts.C || !opts.D) continue;
+    if (!opts.A || !opts.B || !opts.C || !opts.D) { stats.missingOpts++; if (stats.samples.length < 3) stats.samples.push(block.substring(0, 80)); continue; }
     var qObj = { id: questions.length + 1, question: question, A: opts.A, B: opts.B, C: opts.C, D: opts.D, answer: '', type: 'single', explanation: '' };
     if (opts.E) qObj.E = opts.E;
     questions.push(qObj);
   }
-  return questions;
+  stats.imported = questions.length;
+  return { questions: questions, stats: stats };
 }
 
 function parseAnswersOnly(text) {
+  text = normalizeText(text);
   // 每行一个答案（A/B/C/D/E），支持单选和多选
   var lines = text.split(/[\n\r]+/).filter(function(l) { return l.trim(); });
   return lines.map(function(l) {
@@ -2240,7 +2299,7 @@ function parseExcelPaste(text) {
 
     questions.push(qObj);
   }
-  return questions;
+  return { questions: questions, stats: null };
 }
 
 // ====== CSV 解析 ======
