@@ -181,8 +181,8 @@
 }
 
 /* ====== 色点选择器 ====== */
-.color-dots { display:grid; grid-template-columns:repeat(5,30px); gap:10px; justify-content:start; }
-.color-dot { width:30px; height:30px; border-radius:50%; cursor:pointer; border:3px solid transparent; transition:all var(--transition); box-shadow:0 1px 3px rgba(0,0,0,.15); }
+.color-dots { display:grid; grid-template-columns:repeat(5,34px); gap:10px; justify-content:start; }
+.color-dot { width:34px; height:34px; border-radius:50%; cursor:pointer; border:3px solid transparent; transition:all var(--transition); box-shadow:0 1px 3px rgba(0,0,0,.15); }
 .color-dot.active { border-color:var(--text); transform:scale(1.18); box-shadow:0 2px 6px rgba(0,0,0,.25); }
 .color-dot:active { transform:scale(.92); }
 
@@ -567,9 +567,10 @@ textarea { min-height: 180px; resize: vertical; line-height: 1.8; }
 
 /* ====== 触控目标最小44px（Apple HIG） ====== */
 @media (pointer: coarse) {
-  .btn, .option-btn, .chip, .tab-btn, .bank-item, .setting-item, .color-dot {
+  .btn, .option-btn, .chip, .tab-btn, .bank-item, .setting-item {
     min-height: 44px;
   }
+  .color-dot { min-height: 34px; min-width: 34px; }
   .btn-sm { min-height: 36px; }
 }
 
