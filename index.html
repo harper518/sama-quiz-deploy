@@ -4609,6 +4609,55 @@ function renderSettings() {
       '<button class="btn btn-ghost btn-block" onclick="clearWrongBook()">🗑 清空错题本</button>' +
     '</div></div>' +
 
+    // 📊 存储状态
+    (function() {
+      var storageJson = localStorage.getItem('sama_quiz_data') || '';
+      var storageBytes = storageJson.length * 2;
+      var storageKB = storageBytes / 1024;
+      var storageMB = storageBytes / (1024 * 1024);
+      var storageMax = 5; // MB 保守估计
+      var storagePercent = Math.min(100, Math.round((storageMB / storageMax) * 100));
+      var bankCount = Object.keys(appData.banks || {}).length;
+      var totalQ = 0, totalW = 0;
+      Object.values(appData.banks || {}).forEach(function(b) { totalQ += b.length; });
+      Object.values(appData.wrongBooks || {}).forEach(function(w) { totalW += w.length; });
+
+      var barColor = storagePercent > 80 ? '#e74c3c' : storagePercent > 50 ? '#e67e22' : 'var(--primary)';
+      var sizeInfo = storageMB >= 1
+        ? storageMB.toFixed(1) + ' MB'
+        : storageKB.toFixed(0) + ' KB';
+      var statusText = storagePercent > 90 ? '⚠️ 即将用满，建议导出备份后清理'
+        : storagePercent > 70 ? '⚡ 使用中，建议定期备份'
+        : '✅ 空间充裕';
+
+      return '<div class="section"><div class="section-title">📊 存储状态</div>' +
+        '<div class="setting-item" style="flex-direction:column;align-items:stretch;gap:8px">' +
+          // 进度条
+          '<div style="display:flex;justify-content:space-between;align-items:baseline">' +
+            '<span style="font-size:14px;font-weight:600">' + statusText + '</span>' +
+            '<span style="font-size:13px;color:var(--text-secondary)">' + sizeInfo + ' / ' + storageMax + ' MB</span>' +
+          '</div>' +
+          '<div style="height:10px;background:var(--border);border-radius:5px;overflow:hidden">' +
+            '<div style="height:100%;width:' + storagePercent + '%;background:' + barColor + ';border-radius:5px;transition:width .3s"></div>' +
+          '</div>' +
+          // 统计卡片
+          '<div style="display:flex;gap:10px;margin-top:4px">' +
+            '<div style="flex:1;background:var(--bg-input);border-radius:8px;padding:10px;text-align:center">' +
+              '<div style="font-size:22px;font-weight:700;color:var(--primary)">' + bankCount + '</div>' +
+              '<div style="font-size:11px;color:var(--text-tertiary)">个题库</div>' +
+            '</div>' +
+            '<div style="flex:1;background:var(--bg-input);border-radius:8px;padding:10px;text-align:center">' +
+              '<div style="font-size:22px;font-weight:700;color:var(--primary)">' + totalQ + '</div>' +
+              '<div style="font-size:11px;color:var(--text-tertiary)">道题目</div>' +
+            '</div>' +
+            '<div style="flex:1;background:var(--bg-input);border-radius:8px;padding:10px;text-align:center">' +
+              '<div style="font-size:22px;font-weight:700;color:' + (totalW > 0 ? '#e74c3c' : 'var(--text-tertiary)') + '">' + totalW + '</div>' +
+              '<div style="font-size:11px;color:var(--text-tertiary)">道错题</div>' +
+            '</div>' +
+          '</div>' +
+        '</div></div>';
+    })() +
+
     '<div class="section"><div class="section-title">外观</div>' +
       '<div class="setting-item"><div><div class="setting-label">夜间模式</div><div class="setting-desc">暗色主题，夜间刷题更护眼</div></div>' +
         '<label class="toggle"><input type="checkbox" id="darkToggle"' + (s.darkMode ? ' checked' : '') + ' onchange="saveSetting(\'darkMode\', this.checked)"><span class="slider"></span></label></div>' +
