@@ -4344,9 +4344,9 @@ function escHtml(s) {
 }
 
 // ====== Backup / Restore ======
-function backupData() {
+// 构建压缩备份对象（公共逻辑）
+function buildBackupObj() {
   var data = loadData();
-  // 题库名→编号映射，大幅缩短
   var names = Object.keys(data.banks || {});
   var idx = {};
   names.forEach(function(n, i) { idx[n] = i; });
@@ -4372,8 +4372,11 @@ function backupData() {
   ['s','w','h','p','d','f'].forEach(function(k) {
     if (Object.keys(backup[k]).length === 0) delete backup[k];
   });
+  return backup;
+}
 
-  // 压缩备份
+function backupData() {
+  var backup = buildBackupObj();
   makeBackupCode(JSON.stringify(backup)).then(function(code) {
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(code).then(function() {
@@ -4387,6 +4390,36 @@ function backupData() {
       fallbackCopy(code);
     }
   });
+}
+
+async function shareBackupCode() {
+  var backup = buildBackupObj();
+  var code = await makeBackupCode(JSON.stringify(backup));
+  var today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  var textToShare = '选择题刷题工具 - 进度备份 ' + today + '\n\n' + code + '\n\n📌 使用方法：复制全部内容 → 打开工具设置页 → 粘贴备份码恢复';
+  if (navigator.canShare && navigator.canShare({ text: textToShare })) {
+    try {
+      await navigator.share({ text: textToShare, title: '刷题进度备份 - ' + today });
+      appData.settings.lastBackup = Date.now();
+      saveData(appData);
+      toast('✅ 备份码已分享');
+      return;
+    } catch (err) {
+      if (err.name === 'AbortError') return;
+    }
+  }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    try {
+      await navigator.clipboard.writeText(code);
+      appData.settings.lastBackup = Date.now();
+      saveData(appData);
+      toast('📋 分享不支持，已改为复制到剪贴板');
+    } catch(e) {
+      fallbackCopy(code);
+    }
+  } else {
+    fallbackCopy(code);
+  }
 }
 
 async function shareBackupFile() {
@@ -4652,7 +4685,10 @@ function renderSettings() {
     '<div class="setting-item" style="flex-direction:column;align-items:stretch;gap:10px">' +
       '<button class="btn btn-primary btn-block" onclick="shareBackupFile()" style="font-size:15px">📤 分享/导出备份文件</button>' +
       '<div style="font-size:12px;color:var(--text-tertiary);text-align:center;margin:-4px 0 4px">📱 手机直接分享到微信/QQ/存文件 &nbsp;|&nbsp; 💻 电脑自动下载</div>' +
-      '<button class="btn btn-outline btn-block" onclick="backupData()">📋 复制备份码</button>' +
+      '<div style="display:flex;gap:8px">' +
+        '<button class="btn btn-outline" style="flex:1" onclick="backupData()">📋 复制备份码</button>' +
+        '<button class="btn btn-outline" style="flex:1" onclick="shareBackupCode()">📤 分享备份码</button>' +
+      '</div>' +
       '<button class="btn btn-outline btn-block" id="restoreToggleBtn" onclick="toggleRestoreSection()">📥 粘贴备份码恢复</button>' +
       '<div id="restoreSection" style="display:none;margin-top:12px;padding:14px;background:var(--bg);border-radius:10px">' +
         '<textarea id="restoreTextarea" placeholder="在此粘贴备份码或完整JSON..." style="width:100%;min-height:100px;font-size:13px;padding:10px;border:2px solid var(--border);border-radius:8px;background:var(--card);color:var(--text)"></textarea>' +
