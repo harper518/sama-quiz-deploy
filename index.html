@@ -1309,7 +1309,7 @@ function renderEditBankModal(ov, name, bank) {
     '</div>';
   }
 
-  ov.innerHTML = '<div class="modal" style="max-width:500px;margin:auto;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);padding:0;border-radius:var(--radius);max-height:80dvh;display:flex;flex-direction:column">' +
+  ov.innerHTML = '<div class="modal" style="animation:none;max-width:500px;margin:auto;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);padding:0;border-radius:var(--radius);max-height:80dvh;display:flex;flex-direction:column">' +
     '<div style="padding:16px 18px;border-bottom:1px solid var(--border);flex-shrink:0">' +
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">' +
         '<h3 style="font-size:17px;margin:0">✏️ 编辑「' + escHtml(name) + '」（' + bank.length + '题）</h3>' +
