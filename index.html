@@ -1146,7 +1146,7 @@ function renderBanks() {
       '<div class="info">' +
         '<div class="name" onclick="event.stopPropagation();renameBankPrompt(this,\'' + escHtml(name) + '\')" title="点击修改名称" style="cursor:pointer">' + escHtml(name) + '</div>' +
         '<div class="meta">' + total + ' 题 | 正确率 ' + (stats.answered > 0 ? Math.round(stats.correct / stats.answered * 100) : 0) + '% | 错题 ' + wrongCount + dueHtml + ' <span style="margin-left:4px">' + fmtDate(meta.createdAt) + '</span>' +
-          '<span style="margin-left:8px;display:inline-flex;gap:2px"><button class="btn-sort" onclick="event.stopPropagation();event.preventDefault();moveBankUp(\'' + escHtml(name) + '\')"' + (isFirst ? ' disabled style="opacity:.2"' : '') + ' title="上移">↑</button><button class="btn-sort" onclick="event.stopPropagation();event.preventDefault();moveBankDown(\'' + escHtml(name) + '\')"' + (isLast ? ' disabled style="opacity:.2"' : '') + ' title="下移">↓</button></span>' +
+          '<span style="margin-left:8px;display:inline-flex;gap:2px"><button type="button" class="btn-sort" onclick="moveBankUp(\'' + escHtml(name) + '\');return false;"' + (isFirst ? ' disabled style="opacity:.2"' : '') + ' title="上移">↑</button><button type="button" class="btn-sort" onclick="moveBankDown(\'' + escHtml(name) + '\');return false;"' + (isLast ? ' disabled style="opacity:.2"' : '') + ' title="下移">↓</button></span>' +
         '</div>' +
       '</div>' +
       '<div class="actions">' +
