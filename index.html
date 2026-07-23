@@ -4582,14 +4582,115 @@ function checkUpdate() {
   setTimeout(function() { location.reload(true); }, 500);
 }
 
+function switchManualTab(tab) {
+  var quick = document.getElementById('manualTabQuick');
+  var full = document.getElementById('manualTabFull');
+  var tabs = document.querySelectorAll('.manual-tab');
+  if (tab === 'quick') {
+    quick.style.display = '';
+    full.style.display = 'none';
+    tabs[0].style.background = 'var(--primary)';
+    tabs[0].style.color = '#fff';
+    tabs[1].style.background = 'transparent';
+    tabs[1].style.color = 'var(--text-secondary)';
+  } else {
+    quick.style.display = 'none';
+    full.style.display = '';
+    tabs[1].style.background = 'var(--primary)';
+    tabs[1].style.color = '#fff';
+    tabs[0].style.background = 'transparent';
+    tabs[0].style.color = 'var(--text-secondary)';
+  }
+}
+
 function showManualMenu() {
   var ov = document.createElement('div'); ov.className = 'modal-overlay'; ov.style.animation = 'none';
   ov.innerHTML = '<div class="modal" style="animation:none;max-width:560px;margin:auto;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);padding:0;border-radius:var(--radius);max-height:88dvh;display:flex;flex-direction:column">' +
     '<div style="padding:16px 18px;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;justify-content:space-between;align-items:center">' +
-      '<h3 style="font-size:18px;margin:0">📖 使用说明</h3>' +
-      '<button class="btn btn-ghost btn-sm" onclick="this.closest(\'.modal-overlay\').remove()" style="font-size:20px;padding:4px 8px;min-width:44px;min-height:44px">✕</button>' +
+      '<div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0"><h3 style="font-size:18px;margin:0;white-space:nowrap">📖 使用说明</h3>' +
+      '<div style="display:flex;background:var(--bg-input);border-radius:8px;padding:3px;flex-shrink:0"><button class="manual-tab" style="padding:5px 12px;border:none;border-radius:6px;font-size:13px;cursor:pointer;background:var(--primary);color:#fff;font-weight:600;min-height:30px;transition:all .15s" onclick="switchManualTab(\'quick\')">⚡ 速览</button><button class="manual-tab" style="padding:5px 12px;border:none;border-radius:6px;font-size:13px;cursor:pointer;background:transparent;color:var(--text-secondary);min-height:30px;transition:all .15s" onclick="switchManualTab(\'full\')">📋 详细</button></div></div>' +
+      '<button class="btn btn-ghost btn-sm" onclick="this.closest(\'.modal-overlay\').remove()" style="font-size:20px;padding:4px 8px;min-width:44px;min-height:44px;flex-shrink:0">✕</button>' +
     '</div>' +
-    '<div style="overflow-y:auto;flex:1;padding:16px 18px 24px;font-size:14px;line-height:1.7;color:var(--text)">' +
+    // ⚡ 速览版
+    '<div id="manualTabQuick" style="overflow-y:auto;flex:1;padding:16px 18px 24px;font-size:14px;line-height:1.7;color:var(--text)">' +
+
+      // 🔴 数据安全（最最重要）
+      '<div style="margin-bottom:16px">' +
+        '<h4 style="font-size:16px;margin:0 0 8px;color:#e74c3c">🔴 数据安全 <span style="font-size:12px;font-weight:400;color:#999">— 最最重要</span></h4>' +
+        '<div style="background:#fff5f5;border:1px solid #fcc;border-radius:10px;padding:12px 14px">' +
+          '<p style="margin:0 0 6px"><b>📍 数据在浏览器里，不在云端</b>——换浏览器就看不到，不是丢了。</p>' +
+          '<p style="margin:0 0 6px"><b>📦 导出备份 = 唯一的保险</b>——设置页 → 导出全部数据，存电脑/网盘/微信收藏。没备份 = 赌运气。</p>' +
+          '<p style="margin:0 0 6px"><b>📊 容量上限：5–10 MB</b>——约等于 2500~10000 道题。超了会提示"存储空间不足"。</p>' +
+          '<p style="margin:0 0 6px"><b>💾 缓存 ≠ 数据！</b>——清浏览器缓存一般不丢题。但清"Cookie 和网站数据"就会丢。</p>' +
+          '<p style="margin:0 0 4px"><b>🗑️ 以下操作会丢数据：</b></p>' +
+          '<p style="margin:0 0 2px;padding-left:12px">① 浏览器清除数据时<b>勾选了 Cookie 和网站数据</b></p>' +
+          '<p style="margin:0 0 2px;padding-left:12px">② <b style="color:#e74c3c">iOS Safari 清除历史记录与网站数据</b>（iPhone用户最多中招）</p>' +
+          '<p style="margin:0 0 2px;padding-left:12px">③ 手机管家/清理软件的垃圾清理</p>' +
+          '<p style="margin:0 0 2px;padding-left:12px">④ 无痕/隐私模式下关闭窗口</p>' +
+          '<p style="margin:0 0 2px;padding-left:12px">⑤ 手机存储空间不足，系统自动清理</p>' +
+          '<p style="margin:0 0 6px;padding-left:12px">⑥ 浏览器卸载或重置</p>' +
+          '<p style="margin:0"><b>🔒 隐私安全</b>——纯前端工具，题目不会上传到任何服务器。导出文件请自己保管好。</p>' +
+        '</div>' +
+      '</div>' +
+
+      // 📱 多设备同步
+      '<div style="margin-bottom:16px">' +
+        '<h4 style="font-size:15px;margin:0 0 8px;color:var(--primary)">📱 多设备同步</h4>' +
+        '<div style="background:var(--bg-input);border-radius:10px;padding:12px 14px">' +
+          '<p style="margin:0 0 4px">不支持自动同步。手动方式：<b>导出全部数据 → 微信/QQ/网盘传到另一台设备 → 导入数据</b>。</p>' +
+          '<p style="margin:0">每次同步前先两边都导出备份，防止传输出错。</p>' +
+        '</div>' +
+      '</div>' +
+
+      // ⚠️ 常见坑
+      '<div style="margin-bottom:16px">' +
+        '<h4 style="font-size:15px;margin:0 0 8px;color:#e67e22">⚠️ 容易踩的坑</h4>' +
+        '<div style="background:#fef9f2;border:1px solid #f0d9b5;border-radius:10px;padding:12px 14px">' +
+          '<p style="margin:0 0 4px">· <b>别用微信内置浏览器打开</b>——部分功能异常。复制链接到 Chrome/Safari/Edge。</p>' +
+          '<p style="margin:0 0 4px">· <b>别用无痕模式长期刷题</b>——关了窗口数据就没了。</p>' +
+          '<p style="margin:0 0 4px">· <b>别用记事本编辑导出的 JSON</b>——会破坏编码导致导入失败。用 VS Code 或 Sublime。</p>' +
+          '<p style="margin:0 0 4px">· <b>浏览器可能拦截下载弹窗</b>——留意地址栏右侧的拦截图标。</p>' +
+          '<p style="margin:0 0 4px">· <b>多选题操作和单选不一样</b>——先点选所有选项，再点"确认选择"提交。</p>' +
+          '<p style="margin:0 0 4px">· <b>导入前先备份！</b>导入会覆盖当前数据，没备份就回不来了。</p>' +
+          '<p style="margin:0">· <b>AI 生成的题目</b>——删掉 AI 的寒暄废话再粘贴，只留题目本身。</p>' +
+        '</div>' +
+      '</div>' +
+
+      // 💡 速记
+      '<div style="margin-bottom:12px">' +
+        '<h4 style="font-size:15px;margin:0 0 8px;color:var(--primary)">💡 速记口诀</h4>' +
+        '<div style="background:var(--bg-input);border-radius:10px;padding:12px 14px">' +
+          '<p style="margin:0 0 4px">📦 <b>每周导出一份备份</b>，文件名带日期（<code>刷题备份_2026-07-23.json</code>）</p>' +
+          '<p style="margin:0 0 4px">🔄 页面异常 → 设置页点<b>"检查更新"</b>（= 强制刷新，不丢数据）</p>' +
+          '<p style="margin:0 0 4px">✏️ 题库名称<b>直接点击就能改名</b>，不用进编辑</p>' +
+          '<p style="margin:0 0 4px">📋 导入预览里被跳过的题<b>可以当场改、当场重试</b>，不用退出去重来</p>' +
+          '<p style="margin:0 0 4px">🌐 <b>不需要联网</b>，飞行模式也能刷</p>' +
+          '<p style="margin:0 0 4px">📱 手机/平板/电脑都能用，触控按钮 ≥44px</p>' +
+          '<p style="margin:0">🆘 数据没了别慌——看<a href="javascript:void(0)" onclick="switchManualTab(\'full\')" style="color:var(--primary);text-decoration:underline">详细版</a>的"数据丢失场景"，或者直接用之前的备份文件导入恢复</p>' +
+        '</div>' +
+      '</div>' +
+
+      // 📋 免责说明
+      '<div style="margin-bottom:12px">' +
+        '<h4 style="font-size:14px;margin:0 0 6px;color:var(--text-tertiary)">📋 免责说明</h4>' +
+        '<div style="font-size:12px;color:var(--text-tertiary);line-height:1.6;background:var(--bg-input);border-radius:8px;padding:10px 14px">' +
+          '<p style="margin:0 0 4px">· 本工具为<b>低价个人学习辅助工具</b>，非商业软件，功能按"现状"提供。</p>' +
+          '<p style="margin:0 0 4px">· <b>数据安全由使用者自行负责</b>——请养成定期导出备份的习惯，开发者不对任何数据丢失承担责任。</p>' +
+          '<p style="margin:0 0 4px">· 不保证所有浏览器/设备 100% 完美兼容，推荐使用 Chrome/Edge/Safari。</p>' +
+          '<p style="margin:0 0 4px">· 仅供个人学习使用，<b>禁止转售、二传、二次发布</b>。</p>' +
+          '<p style="margin:0 0 4px">· <b>更新服务：</b>购买后可联系获取最新版本 HTML 文件，功能更新以实际发布为准。</p>' +
+          '<p style="margin:0">· 📕 小红书：<b>2750492576</b></p>' +
+        '</div>' +
+      '</div>' +
+
+      '<div style="text-align:center;padding-top:8px;border-top:1px solid var(--border)">' +
+        '<span style="font-size:12px;color:var(--text-tertiary)">上面是重点速览，完整功能说明请看</span> <button onclick="switchManualTab(\'full\')" style="font-size:12px;color:var(--primary);border:none;background:none;cursor:pointer;text-decoration:underline;padding:0;min-height:auto">📋 详细版 →</button>' +
+      '</div>' +
+
+    '</div>' +
+
+    // 📋 详细版
+    '<div id="manualTabFull" style="overflow-y:auto;flex:1;padding:16px 18px 24px;font-size:14px;line-height:1.7;color:var(--text);display:none">' +
 
       // 🔰 零基础须知
       '<div style="margin-bottom:20px">' +
@@ -4723,6 +4824,19 @@ function showManualMenu() {
         '· 多选题可点击已选中的选项来取消选择。<br>' +
         '· 强制刷新（Ctrl+Shift+R）= 设置页"检查更新"，不丢数据。<br>' +
         '· 手机触控按钮全部 ≥44px，平板和电脑也能流畅使用。' +
+      '</div>' +
+
+      // 免责说明
+      '<div style="margin-bottom:20px">' +
+        '<h4 style="font-size:16px;margin:0 0 10px;color:var(--text-tertiary)">📋 免责说明</h4>' +
+        '<div style="background:var(--bg-input);border-radius:10px;padding:14px 16px;font-size:13px;color:var(--text-secondary);line-height:1.7">' +
+          '<p style="margin:0 0 6px"><b>· 本工具为低价个人学习辅助工具</b>，非商业软件产品，功能按"现状"提供，不承诺 100% 无缺陷或所有设备完美兼容。</p>' +
+          '<p style="margin:0 0 6px"><b>· 数据责任：</b>使用者有责任自行定期导出备份。开发者不对因浏览器清理、系统故障、操作失误等原因导致的数据丢失承担任何责任。</p>' +
+          '<p style="margin:0 0 6px"><b>· 使用范围：</b>仅供个人学习使用，<b>禁止转售、二传、二次发布</b>。他人如需使用请自行联系购买。</p>' +
+          '<p style="margin:0 0 6px"><b>· 更新服务：</b>购买用户可联系获取最新版本 HTML 文件。功能更新以实际发布版本为准，不承诺特定功能的上线时间。导入/导出等格式支持可能随版本更新扩展，详见最新版使用说明。</p>' +
+          '<p style="margin:0 0 6px"><b>· 浏览器兼容：</b>推荐 Chrome / Edge / Safari 最新版本。国产浏览器（QQ、360 等）、微信内置浏览器可能存在兼容性问题，非工具缺陷。</p>' +
+          '<p style="margin:0"><b>· 联系方式：</b>📕 小红书 <b>2750492576</b></p>' +
+        '</div>' +
       '</div>' +
 
     '</div>' +
