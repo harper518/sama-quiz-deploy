@@ -1798,14 +1798,15 @@ function renderCategoryFilter(bankName) {
   var div = document.getElementById('categoryFilter');
   if (!div) return;
   var bank = appData.banks[bankName];
-  if (!bank) { div.innerHTML = ''; return; }
+  if (!bank) { div.innerHTML = ''; categoryFilter = null; return; }
   var cats = extractCategories(bank);
-  if (!cats.length) { div.innerHTML = ''; return; }
-  if (!categoryFilter) categoryFilter = new Set(cats);
+  if (!cats.length) { div.innerHTML = ''; categoryFilter = null; return; }
+  // 每次切换题库时重置为全选
+  categoryFilter = new Set(cats);
   var h = '<label style="font-size:13px;font-weight:600;display:block;margin-bottom:4px">🏷️ 分类筛选</label><div class="chip-group" style="margin-top:4px">';
-  h += '<span class="chip' + (categoryFilter.size === cats.length ? ' active' : '') + '" onclick="toggleAllCategories()">全部</span>';
+  h += '<span class="chip active" onclick="toggleAllCategories()">全部</span>';
   for (var i = 0; i < cats.length; i++) {
-    h += '<span class="chip' + (categoryFilter.has(cats[i]) ? ' active' : '') + '" onclick="toggleCategory(\'' + escHtml(cats[i]) + '\')" style="margin-left:4px">' + cats[i] + '</span>';
+    h += '<span class="chip active" onclick="toggleCategory(\'' + escHtml(cats[i]) + '\')" style="margin-left:4px">' + cats[i] + '</span>';
   }
   h += '</div>';
   div.innerHTML = h;
