@@ -4591,19 +4591,36 @@ function showManualMenu() {
     '</div>' +
     '<div style="overflow-y:auto;flex:1;padding:16px 18px 24px;font-size:14px;line-height:1.7;color:var(--text)">' +
 
+      // 🔰 零基础须知
+      '<div style="margin-bottom:20px">' +
+        '<h4 style="font-size:16px;margin:0 0 10px;color:#e67e22">🔰 零基础须知</h4>' +
+        '<div style="background:#fef9f2;border:1px solid #f0d9b5;border-radius:10px;padding:14px 16px">' +
+          '<p style="margin:0 0 4px">· 这不是 App，是一个<b>网页工具</b>——不需要安装，浏览器打开链接就能用。</p>' +
+          '<p style="margin:0 0 4px">· 数据存在<b>当前这个浏览器</b>里，换一个浏览器数据就看不到，不是丢了。</p>' +
+          '<p style="margin:0 0 4px">· <b>导出 = 存文件</b>到电脑/手机；<b>导入 = 从文件恢复</b>回浏览器。</p>' +
+          '<p style="margin:0 0 4px">· 想手机和电脑同步？导出 → 微信/QQ 发给另一台设备 → 在那边导入。</p>' +
+          '<p style="margin:0 0 4px">· 不小心关了浏览器也<b>不要紧</b>，只要浏览器没被"清除数据"，题库都在。</p>' +
+          '<p style="margin:0 0 4px">· <b>不需要联网</b>，飞行模式下也能刷题。</p>' +
+          '<p style="margin:0 0 4px">· 页面看起来乱了？往下拉刷新（手机）或关掉标签页重新打开链接。</p>' +
+          '<p style="margin:0 0 4px">· <b>不建议用微信内置浏览器打开</b>，部分功能可能异常。复制链接到 Chrome/Safari/Edge 浏览器。</p>' +
+          '<p style="margin:0">· 遇到页面异常，去设置页点<b>"检查更新"</b>，大部分问题都能解决。</p>' +
+        '</div>' +
+      '</div>' +
+
       // 题库管理
       '<div style="margin-bottom:20px">' +
         '<h4 style="font-size:16px;margin:0 0 10px;color:var(--primary)">📚 题库管理</h4>' +
         '<div style="background:var(--bg-input);border-radius:10px;padding:14px 16px">' +
-          '<p style="margin:0 0 6px"><b>＋ 导入</b> — 粘贴题目文本或上传文件（支持 .txt / .json / .csv / .docx / .pdf / .xlsx）粘贴后点击"预览"，确认无误再导入。</p>' +
-          '<p style="margin:0 0 6px"><b>📋 题目格式</b> — 支持两种：① 题目+选项+答案写在一起的"合并格式"；② 题目/选项放上方文本框、答案放下方文本框的"分离格式"。</p>' +
-          '<p style="margin:0 0 6px"><b>📋 复制话术</b> — 点击"复制话术"按钮，获得发给 AI 的格式模板，让 AI 按要求输出题目。</p>' +
+          '<p style="margin:0 0 6px"><b>＋ 导入</b> — 粘贴题目文本或上传文件（支持 .txt / .json / .csv / .docx / .pdf / .xlsx）粘贴后点击"预览"确认。超 500 题处理需要几秒，不是卡死。</p>' +
+          '<p style="margin:0 0 6px"><b>📋 题目格式</b> — 支持两种：① 题目+选项+答案写在一起的"合并格式"；② 题目放上方文本框、答案放下方文本框的"分离格式"。中文符号（，。、）能被智能识别。</p>' +
+          '<p style="margin:0 0 6px"><b>📋 复制话术</b> — 点击"复制话术"按钮，获得发给 AI 的格式模板，让 AI 按要求格式输出题目。粘贴前建议删掉 AI 的废话（"好的，以下是为您…"）。</p>' +
+          '<p style="margin:0 0 6px"><b>⚠️ 导入预览</b> — 预览中被跳过的题目会标注原因和位置，<b>可以当场编辑修正</b>再重新解析导入，不用退出去重来。</p>' +
           '<p style="margin:0 0 6px"><b>🔀 合并</b> — 将两个题库合二为一，源题库的所有题目移入目标题库，源题库删除。</p>' +
-          '<p style="margin:0 0 6px"><b>✏️ 编辑</b> — 点击题库右侧的 ✏️ 进入编辑模式，可逐题修改题目、选项、答案和解析。支持翻页和跳转到指定题号。</p>' +
-          '<p style="margin:0 0 6px"><b>📤 导出</b> — 将题库导出为 JSON 或文本格式，可复制或下载。</p>' +
-          '<p style="margin:0 0 6px"><b>🗑️ 删除</b> — 删除整个题库，操作不可恢复，请谨慎。</p>' +
-          '<p style="margin:0 0 6px"><b>↕ 排序</b> — 点击 ↑↓ 箭头调整题库在列表中的显示顺序。</p>' +
-          '<p style="margin:0"><b>✏️ 重命名</b> — 直接点击题库名称即可修改。</p>' +
+          '<p style="margin:0 0 6px"><b>✏️ 编辑</b> — 点击 ✏️ 逐题修改题目、选项、答案和解析。支持翻页和跳转到指定题号。</p>' +
+          '<p style="margin:0 0 6px"><b>📤 导出</b> — 将单个题库导出为 JSON 或文本格式，可复制或下载。</p>' +
+          '<p style="margin:0 0 6px"><b>🗑️ 删除</b> — 删除整个题库，操作不可恢复。</p>' +
+          '<p style="margin:0 0 6px"><b>↕ 排序</b> — 点击 ↑↓ 箭头调整题库的显示顺序。</p>' +
+          '<p style="margin:0"><b>✏️ 重命名</b> — 直接点击题库名称即可修改，无需进入编辑模式。</p>' +
         '</div>' +
       '</div>' +
 
@@ -4625,11 +4642,11 @@ function showManualMenu() {
           '<p style="margin:0 0 6px"><b>即时模式</b> — 每做一题立刻显示对错和解析，适合学习新知识。</p>' +
           '<p style="margin:0 0 6px"><b>总结模式</b> — 全部做完统一出结果，适合模拟考试。</p>' +
           '<p style="margin:0 0 6px"><b>顺序 / 随机</b> — 按题库顺序出题，或打乱顺序增加难度。</p>' +
-          '<p style="margin:0 0 6px"><b>计时</b> — 可选"每题限时"或"不限时"，每题限时模式下自动跳下一题。</p>' +
+          '<p style="margin:0 0 6px"><b>计时</b> — 可选"每题限时"或"不限时"，每题限时模式下超时自动跳下一题。</p>' +
           '<p style="margin:0 0 6px"><b>单选题</b> — 点击选项直接出结果，答完可点下一题。</p>' +
-          '<p style="margin:0 0 6px"><b>多选题</b> — 点选多个选项后，点击"确认选择"提交。已选中的选项可再次点击取消。</p>' +
+          '<p style="margin:0 0 6px"><b>多选题</b> — <b>操作方式与单选不同：</b>先点选多个选项（可再次点击取消），再点"确认选择"提交。返回上一题可回看之前的反馈和解析。</p>' +
           '<p style="margin:0 0 6px"><b>查看解析</b> — 答完后点击"💡 查看解析"展开详细解释。</p>' +
-          '<p style="margin:0 0 6px"><b>上一题 / 下一题</b> — 切换题目，已答题目会保留作答记录和反馈。</p>' +
+          '<p style="margin:0 0 6px"><b>上一题 / 下一题</b> — 切换题目，已答题目保留作答记录和反馈；未作答也可跳过先看下一题。</p>' +
           '<p style="margin:0"><b>结果页</b> — 显示正确率、用时，可查看错题详情或将错题加入错题本。</p>' +
         '</div>' +
       '</div>' +
@@ -4639,8 +4656,31 @@ function showManualMenu() {
         '<h4 style="font-size:16px;margin:0 0 10px;color:var(--primary)">❌ 错题复习</h4>' +
         '<div style="background:var(--bg-input);border-radius:10px;padding:14px 16px">' +
           '<p style="margin:0 0 6px"><b>错题本</b> — 做错的题目自动进入对应题库的错题本。</p>' +
-          '<p style="margin:0 0 6px"><b>间隔复习</b> — 基于遗忘曲线的智能复习，做对的题目间隔逐渐拉长，做错的重新开始。</p>' +
+          '<p style="margin:0 0 6px"><b>间隔复习</b> — 基于遗忘曲线，答对间隔逐渐拉长（1天→3天→7天→15天→30天），答错重新从 1 天开始。</p>' +
           '<p style="margin:0"><b>待复习提醒</b> — 题库列表中显示 📅 待复习数量，到期题目一目了然。</p>' +
+        '</div>' +
+      '</div>' +
+
+      // 配合AI使用
+      '<div style="margin-bottom:20px">' +
+        '<h4 style="font-size:16px;margin:0 0 10px;color:var(--primary)">🤖 配合 AI 使用</h4>' +
+        '<div style="background:var(--bg-input);border-radius:10px;padding:14px 16px">' +
+          '<p style="margin:0 0 4px">· 点击导入页面或批量导入页面的<b>"复制话术"</b>按钮，获得格式模板。</p>' +
+          '<p style="margin:0 0 4px">· 把模板发给 AI（ChatGPT/Claude/文心一言等），告诉它按格式输出题目。</p>' +
+          '<p style="margin:0 0 4px">· AI 返回题目后，<b>删掉 AI 的寒暄废话</b>（"好的，以下是为您生成的题目…"），只留题目本身。</p>' +
+          '<p style="margin:0">· 选择器格式兼容中文标点（，。、），不需要手动替换成英文。</p>' +
+        '</div>' +
+      '</div>' +
+
+      // 使用环境
+      '<div style="margin-bottom:20px">' +
+        '<h4 style="font-size:16px;margin:0 0 10px;color:var(--primary)">🖥️ 使用环境</h4>' +
+        '<div style="background:var(--bg-input);border-radius:10px;padding:14px 16px">' +
+          '<p style="margin:0 0 4px">· <b>推荐浏览器</b>：Chrome / Edge / Safari。国产浏览器（QQ、360 等）可能有兼容性问题。</p>' +
+          '<p style="margin:0 0 4px">· <b>不推荐微信内置浏览器</b>：部分功能可能异常，请复制链接用系统浏览器打开。</p>' +
+          '<p style="margin:0 0 4px">· <b>无痕/隐私模式</b>：关闭窗口后数据<b>不会保留</b>，不建议长期刷题使用。</p>' +
+          '<p style="margin:0 0 4px">· <b>强制刷新</b>：按 Ctrl+Shift+R（Mac: Cmd+Shift+R）可解决大部分页面异常问题。</p>' +
+          '<p style="margin:0">· 支持手机、平板、电脑，所有触控按钮 ≥44px。</p>' +
         '</div>' +
       '</div>' +
 
@@ -4648,38 +4688,41 @@ function showManualMenu() {
       '<div style="margin-bottom:20px">' +
         '<h4 style="font-size:16px;margin:0 0 10px;color:var(--primary)">⚙️ 设置 & 数据</h4>' +
         '<div style="background:var(--bg-input);border-radius:10px;padding:14px 16px">' +
-          '<p style="margin:0 0 6px"><b>📦 导出全部数据</b> — 将所有题库、错题记录、设置打包为 JSON 文件下载，用于备份或迁移。</p>' +
-          '<p style="margin:0 0 6px"><b>📥 导入数据</b> — 从之前导出的 JSON 文件恢复全部数据。注意会覆盖当前数据。</p>' +
-          '<p style="margin:0 0 6px"><b>🔄 恢复预设题库</b> — 如果题库为空或误删，可一键恢复内置的预设题库。</p>' +
+          '<p style="margin:0 0 6px"><b>📦 导出全部数据</b> — 将所有题库、错题记录、设置打包为 JSON 文件下载。这是唯一的"安全确认点"——备份了就不怕任何意外。建议文件命名格式：<b>刷题备份_2026-07-23.json</b>，保留最近 2-3 次备份更安全。导出后可以尝试"导入数据"来验证备份文件是否完整。文件可存电脑文档、网盘或微信收藏。</p>' +
+          '<p style="margin:0 0 6px"><b>📥 导入数据</b> — 从之前导出的 JSON 文件恢复全部数据。<b>会覆盖当前所有数据</b>，操作前务必先导出备份！不要用记事本编辑导出的 JSON 文件，可能破坏编码导致导入失败。浏览器可能拦截下载弹窗，留意地址栏提示。导入大文件（1000+题）需要几秒，不是卡死。</p>' +
+          '<p style="margin:0 0 6px"><b>🔄 恢复预设题库</b> — 题库为空或误删时，一键恢复内置的预设题库。</p>' +
           '<p style="margin:0 0 6px"><b>🎨 主题颜色</b> — 切换界面配色。</p>' +
           '<p style="margin:0 0 6px"><b>🔤 字体大小</b> — 拖动滑块调整全局字号。</p>' +
-          '<p style="margin:0 0 6px"><b>🔄 检查更新</b> — 清除缓存并刷新页面，获取最新版本。</p>' +
+          '<p style="margin:0 0 6px"><b>🔄 检查更新</b> — 清除缓存并刷新页面，获取最新版本。相当于"强制刷新"，不丢数据。</p>' +
           '<p style="margin:0"><b>🗑️ 删除所有数据</b> — 清空全部题库和设置，不可恢复。</p>' +
         '</div>' +
       '</div>' +
 
-      // 小贴士
       // ⚠️ 重点说明
       '<div style="margin-bottom:20px">' +
         '<h4 style="font-size:16px;margin:0 0 10px;color:#e74c3c">⚠️ 重点说明</h4>' +
         '<div style="background:#fff3f3;border:1px solid #fcc;border-radius:10px;padding:14px 16px">' +
           '<p style="margin:0 0 6px"><b>💾 数据存储位置</b> — 所有题目、错题、设置都保存在浏览器本地存储（localStorage），不会上传到任何服务器，完全离线可用。但清除浏览器数据会导致数据丢失！</p>' +
           '<p style="margin:0 0 6px"><b>📊 存储容量</b> — localStorage 上限约 5–10 MB（不同浏览器有差异）。每个题目约占用 0.5–2 KB，理论可存 2500–10000+ 题。如遇"存储空间不足"提示，说明题库太大，需要分批存储或清理旧数据。</p>' +
-          '<p style="margin:0 0 6px"><b>📦 定期备份</b> — 强烈建议每周使用"导出全部数据"保存一份 JSON 文件到电脑或网盘。换设备、清缓存、重装浏览器后可通过"导入数据"一键恢复。</p>' +
-          '<p style="margin:0 0 6px"><b>🔄 更新版本</b> — 工具更新后如果出现异常，先点"检查更新"清除缓存。如仍不正常，导出数据 → 清除浏览器数据 → 重新导入。</p>' +
-          '<p style="margin:0 0 6px"><b>📱 多设备同步</b> — 工具本身不支持自动同步。如需在手机和电脑间共享数据，可用"导出全部数据"→ 发送文件到另一设备 → "导入数据"。</p>' +
-          '<p style="margin:0 0 6px"><b>🗑️ 浏览器清理风险</b> — 以下操作会清空 localStorage，导致题库数据丢失：① 浏览器"清除浏览数据"时勾选了 Cookie 和网站数据；② iOS Safari 的"清除历史记录与网站数据"；③ 某些清理软件（如手机管家）的垃圾清理功能；④ 浏览器无痕/隐私模式关闭后。</p>' +
-          '<p style="margin:0"><b>🔒 隐私安全</b> — 纯前端工具，无后台服务器，题目数据不会被收集或分享。但导出到本地的 JSON 文件请妥善保管，不要随意分享给他人。</p>' +
+          '<p style="margin:0 0 6px"><b>💾 缓存 ≠ 数据</b> — 很多人搞混：<b>"浏览器缓存"和"你的题库数据（localStorage）"是两回事</b>。清缓存（网页文件）一般不会丢题库。但"清除浏览数据"时如果勾选了"Cookie 和网站数据"，题库就会丢。</p>' +
+          '<p style="margin:0 0 6px"><b>📦 定期备份</b> — 强烈建议每周使用"导出全部数据"保存 JSON 文件到电脑或网盘。文件命名建议带日期（刷题备份_2026-07-23.json），保留最近 2-3 次备份。备份后可尝试导入以验证文件完整性。换设备、重装浏览器后可通过"导入数据"一键恢复。</p>' +
+          '<p style="margin:0 0 6px"><b>📱 多设备同步</b> — 工具不支持自动同步。手机⇄电脑同步：导出全部数据 → 微信/QQ/网盘发给另一台设备 → 在那边导入。</p>' +
+          '<p style="margin:0 0 6px"><b>🗑️ 数据丢失场景</b> — 以下操作会清空 localStorage：① 浏览器"清除浏览数据"时勾选了 Cookie 和网站数据（只清缓存不勾选就安全）；② <b>iOS Safari 的"清除历史记录与网站数据"</b>（iOS 最坑，很多人中招）；③ 手机管家/清理软件的垃圾清理；④ 无痕/隐私模式关闭窗口；⑤ 手机存储空间不足时系统可能自动清理浏览器数据。</p>' +
+          '<p style="margin:0"><b>🔒 隐私安全</b> — 纯前端工具，无后台服务器，题目数据不会被收集或分享。导出到本地的 JSON 文件请妥善保管。</p>' +
         '</div>' +
       '</div>' +
 
       // 小贴士
       '<div style="background:var(--primary-light);border-radius:10px;padding:12px 16px;font-size:13px">' +
         '<b>💡 小贴士</b><br>' +
-        '· 导入题目时如遇"跳过"提示，说明格式不兼容，可在预览中编辑修正后再导入。<br>' +
-        '· 触屏设备上所有按钮均适配 ≥44px 触控区域，手机、平板、电脑都能流畅使用。<br>' +
+        '· 导入题目时如遇"跳过"提示，格式不兼容，可在预览中当场编辑修正。<br>' +
+        '· 养成定期导出备份的习惯——这是唯一能保护你数据的方法。<br>' +
+        '· 不要用记事本编辑导出的 JSON 文件，推荐 VS Code / Sublime。<br>' +
+        '· 浏览器可能拦截下载弹窗，留意地址栏右侧的拦截图标。<br>' +
         '· 题库名称直接点击即可重命名，无需进入编辑模式。<br>' +
-        '· 多选题可点击已选中的选项来取消选择。' +
+        '· 多选题可点击已选中的选项来取消选择。<br>' +
+        '· 强制刷新（Ctrl+Shift+R）= 设置页"检查更新"，不丢数据。<br>' +
+        '· 手机触控按钮全部 ≥44px，平板和电脑也能流畅使用。' +
       '</div>' +
 
     '</div>' +
