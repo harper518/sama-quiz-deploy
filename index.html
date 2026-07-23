@@ -3718,10 +3718,10 @@ function nextQuestion() {
   var q = quizState.questions[idx];
   var userAns = quizState.userAnswers[idx];
 
-  // 多选未确认：阻止前进（pointer-events:none 表示无选中项，允许跳过）
+  // 多选未确认：阻止前进（按钮可见且可点击时才拦截）
   if (isMultiSelect(q) && isInstant) {
     var confirmBtn = document.getElementById('confirmMultiBtn');
-    if (confirmBtn && confirmBtn.style.pointerEvents !== 'none') {
+    if (confirmBtn && confirmBtn.style.display !== 'none' && confirmBtn.style.pointerEvents !== 'none') {
       toast('请先确认选择');
       return;
     }
