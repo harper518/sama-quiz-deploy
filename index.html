@@ -3505,8 +3505,8 @@ function renderQuestion() {
 
   // 反馈区域
   var fb = document.getElementById('feedback');
-  if (isInstant && prevAnswer && !isMulti) {
-    var correct = q.answer === prevAnswer;
+  if (isInstant && prevAnswer) {
+    var correct = isMulti ? (prevAnswer === q.answer) : (q.answer === prevAnswer);
     fb.className = 'feedback show ' + (correct ? 'correct' : 'wrong');
     fb.innerHTML = '<strong>' + (correct ? '✅ 回答正确！' : '❌ 回答错误，正确答案是 ' + q.answer) + '</strong>' +
       (q.explanation ? '<div class="explanation-box"><button class="toggle-btn" onclick="var n=this.nextElementSibling;n.style.display=n.style.display===\'none\'?\'block\':\'none\'">💡 查看解析</button><div class="content">' + escHtml(q.explanation) + '</div></div>' : '');
