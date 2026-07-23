@@ -882,9 +882,10 @@ const BANK______json = [{"id":1,"question":"春秋时期，周天子的权威日
 
 function fmtDate(ts) { var d = new Date(ts); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
 function generateId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+var _bankMetaCounter = 0;
 function getBankMeta(name) {
   if (!appData.bankMeta) appData.bankMeta = {};
-  if (!appData.bankMeta[name]) appData.bankMeta[name] = { createdAt: Date.now(), order: Date.now() };
+  if (!appData.bankMeta[name]) appData.bankMeta[name] = { createdAt: Date.now(), order: Date.now() + (_bankMetaCounter++) };
   return appData.bankMeta[name];
 }
 function getSortedBankNames() {
@@ -893,7 +894,10 @@ function getSortedBankNames() {
     var ma = getBankMeta(a), mb = getBankMeta(b);
     var oa = ma.order != null ? ma.order : ma.createdAt;
     var ob = mb.order != null ? mb.order : mb.createdAt;
-    return oa - ob;
+    if (oa !== ob) return oa - ob;
+    if (ma.createdAt !== mb.createdAt) return ma.createdAt - mb.createdAt;
+    // 最终兜底：按名称字母序
+    return a < b ? -1 : a > b ? 1 : 0;
   });
   return names;
 }
@@ -1190,10 +1194,10 @@ function moveBankUp(name) {
   var names = getSortedBankNames();
   var idx = names.indexOf(name);
   if (idx <= 0) return;
-  var ma = getBankMeta(names[idx]), mb = getBankMeta(names[idx - 1]);
-  var tmp = ma.order != null ? ma.order : ma.createdAt;
-  ma.order = mb.order != null ? mb.order : mb.createdAt;
-  mb.order = tmp;
+  // 用新时间戳确保唯一顺序
+  var t = Date.now();
+  getBankMeta(names[idx]).order = t;             // 当前题库获得较小值，排到前面
+  getBankMeta(names[idx - 1]).order = t + 1;      // 上一个题库获得较大值，排到后面
   try { saveData(appData); } catch(e) { console.error(e); }
   renderBanks();
 }
@@ -1201,10 +1205,10 @@ function moveBankDown(name) {
   var names = getSortedBankNames();
   var idx = names.indexOf(name);
   if (idx < 0 || idx >= names.length - 1) return;
-  var ma = getBankMeta(names[idx]), mb = getBankMeta(names[idx + 1]);
-  var tmp = ma.order != null ? ma.order : ma.createdAt;
-  ma.order = mb.order != null ? mb.order : mb.createdAt;
-  mb.order = tmp;
+  // 用新时间戳确保唯一顺序
+  var t = Date.now();
+  getBankMeta(names[idx + 1]).order = t;           // 下一个题库获得较小值，排到前面
+  getBankMeta(names[idx]).order = t + 1;            // 当前题库获得较大值，排到后面
   try { saveData(appData); } catch(e) { console.error(e); }
   renderBanks();
 }
