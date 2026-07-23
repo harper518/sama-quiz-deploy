@@ -3545,7 +3545,7 @@ function selectAnswer(letter) {
 
   if (isMulti) {
     // === 多选题：切换选项 ===
-    if (isInstant && quizState.userAnswers[idx] !== null) return; // 已确认，不可修改
+    // 已确认提交后按钮已被 CSS pointer-events:none 禁用，无需额外守卫
 
     // 从当前状态读取或创建多选集合
     var selected = {};
