@@ -2804,9 +2804,9 @@ function extractOptions(optsPart) {
 
 // 提取答案：支持单选(A)和多选(AB/ABC/ABD等)
 function extractAnswer(text) {
-  var ansMatch = text.match(/答案[：:]\s*([A-E]+)/i);
+  var ansMatch = text.match(/答案[：:]\s*([A-E,，、\s]+)/i);
   if (!ansMatch) return { answer: '?', type: 'single' };
-  var raw = ansMatch[1].replace(/[,，\s]/g, ''); // 支持 "A,B" 或 "A B" 写法
+  var raw = ansMatch[1].replace(/[,，、\s]/g, ''); // 支持 "A,B" "A、B" "A B" 等写法
   // 去重并排序
   var letters = [];
   for (var i = 0; i < raw.length; i++) {
@@ -2832,7 +2832,7 @@ function extractExplanation(text) {
     if (m && m[1] && m[1].trim()) return m[1].trim();
   }
   // "答案：X"后面的内容作为解析（排除下一题的题号）
-  var afterAnswer = text.match(/答案[：:]\s*[A-E]+\s*\n([\s\S]+?)(?=\n\d+[.、．）)]|$)/);
+  var afterAnswer = text.match(/答案[：:]\s*[A-E,，、\s]+\s*\n([\s\S]+?)(?=\n\d+[.、．）)]|$)/);
   if (afterAnswer && afterAnswer[1].trim() && !/^\d+[.、．）)]/.test(afterAnswer[1].trim())) {
     return afterAnswer[1].trim();
   }
