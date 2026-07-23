@@ -831,8 +831,8 @@ textarea { min-height: 180px; resize: vertical; line-height: 1.8; }
         <button class="btn btn-sm" style="background:var(--bg-input);border:none;font-size:12px;flex:1;color:var(--danger)" onclick="clearTextArea('pasteAnswers')">🗑 清空</button>
         <button class="btn btn-sm" style="background:var(--bg-input);border:none;font-size:12px;flex:1" onclick="document.getElementById('fileAnswersInput').click()">📂 上传</button>
       </div>
+      <button class="btn btn-sm" style="background:var(--primary-light);border:none;font-size:11px;width:100%;color:var(--primary);font-weight:600;margin-top:6px" onclick="copyAnswersFormatPrompt()">📋 复制答案话术（给AI整理答案列表）</button>
     </div>
-    <button class="btn btn-sm" style="background:var(--primary-light);border:none;font-size:11px;width:100%;color:var(--primary);font-weight:600;margin-bottom:10px" onclick="copyAnswersFormatPrompt()">📋 复制答案话术（给AI整理答案列表）</button>
     <button class="btn btn-primary btn-block" onclick="importFromPaste()">📥 导入题库</button>
   </div>
 </div>
