@@ -831,6 +831,7 @@ textarea { min-height: 180px; resize: vertical; line-height: 1.8; }
         <button class="btn btn-sm" style="background:var(--bg-input);border:none;font-size:12px;flex:1" onclick="document.getElementById('fileAnswersInput').click()">📂 上传</button>
       </div>
     </div>
+    <button class="btn btn-sm" style="background:var(--primary-light);border:none;font-size:11px;width:100%;color:var(--primary);font-weight:600;margin-bottom:10px" onclick="copyBatchFormatPrompt()">📋 复制格式话术（给AI用 · 批量版）</button>
     <button class="btn btn-primary btn-block" onclick="importFromPaste()">📥 导入题库</button>
   </div>
 </div>
@@ -2679,6 +2680,15 @@ function copyFormatPrompt() {
   }
 }
 
+function copyBatchFormatPrompt() {
+  var prompt = '请将以下内容整理为选择题格式，严格按以下规则输出，分两个代码块：\n\n【第一个代码块：题目+选项】\n1. 每道题必须以数字+点号开头，如"1."、"2."（支持中文顿号、、全角句点．或右括号）\n2. 题目紧接题号，占一行或多行均可\n3. 选项用 A. B. C. D. 开头（支持中文顿号、全角句点或右括号），选项之间用两个空格隔开放在同一行，也可每个选项独占一行；如有E选项一并保留\n4. 不要包含"答案："行和"解析："行\n5. 每题之间必须空一行\n\n【第二个代码块：仅答案】\n1. 每行写一个答案，如 A、B、C、D，多选如 AB、ACE\n2. 答案顺序必须和上面题目的顺序一一对应\n3. 只写答案字母，不要写"答案："前缀，不要题号\n\n【输出示例】\n\`\`\`题目\n1. 以下关于光合作用的说法正确的是？\nA. 只在白天进行  B. 需要二氧化碳  C. 产生氧气  D. 以上都对\n\n2. 下列哪些是哺乳动物？（多选）\nA. 鲸鱼  B. 鲨鱼  C. 蝙蝠  D. 企鹅  E. 海豚\n\`\`\`\n\`\`\`答案\nD\nACE\n\`\`\`\n\n【要求】\n- 只输出两个代码块，不要任何开场白、结束语或额外说明\n- 保持题目原文内容不变，只调整格式\n- 如果原内容缺少某题答案，对应行写"?"';
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(prompt).then(function() { toast('📋 批量话术已复制，可粘贴到豆包/AI使用'); });
+  } else {
+    toast('⚠️ 复制失败，请手动复制');
+  }
+}
+
 function importFromPaste() {
   const name = document.getElementById('pasteBankName').value.trim();
   const content = document.getElementById('pasteContent').value.trim();
@@ -2771,7 +2781,7 @@ function selectPasteFormat(fmt, el) {
 function extractOptions(optsPart) {
   var opts = { A: '', B: '', C: '', D: '', E: '' };
   // 匹配 A. xxx  B. xxx ... E. xxx（直到答案/解析或结尾）
-  var optRegex = /([A-E])[.、．）)]\s*([^A-E]*?)(?=\s*[A-E][.、．）)]|答案|解析|【解析|$)/gs;
+	  var optRegex = /([A-E])[.、．）)]\s*([\s\S]*?)(?=\s*[A-E][.、．）)]|答案|解析|【解析|$)/gs;
   var m;
   while ((m = optRegex.exec(optsPart)) !== null) {
     var l = m[1], t = m[2].trim().replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
@@ -2949,37 +2959,42 @@ function parseExcelPaste(text) {
     var answerRaw = (cols[offset + 5] || '').trim().replace(/答案[：:]\s*/i, '');
     var ansMatch = answerRaw.match(/([A-E]+)/i);
     var answer = ansMatch ? ansMatch[1].toUpperCase() : '';
+
+    // 如果 offset+5 的内容看起来像E选项（以"E."开头且超过2字符），则它可能是E选项而非答案
+    // 此时答案在 offset+6
+    var eCol = '', explanationCol = '';
+    if (/^[Ee][.、．）)]/.test(answerRaw) && answerRaw.length > 3) {
+      // offset+5 实际是E选项，答案在 offset+6
+      eCol = answerRaw.replace(/^[Ee][.、．）)]\s*/, '').trim();
+      answerRaw = (cols[offset + 6] || '').trim().replace(/答案[：:]\s*/i, '');
+      var ansMatch2 = answerRaw.match(/([A-E]+)/i);
+      answer = ansMatch2 ? ansMatch2[1].toUpperCase() : '';
+      explanationCol = offset + 7;
+    } else if (cols.length >= offset + 7 && /^[Ee][.、．）)]/.test((cols[offset + 5] || '').trim())) {
+      // offset+5 很短但确实是E模式，且后面还有列
+      eCol = (cols[offset + 5] || '').replace(/^[Ee][.、．）)]\s*/, '').trim();
+      answerRaw = (cols[offset + 6] || '').trim().replace(/答案[：:]\s*/i, '');
+      var ansMatch3 = answerRaw.match(/([A-E]+)/i);
+      answer = ansMatch3 ? ansMatch3[1].toUpperCase() : '';
+      explanationCol = offset + 7;
+    } else {
+      explanationCol = offset + 6;
+    }
+
     // 多选检测
     var ansLetters = answer.split('').filter(function(ch) { return ch >= 'A' && ch <= 'E'; });
     ansLetters = ansLetters.filter(function(ch, idx) { return ansLetters.indexOf(ch) === idx; }).sort();
     answer = ansLetters.join('');
     var qType = ansLetters.length > 1 ? 'multi' : 'single';
 
-    var E = (cols.length >= offset + 6 && offset + 5 < cols.length) ? (cols[offset + 5 - 1] || '') : '';
-    // 正确的E列是 offset+5（第6列之后），但如果有E选项内容在 offset+5，答案在 offset+6
-    // 重新检查：如果 cols.length >= 8（序号+5选项+答案），E在 offset+5
-    var hasE = (cols.length >= 8); // 序号 题 A B C D E 答案
-    var Econtent = '';
-    if (hasE) {
-      Econtent = (cols[offset + 4 + 1] || '').replace(/^[A-E][.、．）)]\s*/, '').trim();
-      // 答案列后移
-    }
-
     if (!question || !A || !B || !C || !D || !answer) continue;
 
     var qObj = { id: questions.length + 1, question: question, A: A, B: B, C: C, D: D, answer: answer, type: qType, explanation: '' };
+    if (eCol) qObj.E = eCol;
 
-    // 检查是否有E选项
-    var potentialE = (cols[offset + 5] || '').trim();
-    if (potentialE && !ansMatch && cols.length >= 7 && /^[Ee][.、．）)]/.test(potentialE)) {
-      // 第5列是E选项，答案在第6列
-      var eCol = potentialE.replace(/^[Ee][.、．）)]\s*/, '').trim();
-      if (eCol) qObj.E = eCol;
-    }
-
-    // 解析列 after answer
-    if (cols.length > offset + 6) {
-      qObj.explanation = cols[offset + 6].trim();
+    // 解析列
+    if (cols.length > explanationCol) {
+      qObj.explanation = cols[explanationCol].trim();
     }
 
     questions.push(qObj);
@@ -3384,7 +3399,10 @@ function handleTimerExpiry() {
 // 获取选项字母列表
 function getOptionLetters(q) {
   var letters = ['A', 'B', 'C', 'D'];
-  if (q.E && q.E.trim()) letters.push('E');
+  for (var i = 4; i < 6; i++) {
+    var letter = String.fromCharCode(65 + i); // E, F
+    if (q[letter] && String(q[letter]).trim()) letters.push(letter);
+  }
   return letters;
 }
 
