@@ -1194,7 +1194,7 @@ function moveBankUp(name) {
   var tmp = ma.order != null ? ma.order : ma.createdAt;
   ma.order = mb.order != null ? mb.order : mb.createdAt;
   mb.order = tmp;
-  saveData(appData);
+  try { saveData(appData); } catch(e) { console.error(e); }
   renderBanks();
 }
 function moveBankDown(name) {
@@ -1205,7 +1205,7 @@ function moveBankDown(name) {
   var tmp = ma.order != null ? ma.order : ma.createdAt;
   ma.order = mb.order != null ? mb.order : mb.createdAt;
   mb.order = tmp;
-  saveData(appData);
+  try { saveData(appData); } catch(e) { console.error(e); }
   renderBanks();
 }
 
