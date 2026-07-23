@@ -659,6 +659,21 @@ textarea { min-height: 180px; resize: vertical; line-height: 1.8; }
         </div>
         <p style="font-size:12px;color:var(--text-secondary);margin-top:4px" id="modeDesc">选完立即显示对错和解析</p>
       </div>
+      <div class="form-group">
+        <label class="form-label">⏱️ 计时模式</label>
+        <div class="chip-group" id="timerModeGroup">
+          <span class="chip active" data-timer="off" onclick="selectTimerMode('off', this)">🆓 不计时</span>
+          <span class="chip" data-timer="perQuestion" onclick="selectTimerMode('perQuestion', this)">⏱️ 每题限时</span>
+          <span class="chip" data-timer="total" onclick="selectTimerMode('total', this)">⏰ 总时间</span>
+        </div>
+        <div id="timerConfig" style="display:none;margin-top:8px">
+          <label style="font-size:13px;display:flex;align-items:center;gap:6px">
+            <span id="timerConfigLabel">每题限时</span>
+            <input type="number" id="timerSeconds" value="60" min="5" max="3600" step="5" style="width:72px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;text-align:center;background:var(--bg-input);color:var(--text)">
+            <span>秒</span>
+          </label>
+        </div>
+      </div>
       <div id="categoryFilter" style="margin-top:10px"></div>
       <button class="btn btn-primary btn-block mt-12" onclick="startQuiz()">🚀 开始刷题</button>
     </div>
@@ -667,6 +682,7 @@ textarea { min-height: 180px; resize: vertical; line-height: 1.8; }
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
       <button class="btn btn-ghost btn-sm" onclick="backToSetup()" style="padding:6px 12px;font-size:13px">← 返回</button>
       <div style="font-size:12px;color:var(--text-secondary)" id="bankNameLabel"></div>
+      <div id="timerDisplay" style="display:none;font-size:13px;font-weight:700;padding:4px 12px;border-radius:20px;min-width:60px;text-align:center"></div>
     </div>
     <div class="progress-text" id="progressText">第 1/10 题</div>
     <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
@@ -685,7 +701,7 @@ textarea { min-height: 180px; resize: vertical; line-height: 1.8; }
       </div>
     </div>
   </div>
-  <div id="browseActive" style="display:none">
+  <div id="wrongBrowseActive" style="display:none">
     <div class="progress-text" id="browseProgress"></div>
     <div class="card browse-card" id="browseCard"></div>
     <div class="nav-row">
@@ -927,6 +943,30 @@ let browseState = null;
 let batchSize = 10;
 let quizMode = 'instant'; // 'instant' | 'summary'
 let drawMode = 'random-repeat'; // 'random-repeat' | 'random-norepeat' | 'sequential'
+let timerMode = 'off'; // 'off' | 'perQuestion' | 'total'
+let timerSeconds = 60; // 默认每题60秒
+let timerInterval = null;
+let timerRemaining = 0;
+
+function selectTimerMode(mode, el) {
+  timerMode = mode;
+  document.querySelectorAll('#timerModeGroup .chip').forEach(c => c.classList.remove('active'));
+  if (el) el.classList.add('active');
+  var config = document.getElementById('timerConfig');
+  var label = document.getElementById('timerConfigLabel');
+  if (mode === 'off') {
+    config.style.display = 'none';
+  } else {
+    config.style.display = '';
+    if (mode === 'perQuestion') {
+      label.textContent = '每题限时';
+      document.getElementById('timerSeconds').value = timerSeconds || 60;
+    } else {
+      label.textContent = '总共限时';
+      document.getElementById('timerSeconds').value = timerSeconds || 600;
+    }
+  }
+}
 
 function selectMode(mode, el) {
   quizMode = mode;
@@ -1038,19 +1078,19 @@ function switchPage(page, btn) {
       // 正在刷题中，保持进度
       document.getElementById('quizSetup').style.display = 'none';
       document.getElementById('quizResult').style.display = 'none';
-      document.getElementById('browseActive').style.display = 'none';
+      document.getElementById('wrongBrowseActive').style.display = 'none';
       document.getElementById('quizActive').style.display = 'block';
     } else if (browseState) {
       // 正在浏览中
       document.getElementById('quizSetup').style.display = 'none';
       document.getElementById('quizActive').style.display = 'none';
       document.getElementById('quizResult').style.display = 'none';
-      document.getElementById('browseActive').style.display = 'block';
+      document.getElementById('wrongBrowseActive').style.display = 'block';
     } else {
       document.getElementById('quizSetup').style.display = 'block';
       document.getElementById('quizActive').style.display = 'none';
       document.getElementById('quizResult').style.display = 'none';
-      document.getElementById('browseActive').style.display = 'none';
+      document.getElementById('wrongBrowseActive').style.display = 'none';
       renderQuizSetup();
     }
     document.getElementById('seqProgress').style.display = drawMode === 'sequential' ? '' : 'none';
@@ -1219,21 +1259,89 @@ function editBankContent(name) {
 }
 
 function renderEditBankModal(ov, name, bank) {
-  var itemsHtml = bank.map(function(q, i) {
-    return '<div class="edit-bank-item" id="editBankItem_' + i + '" style="padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s" onclick="toggleEditBankQuestion(\'' + escHtml(name) + '\',' + i + ')">' +
+  // 分页参数
+  var PAGE_SIZE = 100;
+  var totalPages = Math.ceil(bank.length / PAGE_SIZE);
+  window._editBankPage = window._editBankPage || {};
+  var currentPage = window._editBankPage[name] || 1;
+  if (currentPage > totalPages) currentPage = 1;
+  window._editBankPage[name] = currentPage;
+  var start = (currentPage - 1) * PAGE_SIZE;
+  var end = Math.min(start + PAGE_SIZE, bank.length);
+
+  // 只渲染当前页的题目
+  var itemsHtml = '';
+  for (var i = start; i < end; i++) {
+    var q = bank[i];
+    itemsHtml += '<div class="edit-bank-item" id="editBankItem_' + i + '" style="padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s;content-visibility:auto;contain-intrinsic-size:0 52px" onclick="toggleEditBankQuestion(\'' + escHtml(name) + '\',' + i + ')">' +
       '<div style="font-size:13px;font-weight:600;color:var(--primary);margin-bottom:2px">#' + (i + 1) + '</div>' +
       '<div style="font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(q.question || '') + '</div>' +
       '<div style="font-size:11px;color:var(--text-tertiary);margin-top:2px">答案：' + escHtml(q.answer || '') + '</div>' +
     '</div>';
-  }).join('');
+  }
+
+  // 分页控件
+  var paginationHtml = '';
+  if (totalPages > 1) {
+    paginationHtml = '<div style="display:flex;gap:6px;align-items:center;justify-content:center;padding:8px;border-top:1px solid var(--border);flex-shrink:0;flex-wrap:wrap">' +
+      '<button class="btn btn-ghost btn-sm" onclick="editBankGoPage(\'' + escHtml(name) + '\',' + (currentPage - 1) + ')" ' + (currentPage <= 1 ? 'disabled style="opacity:.3"' : '') + '>◀ 上页</button>' +
+      '<span style="font-size:12px;color:var(--text-secondary)">' + currentPage + '/' + totalPages + '</span>' +
+      '<button class="btn btn-ghost btn-sm" onclick="editBankGoPage(\'' + escHtml(name) + '\',' + (currentPage + 1) + ')" ' + (currentPage >= totalPages ? 'disabled style="opacity:.3"' : '') + '>下页 ▶</button>' +
+    '</div>';
+  }
 
   ov.innerHTML = '<div class="modal" style="max-width:500px;margin:auto;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);padding:0;border-radius:var(--radius);max-height:80dvh;display:flex;flex-direction:column">' +
-    '<div style="padding:16px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-shrink:0">' +
-      '<h3 style="font-size:17px;margin:0">✏️ 编辑「' + escHtml(name) + '」（' + bank.length + '题）</h3>' +
-      '<button class="btn btn-ghost btn-sm" onclick="this.closest(\'.modal-overlay\').remove()" style="font-size:20px;padding:4px 8px">✕</button>' +
+    '<div style="padding:16px 18px;border-bottom:1px solid var(--border);flex-shrink:0">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">' +
+        '<h3 style="font-size:17px;margin:0">✏️ 编辑「' + escHtml(name) + '」（' + bank.length + '题）</h3>' +
+        '<button class="btn btn-ghost btn-sm" onclick="this.closest(\'.modal-overlay\').remove()" style="font-size:20px;padding:4px 8px">✕</button>' +
+      '</div>' +
+      '<div style="display:flex;gap:6px;align-items:center">' +
+        '<span style="font-size:12px;color:var(--text-secondary);white-space:nowrap">🔍 跳到第</span>' +
+        '<input type="number" id="editBankJumpInput" min="1" max="' + bank.length + '" placeholder="题号" style="width:60px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;text-align:center;background:var(--bg-input);color:var(--text)" onkeydown="if(event.key===\'Enter\')editBankJumpTo(\'' + escHtml(name) + '\',' + bank.length + ')">' +
+        '<span style="font-size:12px;color:var(--text-secondary);white-space:nowrap">题</span>' +
+        '<button class="btn btn-sm" style="background:var(--primary);color:#fff;border:none;font-size:12px;padding:5px 12px;border-radius:6px" onclick="editBankJumpTo(\'' + escHtml(name) + '\',' + bank.length + ')">GO</button>' +
+      '</div>' +
     '</div>' +
     '<div style="overflow-y:auto;flex:1" id="editBankList">' + itemsHtml + '</div>' +
+    paginationHtml +
   '</div>';
+}
+
+// 跳转到指定题目
+function editBankJumpTo(name, total) {
+  var input = document.getElementById('editBankJumpInput');
+  if (!input) return;
+  var num = parseInt(input.value);
+  if (!num || num < 1 || num > total) { toast('请输入有效题号 1-' + total); return; }
+  var page = Math.ceil(num / 100);
+  window._editBankPage[name] = page;
+  // 重新渲染
+  var ov = document.querySelector('.modal-overlay');
+  if (ov) {
+    var bank = appData.banks[name];
+    if (bank) renderEditBankModal(ov, name, bank);
+  }
+  // 滚动到对应题目
+  setTimeout(function() {
+    var item = document.getElementById('editBankItem_' + (num - 1));
+    if (item) item.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // 高亮
+    if (item) { item.style.background = 'var(--warning-light)'; setTimeout(function() { item.style.background = ''; }, 2000); }
+    // 自动展开编辑
+    if (item) setTimeout(function() { toggleEditBankQuestion(name, num - 1); }, 300);
+  }, 100);
+}
+
+// 翻页
+function editBankGoPage(name, page) {
+  var bank = appData.banks[name];
+  if (!bank) return;
+  var totalPages = Math.ceil(bank.length / 100);
+  if (page < 1 || page > totalPages) return;
+  window._editBankPage[name] = page;
+  var ov = document.querySelector('.modal-overlay');
+  if (ov) renderEditBankModal(ov, name, bank);
 }
 
 window._editBankStates = {};
@@ -1592,13 +1700,31 @@ function selectBrowseBank(bankName) {
 var categoryFilter = null;
 function extractCategories(bank) {
   if (!bank || !bank.length) return [];
-  var cats = new Set();
+  var catCounts = {};
   for (var i = 0; i < bank.length; i++) {
     var q = (bank[i].question || '').trim();
-    var matches = q.match(/（[^）]{1,8}）/g);
-    if (matches) for (var j = 0; j < matches.length; j++) cats.add(matches[j]);
+    var matches = q.match(/（[^）]{1,20}）/g);
+    if (!matches) continue;
+    var seen = {};
+    for (var j = 0; j < matches.length; j++) {
+      var raw = matches[j];
+      if (seen[raw]) continue; seen[raw] = true;
+      var inner = raw.replace(/^（/, '').replace(/）$/, '').trim();
+      // 过滤噪声：空内容、纯空白、纯数字/标点、纯年份标记、单字
+      if (!inner || /^[\s　]*$/.test(inner)) continue;
+      if (/^[\d\s.、，,．\-/]+$/.test(inner)) continue;
+      if (/^\d{4}[年上下]?$/.test(inner)) continue;
+      if (/^[（(][^）)]*[）)]$/.test(inner)) continue;
+      if (inner.length < 2) continue;
+      catCounts[raw] = (catCounts[raw] || 0) + 1;
+    }
   }
-  var arr = []; cats.forEach(function(c) { arr.push(c); });
+  // 至少出现2次或覆盖≥5%题目才算有效分类
+  var threshold = Math.max(2, Math.floor(bank.length * 0.05));
+  var arr = [];
+  for (var k in catCounts) {
+    if (catCounts[k] >= threshold) arr.push(k);
+  }
   return arr.sort();
 }
 function renderCategoryFilter(bankName) {
@@ -2604,10 +2730,16 @@ function extractAnswer(text) {
 
 // 提取解析
 function extractExplanation(text) {
-  // 匹配 解析：xxx 或 【解析】xxx 或 解析:xxx
-  var m = text.match(/(?:解析|【解析】)[：:]\s*([\s\S]+?)(?=\n\d+[.、．）)]|$)/);
-  if (m) return m[1].trim();
-  // 也匹配"答案：X"后面的内容作为解析
+  // 匹配多种解析标记：解析：xxx / 【解析】xxx / [解析]xxx / 考点：xxx / 详解：xxx / 说明：xxx
+  var patterns = [
+    /(?:解析|【解析】|\[解析\]|考点|详解|说明|知识点|注|提示)[：:]\s*([\s\S]+?)(?=\n\d+[.、．）)]|$)/,
+    /（(?:解析|考点|详解)[：:]\s*([^）]+)）/
+  ];
+  for (var pi = 0; pi < patterns.length; pi++) {
+    var m = text.match(patterns[pi]);
+    if (m && m[1] && m[1].trim()) return m[1].trim();
+  }
+  // "答案：X"后面的内容作为解析（排除下一题的题号）
   var afterAnswer = text.match(/答案[：:]\s*[A-E]+\s*\n([\s\S]+?)(?=\n\d+[.、．）)]|$)/);
   if (afterAnswer && afterAnswer[1].trim() && !/^\d+[.、．）)]/.test(afterAnswer[1].trim())) {
     return afterAnswer[1].trim();
@@ -3090,7 +3222,91 @@ function startQuiz() {
   else if (drawMode === 'random-norepeat') hintText += ' · 不重复';
   else hintText += ' · 随机';
   document.getElementById('modeHint').textContent = hintText;
+
+  // 计时初始化
+  stopTimer();
+  if (timerMode === 'off') {
+    document.getElementById('timerDisplay').style.display = 'none';
+  } else {
+    var secInput = document.getElementById('timerSeconds');
+    timerSeconds = parseInt(secInput.value) || 60;
+    if (timerSeconds < 5) timerSeconds = 5;
+    if (timerSeconds > 3600) timerSeconds = 3600;
+    timerRemaining = timerMode === 'total' ? timerSeconds : timerSeconds;
+    startTimer();
+  }
+
   renderQuestion();
+}
+
+// ====== 计时器 ======
+function startTimer() {
+  stopTimer();
+  var display = document.getElementById('timerDisplay');
+  display.style.display = '';
+  updateTimerDisplay();
+  timerInterval = setInterval(function() {
+    timerRemaining--;
+    updateTimerDisplay();
+    if (timerRemaining <= 0) {
+      stopTimer();
+      handleTimerExpiry();
+    }
+  }, 1000);
+}
+
+function stopTimer() {
+  if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+}
+
+function updateTimerDisplay() {
+  var display = document.getElementById('timerDisplay');
+  if (!display) return;
+  var mins = Math.floor(timerRemaining / 60);
+  var secs = timerRemaining % 60;
+  var timeStr = mins > 0 ? mins + ':' + (secs < 10 ? '0' : '') + secs : secs + 's';
+  display.textContent = '⏱ ' + timeStr;
+  // 颜色变化：>60秒正常，≤30秒警告，≤10秒危险
+  if (timerRemaining <= 10) {
+    display.style.background = 'var(--danger-light)';
+    display.style.color = 'var(--danger)';
+  } else if (timerRemaining <= 30) {
+    display.style.background = '#fef3c7';
+    display.style.color = '#b45309';
+  } else {
+    display.style.background = 'var(--primary-light)';
+    display.style.color = 'var(--primary)';
+  }
+}
+
+function handleTimerExpiry() {
+  if (!quizState) return;
+  var idx = quizState.currentIndex;
+  var q = quizState.questions[idx];
+  // 当前题未作答视为错误
+  if (!quizState.userAnswers[idx]) {
+    quizState.userAnswers[idx] = '?';
+    quizState.wrong++;
+    quizState.wrongIds.push(q.id);
+  }
+  if (timerMode === 'perQuestion') {
+    // 每题限时：自动跳到下一题
+    if (idx < quizState.total - 1) {
+      toast('⏰ 时间到！自动跳至下一题');
+      quizState.currentIndex++;
+      timerRemaining = timerSeconds;
+      updateTimerDisplay();
+      startTimer();
+      renderQuestion();
+    } else {
+      toast('⏰ 时间到！');
+      showResult();
+    }
+  } else {
+    // 总时间限时：直接交卷
+    toast('⏰ 总时间到，自动交卷！');
+    showResult();
+  }
 }
 
 // 获取选项字母列表
@@ -3424,10 +3640,16 @@ function nextQuestion() {
   if (!isInstant && allAnswered) { showResult(); return; }
   if (isInstant && idx >= quizState.total - 1) { showResult(); return; }
   quizState.currentIndex++;
+  // 每题限时模式：重置计时器
+  if (timerMode === 'perQuestion') {
+    timerRemaining = timerSeconds;
+    updateTimerDisplay();
+  }
   renderQuestion();
 }
 
 function showResult() {
+  stopTimer();
   document.getElementById('quizActive').style.display = 'none';
   document.getElementById('quizResult').style.display = 'block';
 
@@ -3549,6 +3771,7 @@ function showResult() {
 }
 
 function backToSetup() {
+  stopTimer();
   quizState = null; // 清掉旧进度
   document.getElementById('quizResult').style.display = 'none';
   document.getElementById('quizSetup').style.display = 'block';
@@ -3632,7 +3855,7 @@ function browseWrongsByTier(name, tierKey) {
   document.getElementById('quizSetup').style.display = 'none';
   document.getElementById('quizActive').style.display = 'none';
   document.getElementById('quizResult').style.display = 'none';
-  document.getElementById('browseActive').style.display = 'block';
+  document.getElementById('wrongBrowseActive').style.display = 'block';
   renderBrowseQuestion();
 }
 
@@ -3688,7 +3911,7 @@ function browseFavs(name) {
   document.getElementById('quizSetup').style.display = 'none';
   document.getElementById('quizActive').style.display = 'none';
   document.getElementById('quizResult').style.display = 'none';
-  document.getElementById('browseActive').style.display = 'block';
+  document.getElementById('wrongBrowseActive').style.display = 'block';
   renderBrowseQuestion();
 }
 
@@ -3720,7 +3943,7 @@ function toggleFavFromBrowse() {
       browseState.questions.splice(browseState.index, 1);
       browseState.total = browseState.questions.length;
       if (browseState.total === 0) {
-        document.getElementById('browseActive').style.display = 'none';
+        document.getElementById('wrongBrowseActive').style.display = 'none';
         browseState = null;
         switchPage('wrong', document.querySelector('[data-page="wrong"]'));
         return;
@@ -3797,8 +4020,8 @@ function renderBrowseQuestion() {
   }
 
   document.getElementById('browseCard').innerHTML = html;
-  var prevBtn = document.querySelector('#browseActive .nav-row .btn:first-child');
-  var nextBtn = document.querySelector('#browseActive .nav-row .btn:last-child');
+  var prevBtn = document.querySelector('#wrongBrowseActive .nav-row .btn:first-child');
+  var nextBtn = document.querySelector('#wrongBrowseActive .nav-row .btn:last-child');
   if (prevBtn) prevBtn.style.visibility = idx > 0 ? '' : 'hidden';
   if (nextBtn) nextBtn.textContent = idx < browseState.total - 1 ? '下一题 ▶' : '回到错题本 📋';
 }
@@ -3908,7 +4131,7 @@ function browseNext() {
   if (browseState.index >= browseState.total - 1) {
     // 回到错题/收藏页，保持所在 tab
     var isFav = browseState.isFavBrowse;
-    document.getElementById('browseActive').style.display = 'none';
+    document.getElementById('wrongBrowseActive').style.display = 'none';
     browseState = null;
     if (isFav) { wrongTab = 'fav'; }
     switchPage('wrong', document.querySelector('[data-page="wrong"]'));
