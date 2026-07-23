@@ -4323,6 +4323,43 @@ function backupData() {
   });
 }
 
+async function shareBackupFile() {
+  var data = loadData();
+  var json = JSON.stringify(data, null, 2);
+  var today = new Date().toISOString().slice(0, 10);
+  var filename = '刷题备份_' + today + '.json';
+  var blob = new Blob([json], { type: 'application/json' });
+  var file = new File([blob], filename, { type: 'application/json' });
+
+  // Web Share API — 手机上弹出系统分享菜单（微信/QQ/AirDrop/存文件等）
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({
+        files: [file],
+        title: '刷题数据备份',
+        text: '选择题刷题工具数据备份 - ' + today
+      });
+      toast('✅ 分享成功');
+      return;
+    } catch (err) {
+      if (err.name === 'AbortError') return; // 用户取消，不处理
+      // 分享失败，走下载fallback
+      console.error('Share failed, fallback to download:', err);
+    }
+  }
+
+  // Fallback：直接下载 JSON（桌面端或不支持文件分享的浏览器）
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast('✅ 已下载 ' + filename);
+}
+
 async function makeBackupCode(json) {
   if (typeof CompressionStream !== 'undefined') {
     try {
@@ -4497,6 +4534,8 @@ function renderSettings() {
 
   c.innerHTML = '<div class="section"><div class="section-title">数据管理</div>' +
     '<div class="setting-item" style="flex-direction:column;align-items:stretch;gap:10px">' +
+      '<button class="btn btn-primary btn-block" onclick="shareBackupFile()" style="font-size:15px">📤 分享/导出备份文件</button>' +
+      '<div style="font-size:12px;color:var(--text-tertiary);text-align:center;margin:-4px 0 4px">📱 手机直接分享到微信/QQ/存文件 &nbsp;|&nbsp; 💻 电脑自动下载</div>' +
       '<button class="btn btn-outline btn-block" onclick="backupData()">📋 复制备份码</button>' +
       '<button class="btn btn-outline btn-block" id="restoreToggleBtn" onclick="toggleRestoreSection()">📥 粘贴备份码恢复</button>' +
       '<div id="restoreSection" style="display:none;margin-top:12px;padding:14px;background:var(--bg);border-radius:10px">' +
@@ -4637,7 +4676,8 @@ function showManualMenu() {
       '<div style="margin-bottom:16px">' +
         '<h4 style="font-size:15px;margin:0 0 8px;color:var(--primary)">📱 多设备同步</h4>' +
         '<div style="background:var(--bg-input);border-radius:10px;padding:12px 14px">' +
-          '<p style="margin:0 0 4px">不支持自动同步。手动方式：<b>导出全部数据 → 微信/QQ/网盘传到另一台设备 → 导入数据</b>。</p>' +
+          '<p style="margin:0 0 4px">不支持自动同步。手动方式：<b>设置页 → 📤 分享/导出备份文件 → 微信/QQ/AirDrop 传到另一台设备 → 导入</b>。</p>' +
+          '<p style="margin:0 0 4px"><b>📱 手机推荐：</b>点"分享/导出备份文件"，直接弹出系统分享菜单，一键发到微信或存 iCloud。</p>' +
           '<p style="margin:0">每次同步前先两边都导出备份，防止传输出错。</p>' +
         '</div>' +
       '</div>' +
@@ -4660,7 +4700,7 @@ function showManualMenu() {
       '<div style="margin-bottom:12px">' +
         '<h4 style="font-size:15px;margin:0 0 8px;color:var(--primary)">💡 速记口诀</h4>' +
         '<div style="background:var(--bg-input);border-radius:10px;padding:12px 14px">' +
-          '<p style="margin:0 0 4px">📦 <b>每周导出一份备份</b>，文件名带日期（<code>刷题备份_2026-07-23.json</code>）</p>' +
+          '<p style="margin:0 0 4px">📦 <b>每周导出一份备份</b>，设置页点"📤 分享/导出"（手机直接分享，电脑自动下载）</p>' +
           '<p style="margin:0 0 4px">🔄 页面异常 → 设置页点<b>"检查更新"</b>（= 强制刷新，不丢数据）</p>' +
           '<p style="margin:0 0 4px">✏️ 题库名称<b>直接点击就能改名</b>，不用进编辑</p>' +
           '<p style="margin:0 0 4px">📋 导入预览里被跳过的题<b>可以当场改、当场重试</b>，不用退出去重来</p>' +
@@ -4789,7 +4829,7 @@ function showManualMenu() {
       '<div style="margin-bottom:20px">' +
         '<h4 style="font-size:16px;margin:0 0 10px;color:var(--primary)">⚙️ 设置 & 数据</h4>' +
         '<div style="background:var(--bg-input);border-radius:10px;padding:14px 16px">' +
-          '<p style="margin:0 0 6px"><b>📦 导出全部数据</b> — 将所有题库、错题记录、设置打包为 JSON 文件下载。这是唯一的"安全确认点"——备份了就不怕任何意外。建议文件命名格式：<b>刷题备份_2026-07-23.json</b>，保留最近 2-3 次备份更安全。导出后可以尝试"导入数据"来验证备份文件是否完整。文件可存电脑文档、网盘或微信收藏。</p>' +
+          '<p style="margin:0 0 6px"><b>📤 分享/导出备份文件</b> — 将所有题库、错题记录、设置打包导出。<b>📱 手机：</b>自动弹出系统分享菜单，一键发微信/QQ/AirDrop/存 iCloud；<b>💻 电脑：</b>自动下载 JSON 文件。这是唯一的"安全确认点"——备份了就不怕任何意外。建议保留最近 2-3 次备份。可尝试用"粘贴备份码恢复"来验证备份文件是否完整。</p>' +
           '<p style="margin:0 0 6px"><b>📥 导入数据</b> — 从之前导出的 JSON 文件恢复全部数据。<b>会覆盖当前所有数据</b>，操作前务必先导出备份！不要用记事本编辑导出的 JSON 文件，可能破坏编码导致导入失败。浏览器可能拦截下载弹窗，留意地址栏提示。导入大文件（1000+题）需要几秒，不是卡死。</p>' +
           '<p style="margin:0 0 6px"><b>🔄 恢复预设题库</b> — 题库为空或误删时，一键恢复内置的预设题库。</p>' +
           '<p style="margin:0 0 6px"><b>🎨 主题颜色</b> — 切换界面配色。</p>' +
@@ -4806,8 +4846,8 @@ function showManualMenu() {
           '<p style="margin:0 0 6px"><b>💾 数据存储位置</b> — 所有题目、错题、设置都保存在浏览器本地存储（localStorage），不会上传到任何服务器，完全离线可用。但清除浏览器数据会导致数据丢失！</p>' +
           '<p style="margin:0 0 6px"><b>📊 存储容量</b> — localStorage 上限约 5–10 MB（不同浏览器有差异）。每个题目约占用 0.5–2 KB，理论可存 2500–10000+ 题。如遇"存储空间不足"提示，说明题库太大，需要分批存储或清理旧数据。</p>' +
           '<p style="margin:0 0 6px"><b>💾 缓存 ≠ 数据</b> — 很多人搞混：<b>"浏览器缓存"和"你的题库数据（localStorage）"是两回事</b>。清缓存（网页文件）一般不会丢题库。但"清除浏览数据"时如果勾选了"Cookie 和网站数据"，题库就会丢。</p>' +
-          '<p style="margin:0 0 6px"><b>📦 定期备份</b> — 强烈建议每周使用"导出全部数据"保存 JSON 文件到电脑或网盘。文件命名建议带日期（刷题备份_2026-07-23.json），保留最近 2-3 次备份。备份后可尝试导入以验证文件完整性。换设备、重装浏览器后可通过"导入数据"一键恢复。</p>' +
-          '<p style="margin:0 0 6px"><b>📱 多设备同步</b> — 工具不支持自动同步。手机⇄电脑同步：导出全部数据 → 微信/QQ/网盘发给另一台设备 → 在那边导入。</p>' +
+          '<p style="margin:0 0 6px"><b>📦 定期备份</b> — 强烈建议每周使用"📤 分享/导出备份文件"保存 JSON 文件到电脑或网盘。手机直接分享到微信/QQ，电脑自动下载。保留最近 2-3 次备份。备份后可尝试导入以验证文件完整性。换设备、重装浏览器后可通过"粘贴备份码恢复"一键恢复。</p>' +
+          '<p style="margin:0 0 6px"><b>📱 多设备同步</b> — 工具不支持自动同步。手机⇄电脑同步：设置页点"📤 分享/导出备份文件" → 微信/QQ/网盘发给另一台设备 → 在那边导入。</p>' +
           '<p style="margin:0 0 6px"><b>🗑️ 数据丢失场景</b> — 以下操作会清空 localStorage：① 浏览器"清除浏览数据"时勾选了 Cookie 和网站数据（只清缓存不勾选就安全）；② <b>iOS Safari 的"清除历史记录与网站数据"</b>（iOS 最坑，很多人中招）；③ 手机管家/清理软件的垃圾清理；④ 无痕/隐私模式关闭窗口；⑤ 手机存储空间不足时系统可能自动清理浏览器数据。</p>' +
           '<p style="margin:0"><b>🔒 隐私安全</b> — 纯前端工具，无后台服务器，题目数据不会被收集或分享。导出到本地的 JSON 文件请妥善保管。</p>' +
         '</div>' +
