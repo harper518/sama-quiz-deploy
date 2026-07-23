@@ -669,7 +669,7 @@ textarea { min-height: 180px; resize: vertical; line-height: 1.8; }
         <div id="timerConfig" style="display:none;margin-top:8px">
           <label style="font-size:13px;display:flex;align-items:center;gap:6px">
             <span id="timerConfigLabel">每题限时</span>
-            <input type="number" id="timerSeconds" value="60" min="5" max="3600" step="5" style="width:72px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;text-align:center;background:var(--bg-input);color:var(--text)">
+            <input type="number" id="timerSeconds" value="75" min="5" max="3600" step="5" onchange="saveTimerSeconds()" style="width:72px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;text-align:center;background:var(--bg-input);color:var(--text)">
             <span>秒</span>
           </label>
         </div>
@@ -944,7 +944,7 @@ let batchSize = 10;
 let quizMode = 'instant'; // 'instant' | 'summary'
 let drawMode = 'random-repeat'; // 'random-repeat' | 'random-norepeat' | 'sequential'
 let timerMode = 'off'; // 'off' | 'perQuestion' | 'total'
-let timerSeconds = 60; // 默认每题60秒
+let timerSeconds = 75; // 默认每题75秒
 let timerInterval = null;
 let timerRemaining = 0;
 
@@ -960,12 +960,29 @@ function selectTimerMode(mode, el) {
     config.style.display = '';
     if (mode === 'perQuestion') {
       label.textContent = '每题限时';
-      document.getElementById('timerSeconds').value = timerSeconds || 60;
+      document.getElementById('timerSeconds').value = timerSeconds || 75;
     } else {
       label.textContent = '总共限时';
       document.getElementById('timerSeconds').value = timerSeconds || 600;
     }
   }
+  // 持久化
+  if (!appData.settings) appData.settings = {};
+  appData.settings.timerMode = mode;
+  appData.settings.timerSeconds = timerSeconds;
+  saveData(appData);
+}
+
+function saveTimerSeconds() {
+  var input = document.getElementById('timerSeconds');
+  if (!input) return;
+  timerSeconds = parseInt(input.value) || 75;
+  if (timerSeconds < 5) timerSeconds = 5;
+  if (timerSeconds > 3600) timerSeconds = 3600;
+  input.value = timerSeconds;
+  if (!appData.settings) appData.settings = {};
+  appData.settings.timerSeconds = timerSeconds;
+  saveData(appData);
 }
 
 function selectMode(mode, el) {
@@ -1333,8 +1350,25 @@ function editBankJumpTo(name, total) {
   }, 100);
 }
 
+// 检查当前页是否有未保存编辑
+function editBankHasUnsaved(name) {
+  var states = window._editBankStates || {};
+  for (var key in states) {
+    if (states[key] && key.indexOf(name + '|') === 0) return true;
+  }
+  return false;
+}
+
 // 翻页
 function editBankGoPage(name, page) {
+  if (editBankHasUnsaved(name)) {
+    if (!confirm('当前页有未保存的编辑，翻页会丢失修改。确定继续吗？')) return;
+    // 清除编辑状态
+    var states = window._editBankStates || {};
+    for (var key in states) {
+      if (key.indexOf(name + '|') === 0) states[key] = false;
+    }
+  }
   var bank = appData.banks[name];
   if (!bank) return;
   var totalPages = Math.ceil(bank.length / 100);
@@ -1534,7 +1568,7 @@ function renderBrowseStart() {
   var bankName = arguments[0] || names[0];
   var bank = appData.banks[bankName];
   if (!bank) { bankName = names[0]; bank = appData.banks[bankName]; }
-  browseState2 = { bankName: bankName, cards: bank, index: 0, view: 'list', searchQuery: '', filter: 'all', _filteredCards: bank };
+  browseState2 = { bankName: bankName, cards: bank, index: 0, view: 'list', searchQuery: '', filter: 'all', _filteredCards: bank, _browsePage: 1 };
   c.innerHTML = '<div class="flex justify-between items-center mb-12">' +
     '<h1 style="font-size:20px;font-weight:800;margin:0">📖 目录</h1>' +
     '<button class="btn btn-ghost btn-sm" onclick="showBrowseBankPicker()" style="font-size:13px">' + escHtml(bankName) + ' ▾</button>' +
@@ -1557,11 +1591,12 @@ function changeBrowseBank() {
 }
 function doBrowseSearch() {
   var input = document.getElementById('browseSearchInput');
-  if (browseState2) { browseState2.searchQuery = input ? input.value.trim().toLowerCase() : ''; renderBrowseList(); }
+  if (browseState2) { browseState2.searchQuery = input ? input.value.trim().toLowerCase() : ''; browseState2._browsePage = 1; renderBrowseList(); }
 }
 function setBrowseFilter(filter, el) {
   browseState2.filter = filter;
   browseState2.searchQuery = '';
+  browseState2._browsePage = 1;
   var si = document.getElementById('browseSearchInput');
   if (si) si.value = '';
   var chips = document.querySelectorAll('#browseFilterChips .chip');
@@ -1591,16 +1626,27 @@ function renderBrowseList() {
     return;
   }
   st._filteredCards = cards;
-  var html = '';
+
+  // 分页
+  var PAGE_SIZE = 100;
+  var totalPages = Math.ceil(cards.length / PAGE_SIZE);
+  if (st._browsePage === undefined || st._browsePage < 1) st._browsePage = 1;
+  if (st._browsePage > totalPages) st._browsePage = 1;
+  var page = st._browsePage;
+  var start = (page - 1) * PAGE_SIZE;
+  var end = Math.min(start + PAGE_SIZE, cards.length);
+
   var wb = appData.wrongBooks[st.bankName] || [];
-  var favs = (appData.favorites && appData.favorites[st.bankName]) || [];
+  var favs2 = (appData.favorites && appData.favorites[st.bankName]) || [];
   var favMap = {};
-  favs.forEach(function(f) { favMap[f.id] = true; });
+  favs2.forEach(function(f) { favMap[f.id] = true; });
   var wrongMap = {};
   wb.forEach(function(w) { wrongMap[w.id] = true; });
-  for (var i = 0; i < cards.length; i++) {
+
+  var html = '';
+  for (var i = start; i < end; i++) {
     var card = cards[i];
-    var qText = card.question.replace(/^[\d\.\、\s]+/, '').substring(0, 40);
+    var qText = (card.question || '').replace(/^[\d\.\、\s]+/, '').substring(0, 40);
     var isWrong = wrongMap[card.id];
     var isFav = favMap[card.id];
     html += '<div class="browse-dir-item" onclick="openBrowseDetail(' + i + ')"><span style="font-size:11px;color:var(--text-tertiary);min-width:28px">' + (i + 1) + '</span><span style="flex:1;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(qText) + '</span>' +
@@ -1608,7 +1654,20 @@ function renderBrowseList() {
       '<span onclick="event.stopPropagation();toggleBrowseStarFromList(' + i + ')" style="font-size:16px;padding:4px 8px;min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center;cursor:pointer">' + (isFav ? '⭐' : '☆') + '</span>' +
     '</div>';
   }
-  c.innerHTML = html;
+
+  // 分页控件
+  var pagination = '';
+  if (totalPages > 1) {
+    pagination = '<div style="display:flex;gap:6px;align-items:center;justify-content:center;padding:12px 0 8px;flex-wrap:wrap">' +
+      '<button class="btn btn-ghost btn-sm" onclick="browseGoPage(' + (page - 1) + ')" ' + (page <= 1 ? 'disabled style="opacity:.3"' : '') + '>◀ 上页</button>' +
+      '<span style="font-size:12px;color:var(--text-secondary);min-width:60px;text-align:center">' + page + '/' + totalPages + '</span>' +
+      '<button class="btn btn-ghost btn-sm" onclick="browseGoPage(' + (page + 1) + ')" ' + (page >= totalPages ? 'disabled style="opacity:.3"' : '') + '>下页 ▶</button>' +
+      '<span style="font-size:11px;color:var(--text-tertiary);margin-left:4px">共' + cards.length + '题</span>' +
+    '</div>';
+  }
+
+  c.innerHTML = pagination + html + pagination;
+
   // 恢复滚动位置
   if (st._scrollY) {
     setTimeout(function() {
@@ -1616,6 +1675,14 @@ function renderBrowseList() {
       st._scrollY = 0;
     }, 50);
   }
+}
+
+function browseGoPage(p) {
+  if (!browseState2) return;
+  var totalPages = Math.ceil((browseState2._filteredCards || browseState2.cards).length / 100);
+  if (p < 1 || p > totalPages) return;
+  browseState2._browsePage = p;
+  renderBrowseList();
 }
 function toggleBrowseStarFromList(idx) {
   var st = browseState2;
@@ -1765,8 +1832,12 @@ function getFilteredCards(bank) {
   if (!categoryFilter || !categoryFilter.size) return bank;
   return bank.filter(function(c) {
     var q = (c.question || '').trim();
-    var matches = q.match(/（[^）]{1,8}）/g) || [];
-    return matches.some(function(m) { return categoryFilter.has(m); });
+    // 直接检查题目是否包含分类字符串，不限长度
+    var found = false;
+    categoryFilter.forEach(function(cat) {
+      if (q.indexOf(cat) >= 0) found = true;
+    });
+    return found;
   });
 }
 
@@ -4484,6 +4555,16 @@ function showManualMenu() {
 
 // ====== Init ======
 applySettings();
+// 恢复计时设置
+(function() {
+  var s = appData.settings || {};
+  if (s.timerMode) {
+    timerMode = s.timerMode;
+    timerSeconds = s.timerSeconds || 75;
+    var chip = document.querySelector('#timerModeGroup .chip[data-timer="' + timerMode + '"]');
+    if (chip) selectTimerMode(timerMode, chip);
+  }
+})();
 renderBanks();
 updateBadges();
 </script>
