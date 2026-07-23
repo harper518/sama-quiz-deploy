@@ -4326,6 +4326,8 @@ function backupData() {
   makeBackupCode(JSON.stringify(backup)).then(function(code) {
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(code).then(function() {
+        appData.settings.lastBackup = Date.now();
+        saveData(appData);
         toast('✅ 备份码已复制！请粘贴到备忘录保存');
       }).catch(function() {
         fallbackCopy(code);
@@ -4352,6 +4354,8 @@ async function shareBackupFile() {
         title: '刷题数据备份',
         text: '选择题刷题工具数据备份 - ' + today
       });
+      appData.settings.lastBackup = Date.now();
+      saveData(appData);
       toast('✅ 分享成功');
       return;
     } catch (err) {
@@ -4370,6 +4374,8 @@ async function shareBackupFile() {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+  appData.settings.lastBackup = Date.now();
+  saveData(appData);
   toast('✅ 已下载 ' + filename);
 }
 
@@ -4401,6 +4407,8 @@ function fallbackCopy(text) {
   ta.select();
   try {
     document.execCommand('copy');
+    appData.settings.lastBackup = Date.now();
+    saveData(appData);
     toast('✅ 备份码已复制！请粘贴到备忘录保存');
   } catch(e) {
     toast('❌ 复制失败，请尝试手动复制');
@@ -4630,6 +4638,22 @@ function renderSettings() {
         : storagePercent > 70 ? '⚡ 使用中，建议定期备份'
         : '✅ 空间充裕';
 
+      // 距上次备份天数
+      var lastBackup = (appData.settings || {}).lastBackup;
+      var backupDays = lastBackup ? Math.floor((Date.now() - lastBackup) / 86400000) : null;
+      var backupWarn = '';
+      if (backupDays === null) {
+        backupWarn = '<div style="margin-top:6px;padding:8px 12px;background:#fff3cd;border:1px solid #ffc107;border-radius:6px;font-size:12px;color:#856404">⚠️ 尚未备份过！建议立即导出备份</div>';
+      } else if (backupDays > 30) {
+        backupWarn = '<div style="margin-top:6px;padding:8px 12px;background:#ffe0e0;border:1px solid #e74c3c;border-radius:6px;font-size:12px;color:#a33">🔴 已 <b>' + backupDays + ' 天</b>未备份！数据风险极高，请立即备份</div>';
+      } else if (backupDays > 7) {
+        backupWarn = '<div style="margin-top:6px;padding:8px 12px;background:#fff3cd;border:1px solid #ffc107;border-radius:6px;font-size:12px;color:#856404">🟡 已 <b>' + backupDays + ' 天</b>未备份，建议尽快导出</div>';
+      } else if (backupDays > 0) {
+        backupWarn = '<div style="margin-top:6px;padding:8px 12px;background:#e8f5e9;border:1px solid #4caf50;border-radius:6px;font-size:12px;color:#2e7d32">🟢 ' + backupDays + ' 天前备份过，状态良好</div>';
+      } else {
+        backupWarn = '<div style="margin-top:6px;padding:8px 12px;background:#e8f5e9;border:1px solid #4caf50;border-radius:6px;font-size:12px;color:#2e7d32">✅ 今天已备份</div>';
+      }
+
       return '<div class="section"><div class="section-title">📊 存储状态</div>' +
         '<div class="setting-item" style="flex-direction:column;align-items:stretch;gap:8px">' +
           // 进度条
@@ -4640,6 +4664,7 @@ function renderSettings() {
           '<div style="height:10px;background:var(--border);border-radius:5px;overflow:hidden">' +
             '<div style="height:100%;width:' + storagePercent + '%;background:' + barColor + ';border-radius:5px;transition:width .3s"></div>' +
           '</div>' +
+          backupWarn +
           // 统计卡片
           '<div style="display:flex;gap:10px;margin-top:4px">' +
             '<div style="flex:1;background:var(--bg-input);border-radius:8px;padding:10px;text-align:center">' +
