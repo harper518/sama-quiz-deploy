@@ -4583,7 +4583,94 @@ function checkUpdate() {
 }
 
 function showManualMenu() {
-  toast('使用说明：暂未添加完整文档，基本功能包括导入题库、选择题库刷题、错题回顾等。');
+  var ov = document.createElement('div'); ov.className = 'modal-overlay'; ov.style.animation = 'none';
+  ov.innerHTML = '<div class="modal" style="animation:none;max-width:560px;margin:auto;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);padding:0;border-radius:var(--radius);max-height:88dvh;display:flex;flex-direction:column">' +
+    '<div style="padding:16px 18px;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;justify-content:space-between;align-items:center">' +
+      '<h3 style="font-size:18px;margin:0">📖 使用说明</h3>' +
+      '<button class="btn btn-ghost btn-sm" onclick="this.closest(\'.modal-overlay\').remove()" style="font-size:20px;padding:4px 8px;min-width:44px;min-height:44px">✕</button>' +
+    '</div>' +
+    '<div style="overflow-y:auto;flex:1;padding:16px 18px 24px;font-size:14px;line-height:1.7;color:var(--text)">' +
+
+      // 题库管理
+      '<div style="margin-bottom:20px">' +
+        '<h4 style="font-size:16px;margin:0 0 10px;color:var(--primary)">📚 题库管理</h4>' +
+        '<div style="background:var(--bg-input);border-radius:10px;padding:14px 16px">' +
+          '<p style="margin:0 0 6px"><b>＋ 导入</b> — 粘贴题目文本或上传文件（支持 .txt / .json / .csv / .docx / .pdf / .xlsx）粘贴后点击"预览"，确认无误再导入。</p>' +
+          '<p style="margin:0 0 6px"><b>📋 题目格式</b> — 支持两种：① 题目+选项+答案写在一起的"合并格式"；② 题目/选项放上方文本框、答案放下方文本框的"分离格式"。</p>' +
+          '<p style="margin:0 0 6px"><b>📋 复制话术</b> — 点击"复制话术"按钮，获得发给 AI 的格式模板，让 AI 按要求输出题目。</p>' +
+          '<p style="margin:0 0 6px"><b>🔀 合并</b> — 将两个题库合二为一，源题库的所有题目移入目标题库，源题库删除。</p>' +
+          '<p style="margin:0 0 6px"><b>✏️ 编辑</b> — 点击题库右侧的 ✏️ 进入编辑模式，可逐题修改题目、选项、答案和解析。支持翻页和跳转到指定题号。</p>' +
+          '<p style="margin:0 0 6px"><b>📤 导出</b> — 将题库导出为 JSON 或文本格式，可复制或下载。</p>' +
+          '<p style="margin:0 0 6px"><b>🗑️ 删除</b> — 删除整个题库，操作不可恢复，请谨慎。</p>' +
+          '<p style="margin:0 0 6px"><b>↕ 排序</b> — 点击 ↑↓ 箭头调整题库在列表中的显示顺序。</p>' +
+          '<p style="margin:0"><b>✏️ 重命名</b> — 直接点击题库名称即可修改。</p>' +
+        '</div>' +
+      '</div>' +
+
+      // 浏览模式
+      '<div style="margin-bottom:20px">' +
+        '<h4 style="font-size:16px;margin:0 0 10px;color:var(--primary)">📖 浏览模式</h4>' +
+        '<div style="background:var(--bg-input);border-radius:10px;padding:14px 16px">' +
+          '<p style="margin:0 0 6px"><b>选择题库</b> — 在顶部下拉菜单中选择要浏览的题库。</p>' +
+          '<p style="margin:0 0 6px"><b>题目列表</b> — 按顺序展示所有题目，点击可展开查看详情。</p>' +
+          '<p style="margin:0"><b>快速跳转</b> — 输入题号直接跳到指定题目。</p>' +
+        '</div>' +
+      '</div>' +
+
+      // 刷题模式
+      '<div style="margin-bottom:20px">' +
+        '<h4 style="font-size:16px;margin:0 0 10px;color:var(--primary)">📝 刷题模式</h4>' +
+        '<div style="background:var(--bg-input);border-radius:10px;padding:14px 16px">' +
+          '<p style="margin:0 0 6px"><b>选题库</b> — 勾选一个或多个题库开始刷题，可选全部或指定题库。</p>' +
+          '<p style="margin:0 0 6px"><b>即时模式</b> — 每做一题立刻显示对错和解析，适合学习新知识。</p>' +
+          '<p style="margin:0 0 6px"><b>总结模式</b> — 全部做完统一出结果，适合模拟考试。</p>' +
+          '<p style="margin:0 0 6px"><b>顺序 / 随机</b> — 按题库顺序出题，或打乱顺序增加难度。</p>' +
+          '<p style="margin:0 0 6px"><b>计时</b> — 可选"每题限时"或"不限时"，每题限时模式下自动跳下一题。</p>' +
+          '<p style="margin:0 0 6px"><b>单选题</b> — 点击选项直接出结果，答完可点下一题。</p>' +
+          '<p style="margin:0 0 6px"><b>多选题</b> — 点选多个选项后，点击"确认选择"提交。已选中的选项可再次点击取消。</p>' +
+          '<p style="margin:0 0 6px"><b>查看解析</b> — 答完后点击"💡 查看解析"展开详细解释。</p>' +
+          '<p style="margin:0 0 6px"><b>上一题 / 下一题</b> — 切换题目，已答题目会保留作答记录和反馈。</p>' +
+          '<p style="margin:0"><b>结果页</b> — 显示正确率、用时，可查看错题详情或将错题加入错题本。</p>' +
+        '</div>' +
+      '</div>' +
+
+      // 错题复习
+      '<div style="margin-bottom:20px">' +
+        '<h4 style="font-size:16px;margin:0 0 10px;color:var(--primary)">❌ 错题复习</h4>' +
+        '<div style="background:var(--bg-input);border-radius:10px;padding:14px 16px">' +
+          '<p style="margin:0 0 6px"><b>错题本</b> — 做错的题目自动进入对应题库的错题本。</p>' +
+          '<p style="margin:0 0 6px"><b>间隔复习</b> — 基于遗忘曲线的智能复习，做对的题目间隔逐渐拉长，做错的重新开始。</p>' +
+          '<p style="margin:0"><b>待复习提醒</b> — 题库列表中显示 📅 待复习数量，到期题目一目了然。</p>' +
+        '</div>' +
+      '</div>' +
+
+      // 设置
+      '<div style="margin-bottom:20px">' +
+        '<h4 style="font-size:16px;margin:0 0 10px;color:var(--primary)">⚙️ 设置 & 数据</h4>' +
+        '<div style="background:var(--bg-input);border-radius:10px;padding:14px 16px">' +
+          '<p style="margin:0 0 6px"><b>📦 导出全部数据</b> — 将所有题库、错题记录、设置打包为 JSON 文件下载，用于备份或迁移。</p>' +
+          '<p style="margin:0 0 6px"><b>📥 导入数据</b> — 从之前导出的 JSON 文件恢复全部数据。注意会覆盖当前数据。</p>' +
+          '<p style="margin:0 0 6px"><b>🔄 恢复预设题库</b> — 如果题库为空或误删，可一键恢复内置的预设题库。</p>' +
+          '<p style="margin:0 0 6px"><b>🎨 主题颜色</b> — 切换界面配色。</p>' +
+          '<p style="margin:0 0 6px"><b>🔤 字体大小</b> — 拖动滑块调整全局字号。</p>' +
+          '<p style="margin:0 0 6px"><b>🔄 检查更新</b> — 清除缓存并刷新页面，获取最新版本。</p>' +
+          '<p style="margin:0"><b>🗑️ 删除所有数据</b> — 清空全部题库和设置，不可恢复。</p>' +
+        '</div>' +
+      '</div>' +
+
+      // 小贴士
+      '<div style="background:var(--primary-light);border-radius:10px;padding:12px 16px;font-size:13px">' +
+        '<b>💡 小贴士</b><br>' +
+        '· 所有数据存储在浏览器本地，不会上传到服务器，离线也能用。<br>' +
+        '· 建议定期使用"导出全部数据"备份，防止浏览器数据被清理。<br>' +
+        '· 导入题目时如遇"跳过"提示，说明格式不兼容，可在预览中编辑修正后再导入。<br>' +
+        '· 触屏设备上所有按钮均适配 ≥44px 触控区域。' +
+      '</div>' +
+
+    '</div>' +
+  '</div>';
+  document.body.appendChild(ov);
+  ov.addEventListener('click', function(e) { if (e.target === ov) ov.remove(); });
 }
 
 // ====== Init ======
