@@ -1241,10 +1241,34 @@ function exportBank(name) {
 }
 function showExportModal(title, content) {
   var ov = document.createElement('div'); ov.className = 'modal-overlay'; ov.style.animation = 'none';
-  ov.innerHTML = '<div class="modal" style="animation:none;max-width:420px;margin:auto;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);padding:20px;border-radius:var(--radius)"><h3 style="margin-bottom:6px">📤 ' + escHtml(title) + '</h3><textarea readonly style="width:100%;min-height:160px;max-height:50vh;font-size:13px;padding:10px;border:2px solid var(--border);border-radius:8px;background:var(--bg-input);color:var(--text);word-break:break-all;font-family:inherit" onclick="this.select()">' + escHtml(content) + '</textarea><p class="text-sm text-secondary mt-6" style="font-size:12px;color:var(--text-secondary);margin-top:6px">👆 点上方文字全选 → 复制</p><div class="flex gap-8 mt-10" style="display:flex;gap:10px;margin-top:12px"><button class="btn btn-primary flex-1" style="flex:1" onclick="copyExportContent(this)">📋 一键复制</button><button class="btn btn-outline flex-1" style="flex:1" onclick="downloadExportText(this,\'' + escHtml(title).replace(/'/g, "\\'") + '\')">📥 下载 TXT</button><button class="btn btn-ghost flex-1" style="flex:1" onclick="this.closest(\'.modal-overlay\').remove()">关闭</button></div></div>';
+  var hasShare = navigator.share !== undefined;
+  ov.innerHTML = '<div class="modal" style="animation:none;max-width:420px;margin:auto;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);padding:20px;border-radius:var(--radius)"><h3 style="margin-bottom:6px">📤 ' + escHtml(title) + '</h3><textarea readonly style="width:100%;min-height:160px;max-height:50vh;font-size:13px;padding:10px;border:2px solid var(--border);border-radius:8px;background:var(--bg-input);color:var(--text);word-break:break-all;font-family:inherit" onclick="this.select()">' + escHtml(content) + '</textarea><p class="text-sm text-secondary mt-6" style="font-size:12px;color:var(--text-secondary);margin-top:6px">👆 点上方文字全选 → 复制</p>' +
+    (hasShare
+      ? '<div style="display:flex;gap:10px;margin-top:12px"><button class="btn btn-primary flex-1" style="flex:1" onclick="copyExportContent(this)">📋 复制</button><button class="btn btn-primary flex-1" style="flex:1;background:#25c26b;border-color:#25c26b" onclick="shareExportText(this,\'' + escHtml(title).replace(/'/g, "\\'") + '\')">📤 分享</button><button class="btn btn-ghost flex-1" style="flex:1" onclick="this.closest(\'.modal-overlay\').remove()">关闭</button></div><div style="font-size:11px;color:var(--text-tertiary);text-align:center;margin-top:6px">📱 分享 → 微信/QQ/备忘录 &nbsp;|&nbsp; 复制 → 粘贴到任意位置</div>'
+      : '<div style="display:flex;gap:10px;margin-top:12px"><button class="btn btn-primary flex-1" style="flex:1" onclick="copyExportContent(this)">📋 一键复制</button><button class="btn btn-outline flex-1" style="flex:1" onclick="downloadExportText(this,\'' + escHtml(title).replace(/'/g, "\\'") + '\')">📥 下载 TXT</button><button class="btn btn-ghost flex-1" style="flex:1" onclick="this.closest(\'.modal-overlay\').remove()">关闭</button></div><div style="font-size:11px;color:var(--text-tertiary);text-align:center;margin-top:6px">💻 下载文件 → 电脑文档/桌面</div>') +
+  '</div>';
   document.body.appendChild(ov);
   ov._exportContent = content;
   ov.addEventListener('click', function(e) { if (e.target === ov) ov.remove(); });
+}
+function shareExportText(btn, title) {
+  var ov = btn.closest('.modal-overlay');
+  var content = ov._exportContent || '';
+  if (navigator.share) {
+    navigator.share({
+      title: title || '题库导出',
+      text: content.slice(0, 5000) + (content.length > 5000 ? '\n\n...（内容过长已截断，完整内容请用复制）' : '')
+    }).then(function() {
+      toast('✅ 分享成功');
+    }).catch(function(err) {
+      if (err.name !== 'AbortError') {
+        // 分享失败，降级为复制
+        navigator.clipboard.writeText(content).then(function() {
+          toast('📋 已复制到剪贴板（分享不可用）');
+        });
+      }
+    });
+  }
 }
 function downloadExportText(btn, title) {
   var ov = btn.closest('.modal-overlay');
