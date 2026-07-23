@@ -3495,6 +3495,7 @@ function renderQuestion() {
   var q = quizState.questions[quizState.currentIndex];
   var idx = quizState.currentIndex;
   var prevAnswer = quizState.userAnswers[idx];
+  var effectiveAnswer = (prevAnswer === '?') ? null : prevAnswer;
   var isInstant = quizState.mode === 'instant';
   var isMulti = isMultiSelect(q);
   var letters = getOptionLetters(q);
@@ -3510,7 +3511,7 @@ function renderQuestion() {
 
   // 题目文字
   var qTextEl = document.getElementById('qText');
-  if (!isInstant && prevAnswer) {
+  if (!isInstant && effectiveAnswer) {
     qTextEl.innerHTML = escHtml(q.question) + ' <span style="color:var(--primary);font-size:12px">（已作答）</span>';
   } else {
     qTextEl.textContent = q.question;
@@ -3518,13 +3519,13 @@ function renderQuestion() {
 
   // 渲染选项
   var optsContainer = document.getElementById('qOptions');
-  var allDisabled = isInstant && prevAnswer !== null;
+  var allDisabled = isInstant && effectiveAnswer !== null;
 
   if (isMulti) {
     // === 多选题：可多选的选项 ===
     var selected = {};
-    if (prevAnswer) {
-      for (var si = 0; si < prevAnswer.length; si++) { selected[prevAnswer[si]] = true; }
+    if (effectiveAnswer) {
+      for (var si = 0; si < effectiveAnswer.length; si++) { selected[effectiveAnswer[si]] = true; }
     }
     optsContainer.innerHTML = letters.map(function(l) {
       var cls = 'option-btn option-multi';
@@ -3565,7 +3566,7 @@ function renderQuestion() {
         '</button>';
     }).join('');
 
-    if (!isInstant && prevAnswer) {
+    if (!isInstant && effectiveAnswer) {
       var selBtn = optsContainer.querySelector('[data-letter="' + prevAnswer + '"]');
       if (selBtn) { selBtn.style.borderColor = 'var(--primary)'; selBtn.style.background = 'var(--primary-light)'; }
     }
@@ -3573,7 +3574,7 @@ function renderQuestion() {
 
   // 反馈区域
   var fb = document.getElementById('feedback');
-  if (isInstant && prevAnswer) {
+  if (isInstant && effectiveAnswer) {
     var correct = isMulti ? (prevAnswer === q.answer) : (q.answer === prevAnswer);
     fb.className = 'feedback show ' + (correct ? 'correct' : 'wrong');
     fb.innerHTML = '<strong>' + (correct ? '✅ 回答正确！' : '❌ 回答错误，正确答案是 ' + q.answer) + '</strong>' +
@@ -3610,6 +3611,7 @@ function selectAnswer(letter) {
   var q = quizState.questions[idx];
   var isMulti = isMultiSelect(q);
   var isInstant = quizState.mode === 'instant';
+  var prevAns = quizState.userAnswers[idx];
 
   if (isMulti) {
     // === 多选题：切换选项 ===
@@ -3661,9 +3663,16 @@ function selectAnswer(letter) {
 
   // === 单选题：原有逻辑 ===
   // 即时模式：禁止重复作答
-  if (isInstant && quizState.userAnswers[idx] !== null) return;
+  if (isInstant && quizState.userAnswers[idx] !== null && quizState.userAnswers[idx] !== '?') return;
 
   quizState.userAnswers[idx] = letter;
+
+  // 如果之前因跳过被自动标记为错误，回退计数
+  if (isInstant && prevAns === '?') {
+    quizState.wrong = Math.max(0, quizState.wrong - 1);
+    var wIdx = quizState.wrongIds.indexOf(q.id);
+    if (wIdx >= 0) quizState.wrongIds.splice(wIdx, 1);
+  }
 
   var btns = document.querySelectorAll('#qOptions .option-btn');
 
@@ -3729,7 +3738,7 @@ function confirmMultiAnswer() {
   var idx = quizState.currentIndex;
   var q = quizState.questions[idx];
   var userAns = quizState.userAnswers[idx];
-  if (!userAns) return;
+  if (!userAns || userAns === '?') return;
 
   var isInstant = quizState.mode === 'instant';
   var btns = document.querySelectorAll('#qOptions .option-multi');
