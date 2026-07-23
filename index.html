@@ -2898,15 +2898,25 @@ function extractExplanation(text) {
 // ====== 文本标准化：去除Word碎渣、全角空格、不可见字符 ======
 function normalizeText(text) {
   // 1. 零宽字符（Word粘贴常见乱码）
-  text = text.replace(/[​-‏\u2028- ﻿ ]/g, '');
+  text = text.replace(/[​-‏ - ﻿ ]/g, '');
   // 2. 全角空格 → 半角空格
   text = text.replace(/　/g, ' ');
   // 3. 软连字符、不可见控制字符
-  text = text.replace(/[­ - \u2028\u2029]/g, '');
+  text = text.replace(/[­ -   ]/g, '');
   // 4. 题干末尾多余标点换行：去掉题干和选项之间的多余空行
   text = text.replace(/\n{3,}/g, '\n\n');
   // 5. 每行首尾去空格
   text = text.split('\n').map(function(l) { return l.trim(); }).join('\n');
+
+  // 6. 无序号检测：如果文本中没有题号，按空行分块并自动补序号
+  if (!/\d+[.、．）)]/.test(text)) {
+    var chunks = text.split(/[\n\r]{2,}/).filter(function(c) { return c.trim(); });
+    var allHaveOptions = chunks.every(function(c) { return /[A-E][.、．）)]\s*\S/.test(c); });
+    if (allHaveOptions && chunks.length > 1) {
+      text = chunks.map(function(c, i) { return (i + 1) + '. ' + c.trim(); }).join('\n\n');
+    }
+  }
+
   return text;
 }
 
