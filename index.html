@@ -1354,7 +1354,7 @@ function renderEditBankModal(ov, name, bank) {
   var itemsHtml = '';
   for (var i = start; i < end; i++) {
     var q = bank[i];
-    itemsHtml += '<div class="edit-bank-item" id="editBankItem_' + i + '" data-idx="' + i + '" style="padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s">' +
+    itemsHtml += '<div class="edit-bank-item" id="editBankItem_' + i + '" data-idx="' + i + '" onclick="editBankItemClick(this)" style="padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s">' +
       '<div style="font-size:13px;font-weight:600;color:var(--primary);margin-bottom:2px">#' + (i + 1) + '</div>' +
       '<div style="font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(q.question || '') + '</div>' +
       '<div style="font-size:11px;color:var(--text-tertiary);margin-top:2px">答案：' + escHtml(q.answer || '') + '</div>' +
@@ -1388,16 +1388,7 @@ function renderEditBankModal(ov, name, bank) {
     paginationHtml +
   '</div>';
 
-  // 事件代理：列表点击 → 展开编辑
-  var listEl = ov.querySelector('#editBankList');
-  if (listEl) {
-    listEl.addEventListener('click', function(e) {
-      var item = e.target.closest('.edit-bank-item');
-      if (!item) return;
-      var idx = parseInt(item.getAttribute('data-idx'));
-      if (!isNaN(idx)) toggleEditBankQuestion(name, idx);
-    });
-  }
+  // 事件代理：列表点击 → 展开编辑（兜底，主要靠 inline onclick）
   // 事件代理：翻页按钮
   var pgBtns = ov.querySelectorAll('.edit-pg-btn');
   for (var bi = 0; bi < pgBtns.length; bi++) {
@@ -1466,6 +1457,14 @@ function editBankGoPage(name, page) {
   window._editBankPage[name] = page;
   var ov = document.querySelector('.modal-overlay');
   if (ov) renderEditBankModal(ov, name, bank);
+}
+
+function editBankItemClick(el) {
+  var modal = el.closest('[data-bank-name]');
+  if (!modal) return;
+  var name = modal.getAttribute('data-bank-name');
+  var idx = parseInt(el.getAttribute('data-idx'));
+  if (!isNaN(idx)) toggleEditBankQuestion(name, idx);
 }
 
 window._editBankStates = {};
