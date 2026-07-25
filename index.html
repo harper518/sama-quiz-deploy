@@ -1215,6 +1215,21 @@ function switchPage(page, btn) {
   updateBadges();
 }
 
+function goToBankQuiz(bankName) {
+  var bank = appData.banks[bankName];
+  if (!bank) return;
+  // 切换到刷题页面
+  switchPage('quiz', document.querySelector('[data-page="quiz"]'));
+  // 选中对应题库
+  var sel = document.getElementById('bankSelect');
+  if (sel) {
+    sel.value = bankName;
+    // 触发 change 事件更新进度和分类筛选
+    updateSeqProgressUI();
+    renderCategoryFilter(bankName);
+  }
+}
+
 // ====== Render Banks ======
 function renderBanks() {
   const container = document.getElementById('bankList');
@@ -1237,7 +1252,7 @@ function renderBanks() {
     var meta = getBankMeta(name);
     var isFirst = idx === 0, isLast = idx === names.length - 1;
     var dueHtml = dueCount > 0 ? ' | 📅 待复习 ' + dueCount : '';
-    return '<div class="bank-item" onclick="event.preventDefault()">' +
+    return '<div class="bank-item" style="cursor:pointer" onclick="goToBankQuiz(\'' + escHtml(name) + '\')">' +
       '<div class="info">' +
         '<div class="name" onclick="event.stopPropagation();renameBankPrompt(this,\'' + escHtml(name) + '\')" title="点击修改名称" style="cursor:pointer">' + escHtml(name) + '</div>' +
         '<div class="meta">' + total + ' 题 | 正确率 ' + (stats.answered > 0 ? Math.round(stats.correct / stats.answered * 100) : 0) + '% | 错题 ' + wrongCount + dueHtml + ' <span style="margin-left:4px">' + fmtDate(meta.createdAt) + '</span>' +
