@@ -4301,7 +4301,7 @@ function toggleWrongTierList(name, tierKey) {
     var html = '';
     for (var i = 0; i < wrongs.length; i++) {
       var w = wrongs[i];
-      html += '<div style="padding:8px 0;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:8px">' +
+      html += '<div style="padding:8px 0;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:8px;cursor:pointer" onclick="browseWrongFromIndex(\'' + escHtml(name) + '\',\'' + tierKey + '\',' + i + ')">' +
         '<div style="flex:1;min-width:0">' +
           '<div style="font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">#' + (i+1) + ' ' + escHtml(w.question || '') + '</div>' +
           '<div style="font-size:11px;color:var(--text-tertiary);margin-top:2px">答案：' + escHtml(w.answer || '') + ' | 错' + (w.wrongCount || 1) + '次</div>' +
@@ -4339,6 +4339,21 @@ function getWrongsByTier(name, tierKey) {
   if (tierKey === '3') return all.filter(w => w.wrongCount >= 3);
   if (tierKey === '5') return all.filter(w => w.wrongCount >= 5);
   return all;
+}
+
+function browseWrongFromIndex(name, tierKey, index) {
+  var wrongs = getWrongsByTier(name, tierKey);
+  if (wrongs.length === 0) { toast('此类没有错题'); return; }
+  if (index < 0 || index >= wrongs.length) index = 0;
+  browseState = { name: name, questions: wrongs, index: index, total: wrongs.length, answers: {} };
+  switchPage('quiz', document.querySelector('[data-page="quiz"]'));
+  document.getElementById('quizSetup').style.display = 'none';
+  document.getElementById('quizActive').style.display = 'none';
+  document.getElementById('quizResult').style.display = 'none';
+  document.getElementById('wrongBrowseActive').style.display = 'block';
+  document.getElementById('sideTapLeft').classList.add('active');
+  document.getElementById('sideTapRight').classList.add('active');
+  renderBrowseQuestion();
 }
 
 function browseWrongsByTier(name, tierKey) {
@@ -5166,7 +5181,7 @@ function renderSettings() {
 
     '<div class="section"><div class="section-title">关于</div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="showManualMenu()"><div><div class="setting-label">📖 使用说明</div><div class="setting-desc">查看使用指南</div></div><div style="display:flex;align-items:center">→</div></div>' +
-      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">手机刷题工具 · 纯前端离线可用 · <span id="appVersion">v101</span></div></div></div>' +
+      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">手机刷题工具 · 纯前端离线可用 · <span id="appVersion">v102</span></div></div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="clearAllData()"><div><div class="setting-label" style="color:var(--danger)">🗑️ 删除所有数据</div><div class="setting-desc">清空全部题库和设置，不可恢复</div></div><div style="display:flex;align-items:center;color:var(--danger)">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="checkUpdate()"><div><div class="setting-label">🔄 检查更新</div><div class="setting-desc">点击清除缓存并刷新，获取最新版本</div></div><div style="display:flex;align-items:center">→</div></div>' +
     '</div>';
