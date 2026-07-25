@@ -2759,7 +2759,7 @@ function importFromPaste() {
   const qText = document.getElementById('pasteQuestions').value.trim();
   const aText = document.getElementById('pasteAnswers').value.trim();
 
-  if (!name) { toast('请输入题库名称'); return; }
+  if (!name) { toast('请输入题库名称'); document.getElementById('pasteBankName').focus(); document.getElementById('pasteBankName').scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
 
   let questions = [];
   let stats = null;
