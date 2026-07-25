@@ -573,6 +573,24 @@ textarea { min-height: 180px; resize: vertical; line-height: 1.8; }
 /* ====== 确保粘贴弹窗全屏可滚动 ====== */
 #pasteModal { -webkit-overflow-scrolling: touch; }
 
+/* ====== 左右空白区域点击导航 ====== */
+.side-tap {
+  position: fixed;
+  top: 100px; bottom: 120px;
+  z-index: 90;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  display: none;
+}
+.side-tap.left { left: 0; width: clamp(44px, 12vw, 150px); }
+.side-tap.right { right: 0; width: clamp(44px, 12vw, 150px); }
+.side-tap.active { display: block; }
+/* iPad/大屏：加宽触控区 */
+@media (min-width: 768px) {
+  .side-tap.left, .side-tap.right { width: clamp(60px, 15vw, 200px); }
+}
+
 /* ====== 触控目标最小44px（Apple HIG） ====== */
 @media (pointer: coarse) {
   .btn, .option-btn, .chip, .tab-btn, .bank-item, .setting-item {
@@ -589,6 +607,10 @@ textarea { min-height: 180px; resize: vertical; line-height: 1.8; }
 </style>
 </head>
 <body>
+
+<!-- 左右空白区域点击导航 -->
+<div class="side-tap left" id="sideTapLeft" onclick="sideTapNav('prev')"></div>
+<div class="side-tap right" id="sideTapRight" onclick="sideTapNav('next')"></div>
 
 <!-- 数据加载遮罩 -->
 <div id="dataLoadingOverlay" style="position:fixed;inset:0;background:var(--bg);z-index:9999;display:none;align-items:center;justify-content:center;flex-direction:column;font-family:system-ui,-apple-system,sans-serif">
@@ -1190,6 +1212,11 @@ function switchPage(page, btn) {
   document.getElementById('page-' + page).classList.add('active');
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
+  // 离开刷题页时隐藏左右点击导航区
+  if (page !== 'quiz') {
+    document.getElementById('sideTapLeft').classList.remove('active');
+    document.getElementById('sideTapRight').classList.remove('active');
+  }
   if (page === 'banks') renderBanks();
   if (page === 'browse') renderBrowseStart();
   if (page === 'quiz') {
@@ -1199,17 +1226,23 @@ function switchPage(page, btn) {
       document.getElementById('quizResult').style.display = 'none';
       document.getElementById('wrongBrowseActive').style.display = 'none';
       document.getElementById('quizActive').style.display = 'block';
+      document.getElementById('sideTapLeft').classList.add('active');
+      document.getElementById('sideTapRight').classList.add('active');
     } else if (browseState) {
       // 正在浏览中
       document.getElementById('quizSetup').style.display = 'none';
       document.getElementById('quizActive').style.display = 'none';
       document.getElementById('quizResult').style.display = 'none';
       document.getElementById('wrongBrowseActive').style.display = 'block';
+      document.getElementById('sideTapLeft').classList.add('active');
+      document.getElementById('sideTapRight').classList.add('active');
     } else {
       document.getElementById('quizSetup').style.display = 'block';
       document.getElementById('quizActive').style.display = 'none';
       document.getElementById('quizResult').style.display = 'none';
       document.getElementById('wrongBrowseActive').style.display = 'none';
+      document.getElementById('sideTapLeft').classList.remove('active');
+      document.getElementById('sideTapRight').classList.remove('active');
       renderQuizSetup();
     }
     document.getElementById('seqProgress').style.display = drawMode === 'sequential' ? '' : 'none';
@@ -3590,6 +3623,8 @@ function startQuiz() {
   document.getElementById('quizSetup').style.display = 'none';
   document.getElementById('quizResult').style.display = 'none';
   document.getElementById('quizActive').style.display = 'block';
+  document.getElementById('sideTapLeft').classList.add('active');
+  document.getElementById('sideTapRight').classList.add('active');
   var lbl = document.getElementById('bankNameLabel');
   if (lbl) lbl.textContent = '📚 ' + bankName;
   var hintText = quizMode === 'instant' ? '⚡ 即时反馈' : '📋 做完总结';
@@ -3994,6 +4029,18 @@ function confirmMultiAnswer() {
   }
 }
 
+function sideTapNav(dir) {
+  var quizEl = document.getElementById('quizActive');
+  var browseEl = document.getElementById('wrongBrowseActive');
+  if (quizEl && quizEl.style.display !== 'none') {
+    if (dir === 'prev') prevQuestion();
+    else nextQuestion();
+  } else if (browseEl && browseEl.style.display !== 'none') {
+    if (dir === 'prev') browsePrev();
+    else browseNext();
+  }
+}
+
 function prevQuestion() {
   if (!quizState || quizState.currentIndex <= 0) return;
   quizState.currentIndex--;
@@ -4040,6 +4087,8 @@ function nextQuestion() {
 function showResult() {
   stopTimer();
   document.getElementById('quizActive').style.display = 'none';
+  document.getElementById('sideTapLeft').classList.remove('active');
+  document.getElementById('sideTapRight').classList.remove('active');
   document.getElementById('quizResult').style.display = 'block';
 
   const isInstant = quizState.mode === 'instant';
@@ -4169,6 +4218,8 @@ function showResult() {
 function backToSetup() {
   stopTimer();
   quizState = null; // 清掉旧进度
+  document.getElementById('sideTapLeft').classList.remove('active');
+  document.getElementById('sideTapRight').classList.remove('active');
   document.getElementById('quizResult').style.display = 'none';
   document.getElementById('quizSetup').style.display = 'block';
   document.getElementById('seqProgress').style.display = drawMode === 'sequential' ? '' : 'none';
@@ -4299,6 +4350,8 @@ function browseWrongsByTier(name, tierKey) {
   document.getElementById('quizActive').style.display = 'none';
   document.getElementById('quizResult').style.display = 'none';
   document.getElementById('wrongBrowseActive').style.display = 'block';
+  document.getElementById('sideTapLeft').classList.add('active');
+  document.getElementById('sideTapRight').classList.add('active');
   renderBrowseQuestion();
 }
 
@@ -4355,6 +4408,8 @@ function browseFavs(name) {
   document.getElementById('quizActive').style.display = 'none';
   document.getElementById('quizResult').style.display = 'none';
   document.getElementById('wrongBrowseActive').style.display = 'block';
+  document.getElementById('sideTapLeft').classList.add('active');
+  document.getElementById('sideTapRight').classList.add('active');
   renderBrowseQuestion();
 }
 
@@ -4392,6 +4447,8 @@ function toggleFavFromBrowse() {
       browseState.total = browseState.questions.length;
       if (browseState.total === 0) {
         document.getElementById('wrongBrowseActive').style.display = 'none';
+        document.getElementById('sideTapLeft').classList.remove('active');
+        document.getElementById('sideTapRight').classList.remove('active');
         browseState = null;
         switchPage('wrong', document.querySelector('[data-page="wrong"]'));
         return;
@@ -4595,6 +4652,8 @@ function browseNext() {
     // 回到错题/收藏页，保持所在 tab
     var isFav = browseState.isFavBrowse;
     document.getElementById('wrongBrowseActive').style.display = 'none';
+    document.getElementById('sideTapLeft').classList.remove('active');
+    document.getElementById('sideTapRight').classList.remove('active');
     browseState = null;
     if (isFav) { wrongTab = 'fav'; }
     switchPage('wrong', document.querySelector('[data-page="wrong"]'));
@@ -4625,6 +4684,8 @@ function deleteWrongFromBrowse() {
   browseState.total = browseState.questions.length;
   if (browseState.total === 0) {
     document.getElementById('wrongBrowseActive').style.display = 'none';
+    document.getElementById('sideTapLeft').classList.remove('active');
+    document.getElementById('sideTapRight').classList.remove('active');
     browseState = null;
     switchPage('wrong', document.querySelector('[data-page="wrong"]'));
     updateBadges();
@@ -5105,7 +5166,7 @@ function renderSettings() {
 
     '<div class="section"><div class="section-title">关于</div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="showManualMenu()"><div><div class="setting-label">📖 使用说明</div><div class="setting-desc">查看使用指南</div></div><div style="display:flex;align-items:center">→</div></div>' +
-      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">手机刷题工具 · 纯前端离线可用 · <span id="appVersion">v99</span></div></div></div>' +
+      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">手机刷题工具 · 纯前端离线可用 · <span id="appVersion">v100</span></div></div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="clearAllData()"><div><div class="setting-label" style="color:var(--danger)">🗑️ 删除所有数据</div><div class="setting-desc">清空全部题库和设置，不可恢复</div></div><div style="display:flex;align-items:center;color:var(--danger)">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="checkUpdate()"><div><div class="setting-label">🔄 检查更新</div><div class="setting-desc">点击清除缓存并刷新，获取最新版本</div></div><div style="display:flex;align-items:center">→</div></div>' +
     '</div>';
