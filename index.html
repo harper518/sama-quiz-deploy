@@ -443,8 +443,10 @@ textarea { min-height: 180px; resize: vertical; line-height: 1.8; }
 .bank-item .actions { display: flex; gap: 4px; flex-shrink: 0; }
 .bank-item .actions .btn-icon { width: 36px; height: 36px; padding: 0; border-radius: 50%; background: var(--bg-input); border: none; color: var(--text-secondary); font-size: var(--font-size); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all var(--transition); }
 .bank-item .actions .btn-icon:active { background: var(--primary-soft); color: var(--primary); }
-.edit-bank-item { display:block;width:100%;border:none;border-bottom:1px solid var(--border);background:var(--card);font:inherit;text-align:left;padding:10px 12px;cursor:pointer;touch-action:manipulation;color:var(--text);-webkit-appearance:none;border-radius:0;margin:0; }
-.edit-bank-item:active { background: var(--primary-light) !important; }
+.edit-bank-item { display:flex;align-items:flex-start;gap:6px;width:100%;border:none;border-bottom:1px solid var(--border);background:var(--card);font:inherit;text-align:left;padding:10px 12px;color:var(--text);margin:0; }
+.edit-bank-item.editing { display:block;background:var(--primary-light); }
+.edit-expand-btn { flex-shrink:0;width:44px;height:44px;padding:0;border:1px solid var(--border);border-radius:8px;background:var(--bg-input);color:var(--text-secondary);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;touch-action:manipulation;-webkit-appearance:none;appearance:none; }
+.edit-expand-btn:active { background:var(--primary);color:#fff; }
 .btn-sort { width: 44px; height: 44px; padding: 0; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-input); color: var(--text-tertiary); font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1; transition: all var(--transition); position: relative; z-index: 2; appearance: none; -webkit-appearance: none; touch-action: manipulation; }
 .btn-sort:hover:not(:disabled) { background: var(--primary-soft); color: var(--primary); border-color: var(--primary); }
 .btn-sort:active:not(:disabled) { background: var(--primary); color: #fff; }
@@ -1467,11 +1469,14 @@ function renderEditBankModal(ov, name, bank) {
   var itemsHtml = '';
   for (var i = start; i < end; i++) {
     var q = bank[i];
-    itemsHtml += '<button class="edit-bank-item" id="editBankItem_' + i + '" data-idx="' + i + '">' +
-      '<div style="font-size:13px;font-weight:600;color:var(--primary);margin-bottom:2px">#' + (i + 1) + '</div>' +
-      '<div style="font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(q.question || '') + '</div>' +
-      '<div style="font-size:11px;color:var(--text-tertiary);margin-top:2px">答案：' + escHtml(q.answer || '') + '</div>' +
-    '</button>';
+    itemsHtml += '<div class="edit-bank-item" id="editBankItem_' + i + '" data-idx="' + i + '">' +
+      '<div style="flex:1;min-width:0">' +
+        '<div style="font-size:13px;font-weight:600;color:var(--primary);margin-bottom:2px">#' + (i + 1) + '</div>' +
+        '<div style="font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(q.question || '') + '</div>' +
+        '<div style="font-size:11px;color:var(--text-tertiary);margin-top:2px">答案：' + escHtml(q.answer || '') + '</div>' +
+      '</div>' +
+      '<button class="edit-expand-btn" onclick="expandEditBankItem(this)" data-idx="' + i + '">✏️</button>' +
+    '</div>';
   }
 
   // 分页控件（用 data-page 代替 onclick 拼接，放在顶部跳转区）
@@ -1501,20 +1506,7 @@ function renderEditBankModal(ov, name, bank) {
     '<div id="editBankList">' + itemsHtml + '</div>' +
   '</div>';
 
-  // 题目条目是 <button>，iOS Safari 原生支持 button click
-  var items = ov.querySelectorAll('.edit-bank-item');
-  for (var itemIdx = 0; itemIdx < items.length; itemIdx++) {
-    (function(itemEl) {
-      var idx = parseInt(itemEl.getAttribute('data-idx'));
-      if (isNaN(idx)) return;
-      itemEl.addEventListener('click', function(e) {
-        // 点击在表单元素内部时不触发切换
-        if (e.target.closest && e.target.closest('input,textarea,button,select,label')) return;
-        e.stopPropagation();
-        toggleEditBankQuestion(name, idx);
-      });
-    })(items[itemIdx]);
-  }
+  // 所有按钮通过内联 onclick 绑定，iOS Safari 最可靠的方式
   // 事件代理：翻页按钮
   var pgBtns = ov.querySelectorAll('.edit-pg-btn');
   for (var bi = 0; bi < pgBtns.length; bi++) {
@@ -1585,18 +1577,6 @@ function editBankGoPage(name, page) {
   if (ov) renderEditBankModal(ov, name, bank);
 }
 
-function editBankItemClick(el, evt) {
-  // 点击目标是输入框/文本域/按钮时忽略，避免编辑模式下反复切换
-  var tag = (evt && evt.target) ? evt.target.tagName : '';
-  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'BUTTON' || tag === 'SELECT') return;
-
-  var modal = el.closest('[data-bank-name]');
-  if (!modal) return;
-  var name = modal.getAttribute('data-bank-name');
-  var idx = parseInt(el.getAttribute('data-idx'));
-  if (!isNaN(idx)) toggleEditBankQuestion(name, idx);
-}
-
 window._editBankStates = {};
 function toggleEditBankQuestion(name, idx) {
   var bank = appData.banks[name];
@@ -1612,10 +1592,13 @@ function toggleEditBankQuestion(name, idx) {
     saveEditBankQuestion(name, idx);
     // 刷新列表中的这一项（保留 data-idx）
     var newQ = bank[idx];
-    itemEl.innerHTML = '<div style="font-size:13px;font-weight:600;color:var(--primary);margin-bottom:2px">#' + (idx + 1) + '</div>' +
+    itemEl.classList.remove('editing');
+    itemEl.innerHTML = '<div style="flex:1;min-width:0">' +
+      '<div style="font-size:13px;font-weight:600;color:var(--primary);margin-bottom:2px">#' + (idx + 1) + '</div>' +
       '<div style="font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(newQ.question || '') + '</div>' +
-      '<div style="font-size:11px;color:var(--text-tertiary);margin-top:2px">答案：' + escHtml(newQ.answer || '') + '</div>';
-    itemEl.style.background = '';
+      '<div style="font-size:11px;color:var(--text-tertiary);margin-top:2px">答案：' + escHtml(newQ.answer || '') + '</div>' +
+    '</div>' +
+    '<button class="edit-expand-btn" onclick="expandEditBankItem(this)" data-idx="' + idx + '">✏️</button>';
   } else {
     // 进入编辑模式
     window._editBankStates[stateKey] = true;
@@ -1629,14 +1612,9 @@ function toggleEditBankQuestion(name, idx) {
       }).join('') +
       '<div style="margin-bottom:8px"><label style="font-size:11px;color:var(--text-secondary);display:block;margin-bottom:2px">答案</label><input id="ebAns_' + idx + '" value="' + escHtml(q.answer || '') + '" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--bg-input);color:var(--text);font-family:inherit"></div>' +
       '<div style="margin-bottom:8px"><label style="font-size:11px;color:var(--text-secondary);display:block;margin-bottom:2px">解析（可选）</label><textarea id="ebExp_' + idx + '" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--bg-input);color:var(--text);resize:vertical;min-height:40px;font-family:inherit">' + escHtml(q.explanation || '') + '</textarea></div>' +
-      '<div style="display:flex;gap:8px"><span class="btn btn-primary btn-sm edit-save-btn" style="flex:1;text-align:center" data-idx="' + idx + '">💾 保存</span><span class="btn btn-ghost btn-sm edit-cancel-btn" style="flex:1;text-align:center" data-idx="' + idx + '">取消</span></div>';
+      '<div style="display:flex;gap:8px"><button class="btn btn-primary btn-sm edit-save-btn" style="flex:1;text-align:center" onclick="saveEditBankInlineFromBtn(this)">💾 保存</button><button class="btn btn-ghost btn-sm edit-cancel-btn" style="flex:1;text-align:center" onclick="cancelEditBankInlineFromBtn(this)">取消</button></div>';
     itemEl.innerHTML = formHtml;
-    itemEl.style.background = 'var(--primary-light)';
-    // 绑定保存/取消事件（span 模拟按钮，stopPropagation 防止触发父 button 的 click）
-    var saveBtn = itemEl.querySelector('.edit-save-btn');
-    var cancelBtn = itemEl.querySelector('.edit-cancel-btn');
-    if (saveBtn) saveBtn.addEventListener('click', function(e) { e.stopPropagation(); e.preventDefault(); saveEditBankInline(name, idx); });
-    if (cancelBtn) cancelBtn.addEventListener('click', function(e) { e.stopPropagation(); e.preventDefault(); cancelEditBankInline(name, idx); });
+    itemEl.classList.add('editing');
   }
 }
 
@@ -1675,10 +1653,13 @@ function saveEditBankInline(name, idx) {
   var q = bank[idx];
   var itemEl = document.getElementById('editBankItem_' + idx);
   if (itemEl) {
-    itemEl.innerHTML = '<div style="font-size:13px;font-weight:600;color:var(--primary);margin-bottom:2px">#' + (idx + 1) + '</div>' +
+    itemEl.classList.remove('editing');
+    itemEl.innerHTML = '<div style="flex:1;min-width:0">' +
+      '<div style="font-size:13px;font-weight:600;color:var(--primary);margin-bottom:2px">#' + (idx + 1) + '</div>' +
       '<div style="font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(q.question || '') + '</div>' +
-      '<div style="font-size:11px;color:var(--text-tertiary);margin-top:2px">答案：' + escHtml(q.answer || '') + '</div>';
-    itemEl.style.background = '';
+      '<div style="font-size:11px;color:var(--text-tertiary);margin-top:2px">答案：' + escHtml(q.answer || '') + '</div>' +
+    '</div>' +
+    '<button class="edit-expand-btn" onclick="expandEditBankItem(this)" data-idx="' + idx + '">✏️</button>';
   }
   toast('✅ 第' + (idx + 1) + '题已更新');
 }
@@ -1690,11 +1671,39 @@ function cancelEditBankInline(name, idx) {
   var q = bank[idx];
   var itemEl = document.getElementById('editBankItem_' + idx);
   if (itemEl) {
-    itemEl.innerHTML = '<div style="font-size:13px;font-weight:600;color:var(--primary);margin-bottom:2px">#' + (idx + 1) + '</div>' +
+    itemEl.classList.remove('editing');
+    itemEl.innerHTML = '<div style="flex:1;min-width:0">' +
+      '<div style="font-size:13px;font-weight:600;color:var(--primary);margin-bottom:2px">#' + (idx + 1) + '</div>' +
       '<div style="font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(q.question || '') + '</div>' +
-      '<div style="font-size:11px;color:var(--text-tertiary);margin-top:2px">答案：' + escHtml(q.answer || '') + '</div>';
-    itemEl.style.background = '';
+      '<div style="font-size:11px;color:var(--text-tertiary);margin-top:2px">答案：' + escHtml(q.answer || '') + '</div>' +
+    '</div>' +
+    '<button class="edit-expand-btn" onclick="expandEditBankItem(this)" data-idx="' + idx + '">✏️</button>';
   }
+}
+
+// 内联 onclick wrapper（iOS Safari 对内联事件最可靠）
+function expandEditBankItem(btn) {
+  var modal = btn.closest('[data-bank-name]');
+  if (!modal) return;
+  var name = modal.getAttribute('data-bank-name');
+  var idx = parseInt(btn.getAttribute('data-idx'));
+  if (!isNaN(idx)) toggleEditBankQuestion(name, idx);
+}
+function saveEditBankInlineFromBtn(btn) {
+  var modal = btn.closest('[data-bank-name]');
+  var itemEl = btn.closest('.edit-bank-item');
+  if (!modal || !itemEl) return;
+  var name = modal.getAttribute('data-bank-name');
+  var idx = parseInt(itemEl.getAttribute('data-idx'));
+  if (!isNaN(idx)) saveEditBankInline(name, idx);
+}
+function cancelEditBankInlineFromBtn(btn) {
+  var modal = btn.closest('[data-bank-name]');
+  var itemEl = btn.closest('.edit-bank-item');
+  if (!modal || !itemEl) return;
+  var name = modal.getAttribute('data-bank-name');
+  var idx = parseInt(itemEl.getAttribute('data-idx'));
+  if (!isNaN(idx)) cancelEditBankInline(name, idx);
 }
 
 // ====== Merge Banks ======
