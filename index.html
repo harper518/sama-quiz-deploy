@@ -1498,42 +1498,42 @@ function renderEditBankModal(ov, name, bank) {
     '<div id="editBankList">' + itemsHtml + '</div>' +
   '</div>';
 
-  // 事件代理：touch + click 双轨（iOS Safari onclick 不可靠，但 e.preventDefault 也不可靠）
-  var listEl2 = ov.querySelector('#editBankList');
-  if (listEl2) {
-    var _touchStart = null;
-    var _lastHandleTime = 0;
-    listEl2.addEventListener('touchstart', function(e) {
-      if (e.touches.length === 1) _touchStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-    }, { passive: true });
-    // 统一的处理函数
-    function handleTap(target) {
-      var tag = (target) ? target.tagName : '';
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'BUTTON' || tag === 'SELECT' || tag === 'LABEL') return;
-      var item = target.closest('.edit-bank-item');
-      if (!item) return;
-      var idx = parseInt(item.getAttribute('data-idx'));
-      if (!isNaN(idx)) {
-        _lastHandleTime = Date.now();
+  // 为每个题目直接绑定事件（不用事件代理，iOS Safari 对 div 事件代理不可靠）
+  var items = ov.querySelectorAll('.edit-bank-item');
+  for (var itemIdx = 0; itemIdx < items.length; itemIdx++) {
+    (function(itemEl) {
+      var _tsX = 0, _tsY = 0, _tsSet = false;
+      var idx = parseInt(itemEl.getAttribute('data-idx'));
+      if (isNaN(idx)) return;
+
+      function doTap() {
         toggleEditBankQuestion(name, idx);
       }
-    }
-    // touchend：手指离开时判断是否点击（移动 < 8px）
-    listEl2.addEventListener('touchend', function(e) {
-      if (!_touchStart) return;
-      var dx = (e.changedTouches[0].clientX - _touchStart.x);
-      var dy = (e.changedTouches[0].clientY - _touchStart.y);
-      _touchStart = null;
-      if (Math.abs(dx) + Math.abs(dy) > 8) return; // 移动超过 8px 视为滚动
-      e.preventDefault(); // 尝试阻止后续 click
-      handleTap(e.target);
-    }, { passive: false });
-    // click：桌面端 + touchend 没挡住时的兜底
-    listEl2.addEventListener('click', function(e) {
-      // touchend 刚刚处理过（500ms 内），跳过
-      if (Date.now() - _lastHandleTime < 500) return;
-      handleTap(e.target);
-    });
+
+      itemEl.addEventListener('touchstart', function(e) {
+        if (e.touches.length === 1) { _tsX = e.touches[0].clientX; _tsY = e.touches[0].clientY; _tsSet = true; }
+      }, { passive: true });
+
+      itemEl.addEventListener('touchend', function(e) {
+        if (!_tsSet) return;
+        var dx = e.changedTouches[0].clientX - _tsX;
+        var dy = e.changedTouches[0].clientY - _tsY;
+        _tsSet = false;
+        if (Math.abs(dx) + Math.abs(dy) > 10) return;
+        var tag = (e.target) ? e.target.tagName : '';
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'BUTTON' || tag === 'SELECT') return;
+        e.preventDefault();
+        e.stopPropagation();
+        doTap();
+      }, { passive: false });
+
+      itemEl.addEventListener('click', function(e) {
+        var tag = (e.target) ? e.target.tagName : '';
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'BUTTON' || tag === 'SELECT') return;
+        e.stopPropagation();
+        doTap();
+      });
+    })(items[itemIdx]);
   }
   // 事件代理：翻页按钮
   var pgBtns = ov.querySelectorAll('.edit-pg-btn');
