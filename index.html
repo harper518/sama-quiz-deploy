@@ -1419,7 +1419,7 @@ function renderEditBankModal(ov, name, bank) {
   var itemsHtml = '';
   for (var i = start; i < end; i++) {
     var q = bank[i];
-    itemsHtml += '<div class="edit-bank-item" id="editBankItem_' + i + '" data-idx="' + i + '" onclick="editBankItemClick(this)" style="padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s">' +
+    itemsHtml += '<div class="edit-bank-item" id="editBankItem_' + i + '" data-idx="' + i + '" onclick="editBankItemClick(this,event)" style="padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s">' +
       '<div style="font-size:13px;font-weight:600;color:var(--primary);margin-bottom:2px">#' + (i + 1) + '</div>' +
       '<div style="font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(q.question || '') + '</div>' +
       '<div style="font-size:11px;color:var(--text-tertiary);margin-top:2px">答案：' + escHtml(q.answer || '') + '</div>' +
@@ -1524,9 +1524,9 @@ function editBankGoPage(name, page) {
   if (ov) renderEditBankModal(ov, name, bank);
 }
 
-function editBankItemClick(el) {
+function editBankItemClick(el, evt) {
   // 点击目标是输入框/文本域/按钮时忽略，避免编辑模式下反复切换
-  var tag = (event && event.target) ? event.target.tagName : '';
+  var tag = (evt && evt.target) ? evt.target.tagName : '';
   if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'BUTTON' || tag === 'SELECT') return;
 
   var modal = el.closest('[data-bank-name]');
