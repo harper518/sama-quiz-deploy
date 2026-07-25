@@ -1458,7 +1458,26 @@ function renderEditBankModal(ov, name, bank) {
     paginationHtml +
   '</div>';
 
-  // 事件代理：列表点击 → 展开编辑（兜底，主要靠 inline onclick）
+  // 移动端 touchend 代理（onclick 在 iOS Safari 中不可靠）
+  var listEl2 = ov.querySelector('#editBankList');
+  if (listEl2) {
+    var _touchStart = null;
+    listEl2.addEventListener('touchstart', function(e) {
+      if (e.touches.length === 1) _touchStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    }, { passive: true });
+    listEl2.addEventListener('touchend', function(e) {
+      if (!_touchStart) return;
+      var dx = (e.changedTouches[0].clientX - _touchStart.x);
+      var dy = (e.changedTouches[0].clientY - _touchStart.y);
+      _touchStart = null;
+      if (Math.abs(dx) + Math.abs(dy) > 8) return; // 移动超过 8px 视为滚动
+      var item = e.target.closest('.edit-bank-item');
+      if (!item) return;
+      e.preventDefault();
+      var idx = parseInt(item.getAttribute('data-idx'));
+      if (!isNaN(idx)) toggleEditBankQuestion(name, idx);
+    }, { passive: false });
+  }
   // 事件代理：翻页按钮
   var pgBtns = ov.querySelectorAll('.edit-pg-btn');
   for (var bi = 0; bi < pgBtns.length; bi++) {
