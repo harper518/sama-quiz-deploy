@@ -1449,6 +1449,7 @@ function editBankContent(name) {
   if (!bank || !bank.length) { toast('题库为空'); return; }
   var ov = document.createElement('div'); ov.className = 'modal-overlay';
   ov.style.animation = 'none';
+  ov.style.touchAction = 'manipulation'; // iOS: 覆盖全局 pan-y，允许子元素点击
   renderEditBankModal(ov, name, bank);
   document.body.appendChild(ov);
   ov.addEventListener('click', function(e) { if (e.target === ov) ov.remove(); });
@@ -1489,7 +1490,7 @@ function renderEditBankModal(ov, name, bank) {
     '</span>';
   }
 
-  ov.innerHTML = '<div class="modal" style="animation:none;max-width:500px;width:100%;padding:0;border-radius:var(--radius);max-height:80dvh;overflow-y:auto;position:relative" data-bank-name="' + escHtml(name) + '" data-bank-total="' + bank.length + '">' +
+  ov.innerHTML = '<div class="modal" style="animation:none;max-width:500px;width:100%;padding:0;border-radius:var(--radius);max-height:80dvh;overflow-y:auto;-webkit-overflow-scrolling:auto;touch-action:manipulation;position:relative" data-bank-name="' + escHtml(name) + '" data-bank-total="' + bank.length + '">' +
     '<div style="padding:16px 18px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--card);z-index:1">' +
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">' +
         '<h3 style="font-size:17px;margin:0">✏️ 编辑「' + escHtml(name) + '」（' + bank.length + '题）</h3>' +
