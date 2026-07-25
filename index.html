@@ -2351,7 +2351,7 @@ function autoFixSkipped(idx, action) {
   else if (action === "mergeLines") {
     text = text.split(/\n/).reduce(function(acc, l) {
       var t = l.trim(); if (!t) { acc.push(""); return acc; }
-      if (acc.length > 0 && acc[acc.length-1] !== "" && !/^\d/.test(t) && !/^[①-⑩]/.test(t) && !/^\(/.test(t) && !/^（/.test(t) && !/^[A-E][.、．）)]/.test(t) && !/^答案/.test(t)) { acc[acc.length-1] += t; }
+      if (acc.length > 0 && acc[acc.length-1] !== "" && !/^\d/.test(t) && !/^[①-⑩]/.test(t) && !/^\(/.test(t) && !/^（/.test(t) && !/^[A-F][.、．）)]/.test(t) && !/^答案/.test(t)) { acc[acc.length-1] += t; }
       else { acc.push(t); }
       return acc;
     }, []).join("\n"); toast("✅ 已合并断行");
@@ -2692,7 +2692,7 @@ function cleanMergeLines() {
     ta.value = ta.value.split(/\n/).reduce(function(acc, l) {
       var t = l.trim();
       if (!t) { acc.push(''); return acc; }
-      if (acc.length > 0 && acc[acc.length - 1] !== '' && !/^\d/.test(t) && !/^[①-⑩]/.test(t) && !/^\(/.test(t) && !/^（/.test(t) && !/^[A-E][.、．）)]/.test(t) && !/^答案/.test(t)) {
+      if (acc.length > 0 && acc[acc.length - 1] !== '' && !/^\d/.test(t) && !/^[①-⑩]/.test(t) && !/^\(/.test(t) && !/^（/.test(t) && !/^[A-F][.、．）)]/.test(t) && !/^答案/.test(t)) {
         acc[acc.length - 1] += t;
       } else { acc.push(t); }
       return acc;
@@ -2792,7 +2792,7 @@ function importFromPaste() {
       var q = blockResults[bi];
       if (!q) { skippedAnswers++; continue; } // 题目被跳过，对应位置答案也跳过
       var ans = aParsed[bi];
-      var letters = (ans || '').split('').filter(function(ch) { return ch >= 'A' && ch <= 'E'; });
+      var letters = (ans || '').split('').filter(function(ch) { return ch >= 'A' && ch <= 'F'; });
       letters = letters.filter(function(ch, idx) { return letters.indexOf(ch) === idx; }).sort();
       questions.push({ id: questions.length + 1, question: q.question, A: q.A, B: q.B, C: q.C, D: q.D, E: q.E, answer: letters.join(''), type: letters.length > 1 ? 'multi' : 'single', explanation: '' });
     }
@@ -2841,11 +2841,11 @@ function selectPasteFormat(fmt, el) {
 }
 
 // ====== 通用解析工具 ======
-// 提取选项：支持 A-E 五个选项
+// 提取选项：支持 A-F 六个选项
 function extractOptions(optsPart) {
-  var opts = { A: '', B: '', C: '', D: '', E: '' };
+  var opts = { A: '', B: '', C: '', D: '', E: '', F: '' };
   // 匹配 A. xxx  B. xxx ... E. xxx（直到答案/解析或结尾）
-	  var optRegex = /([A-E])[.、．）)]\s*([\s\S]*?)(?=\s*[A-E][.、．）)]|答案|解析|【解析|$)/gs;
+	  var optRegex = /([A-F])[.、．）)]\s*([\s\S]*?)(?=\s*[A-F][.、．）)]|答案|解析|【解析|$)/gs;
   var m;
   while ((m = optRegex.exec(optsPart)) !== null) {
     var l = m[1], t = m[2].trim().replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
@@ -2853,19 +2853,20 @@ function extractOptions(optsPart) {
   }
   // 如果没有E选项，删除E
   if (!opts.E) delete opts.E;
+  if (!opts.F) delete opts.F;
   return opts;
 }
 
 // 提取答案：支持单选(A)和多选(AB/ABC/ABD等)
 function extractAnswer(text) {
-  var ansMatch = text.match(/答案[：:]\s*([A-E,，、\s]+)/i);
+  var ansMatch = text.match(/答案[：:]\s*([A-F,，、\s]+)/i);
   if (!ansMatch) return { answer: '?', type: 'single' };
   var raw = ansMatch[1].replace(/[,，、\s]/g, ''); // 支持 "A,B" "A、B" "A B" 等写法
   // 去重并排序
   var letters = [];
   for (var i = 0; i < raw.length; i++) {
     var ch = raw[i];
-    if (ch >= 'A' && ch <= 'E' && letters.indexOf(ch) === -1) letters.push(ch);
+    if (ch >= 'A' && ch <= 'F' && letters.indexOf(ch) === -1) letters.push(ch);
   }
   letters.sort();
   return {
@@ -2886,7 +2887,7 @@ function extractExplanation(text) {
     if (m && m[1] && m[1].trim()) return m[1].trim();
   }
   // "答案：X"后面的内容作为解析（排除下一题的题号）
-  var afterAnswer = text.match(/答案[：:]\s*[A-E,，、\s]+\s*\n([\s\S]+?)(?=\n\d+[.、．）)]|$)/);
+  var afterAnswer = text.match(/答案[：:]\s*[A-F,，、\s]+\s*\n([\s\S]+?)(?=\n\d+[.、．）)]|$)/);
   if (afterAnswer && afterAnswer[1].trim() && !/^\d+[.、．）)]/.test(afterAnswer[1].trim())) {
     return afterAnswer[1].trim();
   }
@@ -2912,7 +2913,7 @@ function normalizeText(text) {
   if (!hasLineNumbering) {
     var chunks = text.split(/[\n\r]{2,}/).filter(function(c) { return c.trim(); });
     // 至少有一个分块包含选项才尝试自动编号（单题也加序号，确保后续分割正常）
-    var hasOptionsChunks = chunks.filter(function(c) { return /[A-E][.、．）)]\s*\S/.test(c); });
+    var hasOptionsChunks = chunks.filter(function(c) { return /[A-F][.、．）)]\s*\S/.test(c); });
     if (hasOptionsChunks.length >= 1) {
       text = chunks.map(function(c, i) { return (i + 1) + '. ' + c.trim(); }).join('\n\n');
     }
@@ -2929,11 +2930,11 @@ function parseMergedFormat(text) {
   var questions = [];
   for (var bi = 0; bi < blocks.length; bi++) {
     var block = blocks[bi];
-    var hasOptions = /[A-E][.、．）)]\s*\S/.test(block);
+    var hasOptions = /[A-F][.、．）)]\s*\S/.test(block);
     if (!hasOptions) { stats.noOptions++; stats.skipped.push({ reason: 'noOptions', index: bi + 1, text: block.substring(0, 300) }); continue; }
 
     var qText = block.replace(/^\d+[.、．）)]\s*/, '');
-    var firstOpt = qText.search(/[A-E][.、．）)]\s*\S/);
+    var firstOpt = qText.search(/[A-F][.、．）)]\s*\S/);
     if (firstOpt === -1) { stats.noQuestion++; stats.skipped.push({ reason: "noQuestion", index: bi + 1, text: block.substring(0, 300) }); continue; }
 
     var question = qText.slice(0, firstOpt).trim().replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
@@ -2962,10 +2963,10 @@ function parseQuestionsOnly(text) {
   var blockResults = []; // 每个分块对应一个元素，null=被跳过
   for (var bi = 0; bi < blocks.length; bi++) {
     var block = blocks[bi];
-    var hasOptions = /[A-E][.、．）)]\s*\S/.test(block);
+    var hasOptions = /[A-F][.、．）)]\s*\S/.test(block);
     if (!hasOptions) { stats.noOptions++; stats.skipped.push({ reason: "noOptions", index: bi + 1, text: block.substring(0, 300) }); blockResults.push(null); continue; }
     var qText = block.replace(/^\d+[.、．）)]\s*/, '');
-    var firstOpt = qText.search(/[A-E][.、．）)]\s*\S/);
+    var firstOpt = qText.search(/[A-F][.、．）)]\s*\S/);
     if (firstOpt === -1) { stats.noQuestion++; stats.skipped.push({ reason: 'noQuestion', index: bi + 1, text: block.substring(0, 300) }); blockResults.push(null); continue; }
     var question = qText.slice(0, firstOpt).trim().replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
     var optsPart = qText.slice(firstOpt);
@@ -2985,7 +2986,7 @@ function parseAnswersOnly(text) {
   // 每行一个答案（A/B/C/D/E），支持单选和多选
   var lines = text.split(/[\n\r]+/).filter(function(l) { return l.trim(); });
   return lines.map(function(l) {
-    var m = l.trim().match(/([A-E]+)/i);
+    var m = l.trim().match(/([A-F]+)/i);
     if (!m) return '';
     return m[1].toUpperCase();
   }).filter(function(a) { return a; });
@@ -3028,12 +3029,12 @@ function parseExcelPaste(text) {
 
     var offset = cols.length >= 7 && /^\d+$/.test(String(cols[0]).trim()) ? 1 : 0;
     var question = (cols[offset] || '').replace(/^\d+[.、．）)]\s*/, '').trim();
-    var A = (cols[offset + 1] || '').replace(/^[A-E][.、．）)]\s*/, '').trim();
-    var B = (cols[offset + 2] || '').replace(/^[A-E][.、．）)]\s*/, '').trim();
-    var C = (cols[offset + 3] || '').replace(/^[A-E][.、．）)]\s*/, '').trim();
-    var D = (cols[offset + 4] || '').replace(/^[A-E][.、．）)]\s*/, '').trim();
+    var A = (cols[offset + 1] || '').replace(/^[A-F][.、．）)]\s*/, '').trim();
+    var B = (cols[offset + 2] || '').replace(/^[A-F][.、．）)]\s*/, '').trim();
+    var C = (cols[offset + 3] || '').replace(/^[A-F][.、．）)]\s*/, '').trim();
+    var D = (cols[offset + 4] || '').replace(/^[A-F][.、．）)]\s*/, '').trim();
     var answerRaw = (cols[offset + 5] || '').trim().replace(/答案[：:]\s*/i, '');
-    var ansMatch = answerRaw.match(/([A-E]+)/i);
+    var ansMatch = answerRaw.match(/([A-F]+)/i);
     var answer = ansMatch ? ansMatch[1].toUpperCase() : '';
 
     // 如果 offset+5 的内容看起来像E选项（以"E."开头且超过2字符），则它可能是E选项而非答案
@@ -3043,14 +3044,14 @@ function parseExcelPaste(text) {
       // offset+5 实际是E选项，答案在 offset+6
       eCol = answerRaw.replace(/^[Ee][.、．）)]\s*/, '').trim();
       answerRaw = (cols[offset + 6] || '').trim().replace(/答案[：:]\s*/i, '');
-      var ansMatch2 = answerRaw.match(/([A-E]+)/i);
+      var ansMatch2 = answerRaw.match(/([A-F]+)/i);
       answer = ansMatch2 ? ansMatch2[1].toUpperCase() : '';
       explanationCol = offset + 7;
     } else if (cols.length >= offset + 7 && /^[Ee][.、．）)]/.test((cols[offset + 5] || '').trim())) {
       // offset+5 很短但确实是E模式，且后面还有列
       eCol = (cols[offset + 5] || '').replace(/^[Ee][.、．）)]\s*/, '').trim();
       answerRaw = (cols[offset + 6] || '').trim().replace(/答案[：:]\s*/i, '');
-      var ansMatch3 = answerRaw.match(/([A-E]+)/i);
+      var ansMatch3 = answerRaw.match(/([A-F]+)/i);
       answer = ansMatch3 ? ansMatch3[1].toUpperCase() : '';
       explanationCol = offset + 7;
     } else {
@@ -3058,7 +3059,7 @@ function parseExcelPaste(text) {
     }
 
     // 多选检测
-    var ansLetters = answer.split('').filter(function(ch) { return ch >= 'A' && ch <= 'E'; });
+    var ansLetters = answer.split('').filter(function(ch) { return ch >= 'A' && ch <= 'F'; });
     ansLetters = ansLetters.filter(function(ch, idx) { return ansLetters.indexOf(ch) === idx; }).sort();
     answer = ansLetters.join('');
     var qType = ansLetters.length > 1 ? 'multi' : 'single';
@@ -3090,14 +3091,14 @@ function parseCSV(text) {
     if (cols.length < 6) continue;
     var offset = cols.length >= 7 && /^\d+$/.test(String(cols[0]).trim()) ? 1 : 0;
     var question = (cols[offset] || '').replace(/^\d+[.、．）)]\s*/, '').trim();
-    var A = (cols[offset + 1] || '').replace(/^[A-E][.、．）)]\s*/, '').trim();
-    var B = (cols[offset + 2] || '').replace(/^[A-E][.、．）)]\s*/, '').trim();
-    var C = (cols[offset + 3] || '').replace(/^[A-E][.、．）)]\s*/, '').trim();
-    var D = (cols[offset + 4] || '').replace(/^[A-E][.、．）)]\s*/, '').trim();
+    var A = (cols[offset + 1] || '').replace(/^[A-F][.、．）)]\s*/, '').trim();
+    var B = (cols[offset + 2] || '').replace(/^[A-F][.、．）)]\s*/, '').trim();
+    var C = (cols[offset + 3] || '').replace(/^[A-F][.、．）)]\s*/, '').trim();
+    var D = (cols[offset + 4] || '').replace(/^[A-F][.、．）)]\s*/, '').trim();
     var answerRaw = (cols[offset + 5] || '').trim();
-    var ansMatch = answerRaw.match(/([A-E]+)/i);
+    var ansMatch = answerRaw.match(/([A-F]+)/i);
     var answer = ansMatch ? ansMatch[1].toUpperCase() : '';
-    var ansLetters = answer.split('').filter(function(ch) { return ch >= 'A' && ch <= 'E'; });
+    var ansLetters = answer.split('').filter(function(ch) { return ch >= 'A' && ch <= 'F'; });
     ansLetters = ansLetters.filter(function(ch, idx) { return ansLetters.indexOf(ch) === idx; }).sort();
     answer = ansLetters.join('');
     var qType = ansLetters.length > 1 ? 'multi' : 'single';
@@ -3108,8 +3109,8 @@ function parseCSV(text) {
 
     // 检查E选项（cols长度>=8时，offset+5是E，offset+6是答案）
     if (cols.length >= 8 && offset + 5 < cols.length) {
-      var eVal = (cols[offset + 5] || '').replace(/^[A-E][.、．）)]\s*/, '').trim();
-      if (eVal && !/[A-E]+/i.test(eVal.substring(0, 1) + 'X')) {
+      var eVal = (cols[offset + 5] || '').replace(/^[A-F][.、．）)]\s*/, '').trim();
+      if (eVal && !/[A-F]+/i.test(eVal.substring(0, 1) + 'X')) {
         // 这列可能是E选项，重新分析
       }
     }
@@ -3180,24 +3181,24 @@ function parseExcelWorkbook(wb) {
       var availCols = colCount - offset;
 
       var question = String(row[offset] || '').replace(/^\d+[.、．）)]\s*/, '').trim();
-      var A = String(row[offset + 1] || '').replace(/^[A-E][.、．）)]\s*/, '').trim();
-      var B = String(row[offset + 2] || '').replace(/^[A-E][.、．）)]\s*/, '').trim();
-      var C = String(row[offset + 3] || '').replace(/^[A-E][.、．）)]\s*/, '').trim();
-      var D = String(row[offset + 4] || '').replace(/^[A-E][.、．）)]\s*/, '').trim();
+      var A = String(row[offset + 1] || '').replace(/^[A-F][.、．）)]\s*/, '').trim();
+      var B = String(row[offset + 2] || '').replace(/^[A-F][.、．）)]\s*/, '').trim();
+      var C = String(row[offset + 3] || '').replace(/^[A-F][.、．）)]\s*/, '').trim();
+      var D = String(row[offset + 4] || '').replace(/^[A-F][.、．）)]\s*/, '').trim();
 
       // 判断答案列位置
       var answerColIdx = offset + 4 + 1; // 默认 offset+5
       var Econtent = '';
       if (availCols >= 7) {
         // 有7列可用（题+A+B+C+D+E+答案），答案在 offset+6
-        Econtent = String(row[offset + 5] || '').replace(/^[A-E][.、．）)]\s*/, '').trim();
+        Econtent = String(row[offset + 5] || '').replace(/^[A-F][.、．）)]\s*/, '').trim();
         answerColIdx = offset + 6;
       }
 
       var answerRaw = String(row[answerColIdx] || '').trim();
-      var ansMatch = answerRaw.match(/([A-E]+)/i);
+      var ansMatch = answerRaw.match(/([A-F]+)/i);
       var answer = ansMatch ? ansMatch[1].toUpperCase() : '';
-      var ansLetters = answer.split('').filter(function(ch) { return ch >= 'A' && ch <= 'E'; });
+      var ansLetters = answer.split('').filter(function(ch) { return ch >= 'A' && ch <= 'F'; });
       ansLetters = ansLetters.filter(function(ch, idx) { return ansLetters.indexOf(ch) === idx; }).sort();
       answer = ansLetters.join('');
       var qType = ansLetters.length > 1 ? 'multi' : 'single';
