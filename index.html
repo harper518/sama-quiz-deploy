@@ -4223,6 +4223,8 @@ function renderBrowseQuestion() {
   } else {
     // 已选：简洁反馈
     if (isMulti) {
+      var multiCorrect = answered === q.answer;
+      html += '<div style="text-align:center;font-size:15px;font-weight:700;margin-bottom:10px;color:' + (multiCorrect ? 'var(--success)' : 'var(--danger)') + '">' + (multiCorrect ? '✅ 回答正确！' : '❌ 回答错误，正确答案是 ' + escHtml(q.answer)) + '</div>';
       html += letters.map(function(l) {
         var cls = 'opt';
         if (q.answer.indexOf(l) >= 0) cls += ' answer';
@@ -4234,6 +4236,7 @@ function renderBrowseQuestion() {
       }).join('');
     } else {
       var correct = answered === q.answer;
+      html += '<div style="text-align:center;font-size:15px;font-weight:700;margin-bottom:10px;color:' + (correct ? 'var(--success)' : 'var(--danger)') + '">' + (correct ? '✅ 回答正确！' : '❌ 回答错误，正确答案是 ' + escHtml(q.answer)) + '</div>';
       html += letters.map(function(l) {
         var cls = 'opt';
         if (l === q.answer) cls += ' answer';
