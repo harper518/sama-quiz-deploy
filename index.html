@@ -1429,15 +1429,15 @@ function renderEditBankModal(ov, name, bank) {
   // 分页控件（用 data-page 代替 onclick 拼接）
   var paginationHtml = '';
   if (totalPages > 1) {
-    paginationHtml = '<div style="display:flex;gap:6px;align-items:center;justify-content:center;padding:8px;border-top:1px solid var(--border);flex-shrink:0;flex-wrap:wrap">' +
+    paginationHtml = '<div style="display:flex;gap:6px;align-items:center;justify-content:center;padding:8px;border-top:1px solid var(--border);position:sticky;bottom:0;background:var(--card);flex-wrap:wrap">' +
       '<button class="btn btn-ghost btn-sm edit-pg-btn" data-page="' + (currentPage - 1) + '" ' + (currentPage <= 1 ? 'disabled style="opacity:.3"' : '') + '>◀ 上页</button>' +
       '<span style="font-size:12px;color:var(--text-secondary)">' + currentPage + '/' + totalPages + '</span>' +
       '<button class="btn btn-ghost btn-sm edit-pg-btn" data-page="' + (currentPage + 1) + '" ' + (currentPage >= totalPages ? 'disabled style="opacity:.3"' : '') + '>下页 ▶</button>' +
     '</div>';
   }
 
-  ov.innerHTML = '<div class="modal" style="animation:none;max-width:500px;width:100%;padding:0;border-radius:var(--radius);max-height:80dvh;display:flex;flex-direction:column;position:relative" data-bank-name="' + escHtml(name) + '" data-bank-total="' + bank.length + '">' +
-    '<div style="padding:16px 18px;border-bottom:1px solid var(--border);flex-shrink:0">' +
+  ov.innerHTML = '<div class="modal" style="animation:none;max-width:500px;width:100%;padding:0;border-radius:var(--radius);max-height:80dvh;overflow-y:auto;position:relative" data-bank-name="' + escHtml(name) + '" data-bank-total="' + bank.length + '">' +
+    '<div style="padding:16px 18px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--card);z-index:1">' +
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">' +
         '<h3 style="font-size:17px;margin:0">✏️ 编辑「' + escHtml(name) + '」（' + bank.length + '题）</h3>' +
         '<button class="btn btn-ghost btn-sm" onclick="this.closest(\'.modal-overlay\').remove()" style="font-size:20px;padding:4px 8px">✕</button>' +
@@ -1449,7 +1449,7 @@ function renderEditBankModal(ov, name, bank) {
         '<button class="btn btn-sm" id="editBankJumpGo" style="background:var(--primary);color:#fff;border:none;font-size:12px;padding:5px 12px;border-radius:6px">GO</button>' +
       '</div>' +
     '</div>' +
-    '<div style="overflow-y:auto;flex:1" id="editBankList">' + itemsHtml + '</div>' +
+    '<div id="editBankList">' + itemsHtml + '</div>' +
     paginationHtml +
   '</div>';
 
