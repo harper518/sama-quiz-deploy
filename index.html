@@ -4384,19 +4384,23 @@ function buildBackupObj() {
 
 function backupData() {
   var backup = buildBackupObj();
-  makeBackupCode(JSON.stringify(backup)).then(function(code) {
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(code).then(function() {
-        appData.settings.lastBackup = Date.now();
-        saveData(appData);
-        toast('✅ 备份码已复制！请粘贴到备忘录保存');
-      }).catch(function() {
-        fallbackCopy(code);
-      });
-    } else {
+  // 同步编码，避免 await 丢失用户手势导致剪贴板写入失败
+  var json = JSON.stringify(backup);
+  var bytes = new TextEncoder().encode(json);
+  var bin = '';
+  for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  var code = 'U' + btoa(bin);
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(code).then(function() {
+      appData.settings.lastBackup = Date.now();
+      saveData(appData);
+      toast('✅ 备份码已复制！请粘贴到备忘录保存');
+    }).catch(function() {
       fallbackCopy(code);
-    }
-  });
+    });
+  } else {
+    fallbackCopy(code);
+  }
 }
 
 async function shareBackupCode() {
