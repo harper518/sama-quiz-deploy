@@ -1525,11 +1525,13 @@ function editBankGoPage(name, page) {
 }
 
 function editBankItemClick(el) {
-  toast('click idx=' + el.getAttribute('data-idx'));
+  // 点击目标是输入框/文本域/按钮时忽略，避免编辑模式下反复切换
+  var tag = (event && event.target) ? event.target.tagName : '';
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'BUTTON' || tag === 'SELECT') return;
+
   var modal = el.closest('[data-bank-name]');
-  if (!modal) { toast('no modal'); return; }
+  if (!modal) return;
   var name = modal.getAttribute('data-bank-name');
-  toast('name=' + name);
   var idx = parseInt(el.getAttribute('data-idx'));
   if (!isNaN(idx)) toggleEditBankQuestion(name, idx);
 }
