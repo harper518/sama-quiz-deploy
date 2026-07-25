@@ -1030,7 +1030,14 @@ function selectDrawMode(mode, el) {
   }
 }
 
-// 顺序模式进度
+  // Save history
+    if (!appData.quizHistory[bn]) appData.quizHistory[bn] = [];
+    appData.quizHistory[bn].push({
+      date: new Date().toISOString(),
+      total, correct, wrong, rate,
+    });
+
+  // 顺序模式进度
 function getSeqProgress(bankName) {
   if (!appData.seqProgress) appData.seqProgress = {};
   return appData.seqProgress[bankName] || 0;
@@ -3968,6 +3975,13 @@ function showResult() {
     total, correct, wrong, rate,
   });
 
+    // Save history
+    if (!appData.quizHistory[bn]) appData.quizHistory[bn] = [];
+    appData.quizHistory[bn].push({
+      date: new Date().toISOString(),
+      total, correct, wrong, rate,
+    });
+
   // 顺序模式：保存进度
   if (quizState.drawMode === 'sequential') {
     if (!appData.seqProgress) appData.seqProgress = {};
@@ -4398,25 +4412,21 @@ function buildBackupObj() {
   var idx = {};
   names.forEach(function(n, i) { idx[n] = i; });
 
-  var w = {}, s = {}, h = {}, p = {}, d = {}, f = {};
+  var w = {}, s = {}, p = {}, d = {}, f = {};
   names.forEach(function(bn) {
     var i = idx[bn];
     if (data.wrongBooks[bn] && data.wrongBooks[bn].length)
       w[i] = data.wrongBooks[bn].map(function(x) { return [x.id, x.wrongCount || 1]; });
     if (data.stats[bn])
       s[i] = [data.stats[bn].answered || 0, data.stats[bn].correct || 0, data.stats[bn].rounds || 0];
-    if (data.quizHistory[bn] && data.quizHistory[bn].length)
-      h[i] = data.quizHistory[bn].slice(-20).map(function(x) {
-        return [x.date.slice(0, 10).replace(/-/g, ''), x.total, x.correct, x.wrong, x.rate];
-      });
     if (data.seqProgress && data.seqProgress[bn] != null) p[i] = data.seqProgress[bn];
     if (data.doneSets && data.doneSets[bn] && data.doneSets[bn].length) d[i] = data.doneSets[bn];
     if (data.favorites && data.favorites[bn] && data.favorites[bn].length)
       f[i] = data.favorites[bn].map(function(x) { return x.id; });
   });
 
-  var backup = { n: names, s: s, w: w, h: h, p: p, d: d, f: f, t: new Date().toISOString().slice(0, 10).replace(/-/g, '') };
-  ['s','w','h','p','d','f'].forEach(function(k) {
+  var backup = { n: names, s: s, w: w, p: p, d: d, f: f, t: new Date().toISOString().slice(0, 10).replace(/-/g, '') };
+  ['s','w','p','d','f'].forEach(function(k) {
     if (Object.keys(backup[k]).length === 0) delete backup[k];
   });
   return backup;
@@ -4632,16 +4642,6 @@ async function restoreFromPaste() {
       if (!data.doneSets) data.doneSets = {};
       Object.keys(doneData).forEach(function(k) {
         data.doneSets[resolveBank(k)] = doneData[k];
-      });
-    }
-    // 恢复历史
-    var histData = backup.h || backup.quizHistory;
-    if (histData) {
-      Object.keys(histData).forEach(function(k) {
-        var bn = resolveBank(k);
-        data.quizHistory[bn] = histData[k].map(function(x) {
-          return Array.isArray(x) ? { date: x[0], total: x[1], correct: x[2], wrong: x[3], rate: x[4] } : x;
-        });
       });
     }
     // 恢复错题本
