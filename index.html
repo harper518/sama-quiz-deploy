@@ -949,7 +949,7 @@ function updateFontSize(val) {
 let appData = loadData();
 
 // ====== 数据启动器（外置题库 + 版本检查）======
-var _BOOT_CONFIG = null; // 由构建脚本注入
+// _BOOT_CONFIG 由构建脚本注入在 function fmtDate 之前，这里不重复声明
 (function bootloadAppData() {
   if (!_BOOT_CONFIG || !_BOOT_CONFIG.banks) return;
   
