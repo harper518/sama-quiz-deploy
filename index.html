@@ -1431,14 +1431,14 @@ function renderEditBankModal(ov, name, bank) {
     '</div>';
   }
 
-  // 分页控件（用 data-page 代替 onclick 拼接）
+  // 分页控件（用 data-page 代替 onclick 拼接，放在顶部跳转区）
   var paginationHtml = '';
   if (totalPages > 1) {
-    paginationHtml = '<div style="display:flex;gap:6px;align-items:center;justify-content:center;padding:8px;border-top:1px solid var(--border);position:sticky;bottom:0;background:var(--card);flex-wrap:wrap">' +
+    paginationHtml = '<span style="display:inline-flex;gap:4px;align-items:center">' +
       '<button class="btn btn-ghost btn-sm edit-pg-btn" data-page="' + (currentPage - 1) + '" ' + (currentPage <= 1 ? 'disabled style="opacity:.3"' : '') + '>◀ 上页</button>' +
-      '<span style="font-size:12px;color:var(--text-secondary)">' + currentPage + '/' + totalPages + '</span>' +
+      '<span style="font-size:12px;color:var(--text-secondary);margin:0 2px">' + currentPage + '/' + totalPages + '</span>' +
       '<button class="btn btn-ghost btn-sm edit-pg-btn" data-page="' + (currentPage + 1) + '" ' + (currentPage >= totalPages ? 'disabled style="opacity:.3"' : '') + '>下页 ▶</button>' +
-    '</div>';
+    '</span>';
   }
 
   ov.innerHTML = '<div class="modal" style="animation:none;max-width:500px;width:100%;padding:0;border-radius:var(--radius);max-height:80dvh;overflow-y:auto;position:relative" data-bank-name="' + escHtml(name) + '" data-bank-total="' + bank.length + '">' +
@@ -1447,15 +1447,15 @@ function renderEditBankModal(ov, name, bank) {
         '<h3 style="font-size:17px;margin:0">✏️ 编辑「' + escHtml(name) + '」（' + bank.length + '题）</h3>' +
         '<button class="btn btn-ghost btn-sm" onclick="this.closest(\'.modal-overlay\').remove()" style="font-size:20px;padding:4px 8px">✕</button>' +
       '</div>' +
-      '<div style="display:flex;gap:6px;align-items:center">' +
+      '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">' +
         '<span style="font-size:12px;color:var(--text-secondary);white-space:nowrap">🔍 跳到第</span>' +
         '<input type="number" id="editBankJumpInput" min="1" max="' + bank.length + '" placeholder="题号" style="width:60px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;text-align:center;background:var(--bg-input);color:var(--text)" onkeydown="if(event.key===\'Enter\')document.querySelector(\'#editBankJumpGo\').click()">' +
         '<span style="font-size:12px;color:var(--text-secondary);white-space:nowrap">题</span>' +
         '<button class="btn btn-sm" id="editBankJumpGo" style="background:var(--primary);color:#fff;border:none;font-size:12px;padding:5px 12px;border-radius:6px">GO</button>' +
+        paginationHtml +
       '</div>' +
     '</div>' +
     '<div id="editBankList">' + itemsHtml + '</div>' +
-    paginationHtml +
   '</div>';
 
   // 移动端 touchend 代理（onclick 在 iOS Safari 中不可靠）
@@ -1471,6 +1471,9 @@ function renderEditBankModal(ov, name, bank) {
       var dy = (e.changedTouches[0].clientY - _touchStart.y);
       _touchStart = null;
       if (Math.abs(dx) + Math.abs(dy) > 8) return; // 移动超过 8px 视为滚动
+      // 点击目标是表单元素时忽略，避免编辑模式下误触发折叠
+      var tag = (e.target) ? e.target.tagName : '';
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'BUTTON' || tag === 'SELECT' || tag === 'LABEL') return;
       var item = e.target.closest('.edit-bank-item');
       if (!item) return;
       e.preventDefault();
