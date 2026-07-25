@@ -443,7 +443,8 @@ textarea { min-height: 180px; resize: vertical; line-height: 1.8; }
 .bank-item .actions { display: flex; gap: 4px; flex-shrink: 0; }
 .bank-item .actions .btn-icon { width: 36px; height: 36px; padding: 0; border-radius: 50%; background: var(--bg-input); border: none; color: var(--text-secondary); font-size: var(--font-size); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all var(--transition); }
 .bank-item .actions .btn-icon:active { background: var(--primary-soft); color: var(--primary); }
-.edit-bank-item:hover { background: var(--primary-light) !important; }
+.edit-bank-item { display:block;width:100%;border:none;border-bottom:1px solid var(--border);background:var(--card);font:inherit;text-align:left;padding:10px 12px;cursor:pointer;touch-action:manipulation;color:var(--text);-webkit-appearance:none;border-radius:0;margin:0; }
+.edit-bank-item:active { background: var(--primary-light) !important; }
 .btn-sort { width: 44px; height: 44px; padding: 0; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-input); color: var(--text-tertiary); font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1; transition: all var(--transition); position: relative; z-index: 2; appearance: none; -webkit-appearance: none; touch-action: manipulation; }
 .btn-sort:hover:not(:disabled) { background: var(--primary-soft); color: var(--primary); border-color: var(--primary); }
 .btn-sort:active:not(:disabled) { background: var(--primary); color: #fff; }
@@ -1464,11 +1465,11 @@ function renderEditBankModal(ov, name, bank) {
   var itemsHtml = '';
   for (var i = start; i < end; i++) {
     var q = bank[i];
-    itemsHtml += '<div class="edit-bank-item" id="editBankItem_' + i + '" data-idx="' + i + '" style="padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s;touch-action:manipulation">' +
+    itemsHtml += '<button class="edit-bank-item" id="editBankItem_' + i + '" data-idx="' + i + '">' +
       '<div style="font-size:13px;font-weight:600;color:var(--primary);margin-bottom:2px">#' + (i + 1) + '</div>' +
       '<div style="font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(q.question || '') + '</div>' +
       '<div style="font-size:11px;color:var(--text-tertiary);margin-top:2px">答案：' + escHtml(q.answer || '') + '</div>' +
-    '</div>';
+    '</button>';
   }
 
   // 分页控件（用 data-page 代替 onclick 拼接，放在顶部跳转区）
@@ -1498,40 +1499,17 @@ function renderEditBankModal(ov, name, bank) {
     '<div id="editBankList">' + itemsHtml + '</div>' +
   '</div>';
 
-  // 为每个题目直接绑定事件（不用事件代理，iOS Safari 对 div 事件代理不可靠）
+  // 题目条目是 <button>，iOS Safari 原生支持 button click
   var items = ov.querySelectorAll('.edit-bank-item');
   for (var itemIdx = 0; itemIdx < items.length; itemIdx++) {
     (function(itemEl) {
-      var _tsX = 0, _tsY = 0, _tsSet = false;
       var idx = parseInt(itemEl.getAttribute('data-idx'));
       if (isNaN(idx)) return;
-
-      function doTap() {
-        toggleEditBankQuestion(name, idx);
-      }
-
-      itemEl.addEventListener('touchstart', function(e) {
-        if (e.touches.length === 1) { _tsX = e.touches[0].clientX; _tsY = e.touches[0].clientY; _tsSet = true; }
-      }, { passive: true });
-
-      itemEl.addEventListener('touchend', function(e) {
-        if (!_tsSet) return;
-        var dx = e.changedTouches[0].clientX - _tsX;
-        var dy = e.changedTouches[0].clientY - _tsY;
-        _tsSet = false;
-        if (Math.abs(dx) + Math.abs(dy) > 10) return;
-        var tag = (e.target) ? e.target.tagName : '';
-        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'BUTTON' || tag === 'SELECT') return;
-        e.preventDefault();
-        e.stopPropagation();
-        doTap();
-      }, { passive: false });
-
       itemEl.addEventListener('click', function(e) {
-        var tag = (e.target) ? e.target.tagName : '';
-        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'BUTTON' || tag === 'SELECT') return;
+        // 点击在表单元素内部时不触发切换
+        if (e.target.closest && e.target.closest('input,textarea,button,select,label')) return;
         e.stopPropagation();
-        doTap();
+        toggleEditBankQuestion(name, idx);
       });
     })(items[itemIdx]);
   }
@@ -1649,14 +1627,14 @@ function toggleEditBankQuestion(name, idx) {
       }).join('') +
       '<div style="margin-bottom:8px"><label style="font-size:11px;color:var(--text-secondary);display:block;margin-bottom:2px">答案</label><input id="ebAns_' + idx + '" value="' + escHtml(q.answer || '') + '" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--bg-input);color:var(--text);font-family:inherit"></div>' +
       '<div style="margin-bottom:8px"><label style="font-size:11px;color:var(--text-secondary);display:block;margin-bottom:2px">解析（可选）</label><textarea id="ebExp_' + idx + '" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--bg-input);color:var(--text);resize:vertical;min-height:40px;font-family:inherit">' + escHtml(q.explanation || '') + '</textarea></div>' +
-      '<div style="display:flex;gap:8px"><button class="btn btn-primary btn-sm edit-save-btn" style="flex:1" data-idx="' + idx + '">💾 保存</button><button class="btn btn-ghost btn-sm edit-cancel-btn" style="flex:1" data-idx="' + idx + '">取消</button></div>';
+      '<div style="display:flex;gap:8px"><span class="btn btn-primary btn-sm edit-save-btn" style="flex:1;text-align:center" data-idx="' + idx + '">💾 保存</span><span class="btn btn-ghost btn-sm edit-cancel-btn" style="flex:1;text-align:center" data-idx="' + idx + '">取消</span></div>';
     itemEl.innerHTML = formHtml;
     itemEl.style.background = 'var(--primary-light)';
-    // 绑定保存/取消事件（不用 onclick 拼接避免转义问题）
+    // 绑定保存/取消事件（span 模拟按钮，stopPropagation 防止触发父 button 的 click）
     var saveBtn = itemEl.querySelector('.edit-save-btn');
     var cancelBtn = itemEl.querySelector('.edit-cancel-btn');
-    if (saveBtn) saveBtn.addEventListener('click', function(e) { e.stopPropagation(); saveEditBankInline(name, idx); });
-    if (cancelBtn) cancelBtn.addEventListener('click', function(e) { e.stopPropagation(); cancelEditBankInline(name, idx); });
+    if (saveBtn) saveBtn.addEventListener('click', function(e) { e.stopPropagation(); e.preventDefault(); saveEditBankInline(name, idx); });
+    if (cancelBtn) cancelBtn.addEventListener('click', function(e) { e.stopPropagation(); e.preventDefault(); cancelEditBankInline(name, idx); });
   }
 }
 
@@ -3778,7 +3756,7 @@ function renderQuestion() {
     var correct = isMulti ? (prevAnswer === q.answer) : (q.answer === prevAnswer);
     fb.className = 'feedback show ' + (correct ? 'correct' : 'wrong');
     fb.innerHTML = '<strong>' + (correct ? '✅ 回答正确！' : '❌ 回答错误，正确答案是 ' + q.answer) + '</strong>' +
-      (q.explanation ? '<div class="explanation-box"><button class="toggle-btn" onclick="var n=this.nextElementSibling;n.style.display=n.style.display===\'none\'?\'block\':\'none\'">💡 查看解析</button><div class="content">' + escHtml(q.explanation) + '</div></div>' : '');
+      (q.explanation ? '<div class="explanation-box"><button class="toggle-btn" onclick="toggleExplanation(this)">💡 查看解析</button><div class="content">' + escHtml(q.explanation) + '</div></div>' : '');
   } else {
     fb.className = 'feedback';
     fb.innerHTML = '';
@@ -3894,7 +3872,7 @@ function selectAnswer(letter) {
     var fb = document.getElementById('feedback');
     fb.className = 'feedback show ' + (correct ? 'correct' : 'wrong');
     fb.innerHTML = '<strong>' + (correct ? '✅ 回答正确！' : '❌ 回答错误，正确答案是 ' + q.answer) + '</strong>' +
-      (q.explanation ? '<div class="explanation-box"><button class="toggle-btn" onclick="var n=this.nextElementSibling;n.style.display=n.style.display===\'none\'?\'block\':\'none\'">💡 查看解析</button><div class="content">' + escHtml(q.explanation) + '</div></div>' : '');
+      (q.explanation ? '<div class="explanation-box"><button class="toggle-btn" onclick="toggleExplanation(this)">💡 查看解析</button><div class="content">' + escHtml(q.explanation) + '</div></div>' : '');
 
     if (correct) quizState.correct++;
     else { quizState.wrong++; quizState.wrongIds.push(q.id); }
@@ -3965,7 +3943,7 @@ function confirmMultiAnswer() {
     var fb = document.getElementById('feedback');
     fb.className = 'feedback show ' + (correct ? 'correct' : 'wrong');
     fb.innerHTML = '<strong>' + (correct ? '✅ 回答正确！' : '❌ 回答错误，正确答案是 ' + q.answer) + '</strong>' +
-      (q.explanation ? '<div class="explanation-box"><button class="toggle-btn" onclick="var n=this.nextElementSibling;n.style.display=n.style.display===\'none\'?\'block\':\'none\'">💡 查看解析</button><div class="content">' + escHtml(q.explanation) + '</div></div>' : '');
+      (q.explanation ? '<div class="explanation-box"><button class="toggle-btn" onclick="toggleExplanation(this)">💡 查看解析</button><div class="content">' + escHtml(q.explanation) + '</div></div>' : '');
 
     if (correct) quizState.correct++;
     else { quizState.wrong++; quizState.wrongIds.push(q.id); }
@@ -4098,7 +4076,7 @@ function showResult() {
           '你的答案：<span class="' + (isCorrect ? 'right' : 'bad') + '">' + escHtml(userAns) + '</span>' +
           (!isCorrect ? ' | 正确答案：<span class="right">' + escHtml(q.answer) + '</span>' : ' ✅') +
         '</div>' +
-        (q.explanation ? '<div class="explanation-box" style="margin-top:6px"><button class="toggle-btn" onclick="var n=this.nextElementSibling;n.style.display=n.style.display===\'none\'?\'block\':\'none\'">💡 查看解析</button><div class="content">' + escHtml(q.explanation) + '</div></div>' : '') +
+        (q.explanation ? '<div class="explanation-box" style="margin-top:6px"><button class="toggle-btn" onclick="toggleExplanation(this)">💡 查看解析</button><div class="content">' + escHtml(q.explanation) + '</div></div>' : '') +
       '</div>';
     }).join('') + '</div>';
 
@@ -4354,6 +4332,11 @@ function clearFavs(name) {
   toast('收藏已清空');
 }
 
+function toggleExplanation(btn) {
+  var content = btn.parentNode.querySelector('.content');
+  if (content) content.style.display = content.style.display === 'none' ? 'block' : 'none';
+}
+
 function toggleFavFromBrowse() {
   if (!browseState) return;
   var q = browseState.questions[browseState.index];
@@ -4449,11 +4432,21 @@ function renderBrowseQuestion() {
       }).join('');
     }
     if (q.explanation) {
-      html += '<div class="explanation-box" style="margin-top:8px"><button class="toggle-btn" onclick="var n=this.nextElementSibling;n.style.display=n.style.display===&quot;none&quot;?&quot;block&quot;:&quot;none&quot;">💡 查看解析</button><div class="content" style="display:none">' + escHtml(q.explanation) + '</div></div>';
+      html += '<div class="explanation-box" style="margin-top:8px"><button class="toggle-btn" onclick="toggleExplanation(this)">💡 查看解析</button><div class="content" style="display:none">' + escHtml(q.explanation) + '</div></div>';
     }
   }
 
   document.getElementById('browseCard').innerHTML = html;
+  // 绑定解析展开/收回按钮
+  var toggleBtn = document.querySelector('#browseCard .toggle-btn');
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      var content = this.parentNode.querySelector('.content');
+      if (content) content.style.display = content.style.display === 'none' ? 'block' : 'none';
+    });
+  }
   var prevBtn = document.querySelector('#wrongBrowseActive .nav-row .btn:first-child');
   var nextBtn = document.querySelector('#wrongBrowseActive .nav-row .btn:last-child');
   var delBtn = document.getElementById('deleteWrongBtn');
