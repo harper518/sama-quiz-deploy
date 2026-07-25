@@ -424,7 +424,7 @@ textarea { min-height: 180px; resize: vertical; line-height: 1.8; }
 
 /* ====== Toast ====== */
 .toast-container { position: fixed; top: 18px; left: 50%; transform: translateX(-50%); z-index: 999; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
-.toast { padding: 10px 22px; border-radius: 22px; background: #1e293b; color: #fff; font-size: 14px; font-weight: 600; box-shadow: 0 8px 24px rgba(0,0,0,.2); animation: toastIn .35s ease, toastOut .3s ease 1.8s forwards; text-align: center; white-space: nowrap; }
+.toast { padding: 10px 22px; border-radius: 22px; background: #1e293b; color: #fff; font-size: 14px; font-weight: 600; box-shadow: 0 8px 24px rgba(0,0,0,.2); animation: toastIn .35s ease, toastOut .3s ease 1.8s forwards; text-align: center; max-width: 90vw; line-height: 1.5; }
 @keyframes toastIn { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes toastOut { from { opacity: 1; } to { opacity: 0; transform: translateY(-8px); } }
 
@@ -4794,7 +4794,7 @@ function backupData() {
     navigator.clipboard.writeText(code).then(function() {
       appData.settings.lastBackup = Date.now();
       saveData(appData);
-      toast('✅ 进度备份码已复制（不含题目）。如需完整备份含题目，请用「📤 分享/导出备份文件」');
+      toast('✅ 进度备份已复制（不含题目）| 完整备份 → 导出文件');
     }).catch(function() {
       fallbackCopy(code);
     });
@@ -4904,7 +4904,7 @@ function fallbackCopy(text) {
     document.execCommand('copy');
     appData.settings.lastBackup = Date.now();
     saveData(appData);
-    toast('✅ 进度备份码已复制（不含题目）。如需完整备份含题目，请用「📤 分享/导出备份文件」');
+    toast('✅ 进度备份已复制（不含题目）| 完整备份 → 导出文件');
   } catch(e) {
     toast('❌ 复制失败，请尝试手动复制');
   }
@@ -5055,7 +5055,7 @@ async function restoreFromPaste() {
     var msg = '✅ 进度已恢复';
     if (missingBanks.length > 0) {
       msg += ' | ⚠️ 以下题库不存在，进度无法应用：' + missingBanks.join('、');
-      msg += '。请先导入对应题库，再重新粘贴备份码恢复。如需完整备份（含题目），请使用「📤 分享/导出备份文件」。';
+      msg += '。请先导入题库再恢复，或使用「导出文件」完整备份。';
     }
     toast(msg);
   } catch(err) {
@@ -5205,7 +5205,7 @@ function renderSettings() {
 
     '<div class="section"><div class="section-title">关于</div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="showManualMenu()"><div><div class="setting-label">📖 使用说明</div><div class="setting-desc">查看使用指南</div></div><div style="display:flex;align-items:center">→</div></div>' +
-      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">手机刷题工具 · 纯前端离线可用 · <span id="appVersion">v104</span></div></div></div>' +
+      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">手机刷题工具 · 纯前端离线可用 · <span id="appVersion">v105</span></div></div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="clearAllData()"><div><div class="setting-label" style="color:var(--danger)">🗑️ 删除所有数据</div><div class="setting-desc">清空全部题库和设置，不可恢复</div></div><div style="display:flex;align-items:center;color:var(--danger)">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="checkUpdate()"><div><div class="setting-label">🔄 检查更新</div><div class="setting-desc">点击清除缓存并刷新，获取最新版本</div></div><div style="display:flex;align-items:center">→</div></div>' +
     '</div>';
