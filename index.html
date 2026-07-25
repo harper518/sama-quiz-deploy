@@ -1207,10 +1207,9 @@ function moveBankUp(name) {
   var names = getSortedBankNames();
   var idx = names.indexOf(name);
   if (idx <= 0) return;
-  // 用新时间戳确保唯一顺序
-  var t = Date.now();
-  getBankMeta(names[idx]).order = t;             // 当前题库获得较小值，排到前面
-  getBankMeta(names[idx - 1]).order = t + 1;      // 上一个题库获得较大值，排到后面
+  var tmp = getBankMeta(names[idx]).order;
+  getBankMeta(names[idx]).order = getBankMeta(names[idx - 1]).order;
+  getBankMeta(names[idx - 1]).order = tmp;
   try { saveData(appData); } catch(e) { console.error(e); }
   renderBanks();
 }
@@ -1218,10 +1217,9 @@ function moveBankDown(name) {
   var names = getSortedBankNames();
   var idx = names.indexOf(name);
   if (idx < 0 || idx >= names.length - 1) return;
-  // 用新时间戳确保唯一顺序
-  var t = Date.now();
-  getBankMeta(names[idx + 1]).order = t;           // 下一个题库获得较小值，排到前面
-  getBankMeta(names[idx]).order = t + 1;            // 当前题库获得较大值，排到后面
+  var tmp = getBankMeta(names[idx]).order;
+  getBankMeta(names[idx]).order = getBankMeta(names[idx + 1]).order;
+  getBankMeta(names[idx + 1]).order = tmp;
   try { saveData(appData); } catch(e) { console.error(e); }
   renderBanks();
 }
