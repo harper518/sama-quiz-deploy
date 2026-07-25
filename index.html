@@ -1007,6 +1007,11 @@ var _BOOT_CONFIG = null; // 由构建脚本注入
       if (fetched) {
         localStorage.setItem('_dv', vi.v);
         saveData(appData);
+        // 刷新 UI（如果 DOM 已就绪）
+        if (document.readyState !== 'loading') {
+          if (typeof renderBanks === 'function') renderBanks();
+          if (typeof updateBadges === 'function') updateBadges();
+        }
         console.log('✅ 题库数据已更新至 v' + vi.v);
       } else {
         // 没有新题库要下载，但版本号还是要更新（可能是纯 UI 更新）
@@ -3397,6 +3402,11 @@ function renderQuizSetup() {
 document.addEventListener('DOMContentLoaded', function() {
   var sel = document.getElementById('bankSelect');
   if (sel) sel.addEventListener('change', function() { updateSeqProgressUI(); renderCategoryFilter(sel.value); });
+  // 如果 bootloader 已完成但 UI 未刷新（极快网络时可能），补刷
+  if (Object.keys(appData.banks).length > 0 && document.getElementById('banksList').children.length === 0) {
+    renderBanks();
+    updateBadges();
+  }
 });
 
 function selectCount(n, el) {
