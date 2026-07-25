@@ -4052,10 +4052,12 @@ function renderWrongBooks() {
         '<div style="display:flex;align-items:center;justify-content:space-between">' +
         '<span style="font-weight:700;font-size:15px;color:' + color + '">' + icon + ' ' + label + '</span>' +
         '<div class="chip-group" style="margin:0">' +
+        '<button class="btn btn-outline btn-sm" id="expandBtn_' + name.replace(/[^a-zA-Z0-9一-龥]/g, '_') + '_' + tierKey + '" style="width:auto;border-color:#C4B5FD;color:#A78BFA" onclick="toggleWrongTierList(\'' + escHtml(name) + '\',\'' + tierKey + '\')">📋 展开</button>' +
         '<button class="btn btn-outline btn-sm" style="width:auto;border-color:#C4B5FD;color:#A78BFA" onclick="browseWrongsByTier(\'' + escHtml(name) + '\',\'' + tierKey + '\')">🐚 浏览</button>' +
         '<button class="btn btn-sm" style="width:auto;background:var(--border);border:none;color:var(--danger)" onclick="clearWrongsByTier(\'' + escHtml(name) + '\',\'' + tierKey + '\')">🗑</button>' +
         '</div></div>' +
         '<div style="font-size:13px;color:var(--text-secondary);margin-top:4px">' + count + ' 道</div>' +
+        '<div id="' + name.replace(/[^a-zA-Z0-9一-龥]/g, '_') + '_' + tierKey + '_list" style="display:none;margin-top:8px;max-height:400px;overflow-y:auto;border-top:1px solid var(--border);padding-top:6px"></div>' +
         '</div>';
     };
 
@@ -4066,6 +4068,51 @@ function renderWrongBooks() {
       tierHtml('高频错题（5次+）', '🔥', '#EF4444', tier5.length, '5') +
       '</div>';
   }).join('');
+}
+
+function toggleWrongTierList(name, tierKey) {
+  var listId = name.replace(/[^a-zA-Z0-9一-龥]/g, '_') + '_' + tierKey + '_list';
+  var btnId = 'expandBtn_' + name.replace(/[^a-zA-Z0-9一-龥]/g, '_') + '_' + tierKey;
+  var listEl = document.getElementById(listId);
+  var btnEl = document.getElementById(btnId);
+  if (!listEl) return;
+  if (listEl.style.display === 'none') {
+    // 展开
+    var wrongs = getWrongsByTier(name, tierKey);
+    if (wrongs.length === 0) { toast('此类没有错题'); return; }
+    var html = '';
+    for (var i = 0; i < wrongs.length; i++) {
+      var w = wrongs[i];
+      html += '<div style="padding:8px 0;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:8px">' +
+        '<div style="flex:1;min-width:0">' +
+          '<div style="font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">#' + (i+1) + ' ' + escHtml(w.question || '') + '</div>' +
+          '<div style="font-size:11px;color:var(--text-tertiary);margin-top:2px">答案：' + escHtml(w.answer || '') + ' | 错' + (w.wrongCount || 1) + '次</div>' +
+        '</div>' +
+        '<button class="btn btn-sm" style="width:auto;min-width:44px;background:var(--danger-light);border:none;color:var(--danger);flex-shrink:0;font-size:16px;padding:4px 8px" onclick="event.stopPropagation();deleteSingleWrong(\'' + escHtml(name) + '\',\'' + w.id + '\');">🗑</button>' +
+      '</div>';
+    }
+    listEl.innerHTML = html;
+    listEl.style.display = 'block';
+    if (btnEl) btnEl.textContent = '📋 收起';
+  } else {
+    listEl.style.display = 'none';
+    if (btnEl) btnEl.textContent = '📋 展开';
+  }
+}
+
+function deleteSingleWrong(name, id) {
+  if (!confirm('确定从错题本中移除此题吗？')) return;
+  var wrongs = appData.wrongBooks[name] || [];
+  var foundIdx = -1;
+  for (var i = 0; i < wrongs.length; i++) {
+    if (String(wrongs[i].id) === String(id)) { foundIdx = i; break; }
+  }
+  if (foundIdx >= 0) wrongs.splice(foundIdx, 1);
+  if (wrongs.length === 0) delete appData.wrongBooks[name];
+  saveData(appData);
+  renderWrongBooks();
+  updateBadges();
+  toast('🗑 已移除');
 }
 
 function getWrongsByTier(name, tierKey) {
