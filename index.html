@@ -4963,23 +4963,37 @@ async function restoreFromPaste() {
     // 编号→题库名映射
     var nameMap = backup.n; // ["教资科目二", "文化素养"]
     var data = loadData();
-    // 辅助函数：key可能是编号或题库名
-    function resolveBank(key) {
-      if (!isNaN(key)) return nameMap[parseInt(key)] || key;
-      return key; // 兼容旧格式
-    }
 
-    // 收集备份中引用但当前不存在的题库
-    var missingBanks = [];
+    // 收集备份中引用的题库，检测匹配情况
+    var backupBankNames = [];
     var allKeys = {};
     ['s','w','p','d','f'].forEach(function(field) {
       var src = backup[field];
       if (src) Object.keys(src).forEach(function(k) { allKeys[k] = true; });
     });
     Object.keys(allKeys).forEach(function(k) {
-      var bn = resolveBank(k);
-      if (!data.banks[bn]) missingBanks.push(bn);
+      var bn = (!isNaN(k)) ? (nameMap[parseInt(k)] || k) : k;
+      backupBankNames.push(bn);
     });
+
+    var currentBankNames = Object.keys(data.banks || {});
+    var matchedBanks = backupBankNames.filter(function(bn) { return data.banks[bn]; });
+    var missingBanks = backupBankNames.filter(function(bn) { return !data.banks[bn]; });
+
+    // 先确认再恢复
+    var confirmMsg = '📋 备份码中的题库：\n  ' + backupBankNames.join('、') +
+      '\n\n📚 当前已有的题库：\n  ' + (currentBankNames.length > 0 ? currentBankNames.join('、') : '（无）') +
+      '\n\n✅ 可匹配：' + (matchedBanks.length > 0 ? matchedBanks.join('、') : '无') +
+      (missingBanks.length > 0 ? '\n⚠️ 缺失：' + missingBanks.join('、') + '\n\n这些题库的进度无法恢复。请确认题库名称完全一致（包括括号、空格）。' : '') +
+      '\n\n是否继续恢复？';
+
+    if (!confirm(confirmMsg)) return;
+
+    // 辅助函数
+    function resolveBank(key) {
+      if (!isNaN(key)) return nameMap[parseInt(key)] || key;
+      return key;
+    }
 
     // 恢复统计
     var statsData = backup.s || backup.stats;
@@ -5052,10 +5066,9 @@ async function restoreFromPaste() {
     updateBadges();
 
     // 拼接提示
-    var msg = '✅ 进度已恢复';
+    var msg = '✅ 进度已恢复（' + matchedBanks.length + '个题库）';
     if (missingBanks.length > 0) {
-      msg += ' | ⚠️ 以下题库不存在，进度无法应用：' + missingBanks.join('、');
-      msg += '。请先导入题库再恢复，或使用「导出文件」完整备份。';
+      msg += ' | ⚠️ ' + missingBanks.length + '个题库缺失，进度未应用';
     }
     toast(msg);
   } catch(err) {
@@ -5205,7 +5218,7 @@ function renderSettings() {
 
     '<div class="section"><div class="section-title">关于</div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="showManualMenu()"><div><div class="setting-label">📖 使用说明</div><div class="setting-desc">查看使用指南</div></div><div style="display:flex;align-items:center">→</div></div>' +
-      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">手机刷题工具 · 纯前端离线可用 · <span id="appVersion">v105</span></div></div></div>' +
+      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">手机刷题工具 · 纯前端离线可用 · <span id="appVersion">v106</span></div></div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="clearAllData()"><div><div class="setting-label" style="color:var(--danger)">🗑️ 删除所有数据</div><div class="setting-desc">清空全部题库和设置，不可恢复</div></div><div style="display:flex;align-items:center;color:var(--danger)">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="checkUpdate()"><div><div class="setting-label">🔄 检查更新</div><div class="setting-desc">点击清除缓存并刷新，获取最新版本</div></div><div style="display:flex;align-items:center">→</div></div>' +
     '</div>';
