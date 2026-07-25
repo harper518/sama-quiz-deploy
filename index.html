@@ -968,6 +968,11 @@ let appData = loadData();
     if (overlay) overlay.style.display = 'none';
   }
   
+  function refreshUI() {
+    if (typeof renderBanks === 'function') renderBanks();
+    if (typeof updateBadges === 'function') updateBadges();
+  }
+
   async function doBootload() {
     try {
       // 1. 检查版本
@@ -975,12 +980,13 @@ let appData = loadData();
       if (!resp.ok) throw new Error('version fetch failed');
       var vi = await resp.json();
       var cachedVer = localStorage.getItem('_dv');
-      
+
       if (vi.v === cachedVer) {
-        // 版本一致，直接返回（banks 已在 appData 中）
+        // 版本一致，但确保 UI 已刷新（PWA 冷启动可能漏掉初始 renderBanks）
+        refreshUI();
         return;
       }
-      
+
       // 2. 版本不一致或首次加载 — 下载 JSON
       showLoading();
       var bankNames = Object.keys(_BOOT_CONFIG.banks);
@@ -1003,19 +1009,14 @@ let appData = loadData();
           console.error('题库加载失败：' + name, e);
         }
       }
-      
+
       // 3. 保存版本号和题库数据
       if (fetched) {
         localStorage.setItem('_dv', vi.v);
         saveData(appData);
-        // 刷新 UI（如果 DOM 已就绪）
-        if (document.readyState !== 'loading') {
-          if (typeof renderBanks === 'function') renderBanks();
-          if (typeof updateBadges === 'function') updateBadges();
-        }
         console.log('✅ 题库数据已更新至 v' + vi.v);
       } else {
-        // 没有新题库要下载，但版本号还是要更新（可能是纯 UI 更新）
+        // 没有新题库要下载，但版本号还是要更新
         localStorage.setItem('_dv', vi.v);
       }
     } catch(e) {
@@ -1023,6 +1024,8 @@ let appData = loadData();
       console.log('⚠️ 版本检查失败，使用缓存数据：' + e.message);
     } finally {
       hideLoading();
+      // 无论成功/失败/版本匹配，最后都刷新 UI（PWA 冷启动时初始 renderBanks 可能不生效）
+      refreshUI();
     }
   }
   
