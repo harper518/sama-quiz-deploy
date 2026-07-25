@@ -1318,14 +1318,39 @@ function exportBank(name) {
 function showExportModal(title, content) {
   var ov = document.createElement('div'); ov.className = 'modal-overlay'; ov.style.animation = 'none';
   var hasShare = navigator.share !== undefined;
+  // 检查是否支持文件分享（移动端微信/WPS 友好）
+  var canShareFile = false;
+  try { canShareFile = navigator.canShare && navigator.canShare({ files: [new File(['test'], 'test.txt', {type:'text/plain'})] }); } catch(e) {}
   ov.innerHTML = '<div class="modal" style="animation:none;max-width:420px;margin:auto;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);padding:20px;border-radius:var(--radius)"><h3 style="margin-bottom:6px">📤 ' + escHtml(title) + '</h3><textarea readonly style="width:100%;min-height:160px;max-height:50vh;font-size:13px;padding:10px;border:2px solid var(--border);border-radius:8px;background:var(--bg-input);color:var(--text);word-break:break-all;font-family:inherit" onclick="this.select()">' + escHtml(content) + '</textarea><p class="text-sm text-secondary mt-6" style="font-size:12px;color:var(--text-secondary);margin-top:6px">👆 点上方文字全选 → 复制</p>' +
     (hasShare
-      ? '<div style="display:flex;gap:10px;margin-top:12px"><button class="btn btn-primary flex-1" style="flex:1" onclick="copyExportContent(this)">📋 复制</button><button class="btn btn-primary flex-1" style="flex:1;background:#25c26b;border-color:#25c26b" onclick="shareExportText(this,\'' + escHtml(title).replace(/'/g, "\\'") + '\')">📤 分享</button><button class="btn btn-ghost flex-1" style="flex:1" onclick="this.closest(\'.modal-overlay\').remove()">关闭</button></div><div style="font-size:11px;color:var(--text-tertiary);text-align:center;margin-top:6px">📱 分享 → 微信/QQ/备忘录 &nbsp;|&nbsp; 复制 → 粘贴到任意位置</div>'
+      ? '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap"><button class="btn btn-primary flex-1" style="flex:1;min-width:80px" onclick="copyExportContent(this)">📋 复制</button>' +
+        (canShareFile ? '<button class="btn btn-primary flex-1" style="flex:1;min-width:80px;background:#25c26b;border-color:#25c26b" onclick="shareExportFile(this,\'' + escHtml(title).replace(/'/g, "\\'") + '\')">📎 分享文件</button>' : '<button class="btn btn-primary flex-1" style="flex:1;min-width:80px;background:#7c8aaa;border-color:#7c8aaa" onclick="shareExportText(this,\'' + escHtml(title).replace(/'/g, "\\'") + '\')">📤 分享文本</button>') +
+        '<button class="btn btn-ghost flex-1" style="flex:1;min-width:60px" onclick="this.closest(\'.modal-overlay\').remove()">关闭</button></div>' +
+        (canShareFile ? '<div style="font-size:11px;color:var(--text-tertiary);text-align:center;margin-top:6px">📎 分享文件 → 微信/QQ/WPS 完整版 &nbsp;|&nbsp; 📤 分享文本 → 5000字截断</div>' : '<div style="font-size:11px;color:var(--text-tertiary);text-align:center;margin-top:6px">📱 分享 → 微信/QQ/备忘录 &nbsp;|&nbsp; 复制 → 粘贴到任意位置</div>')
       : '<div style="display:flex;gap:10px;margin-top:12px"><button class="btn btn-primary flex-1" style="flex:1" onclick="copyExportContent(this)">📋 一键复制</button><button class="btn btn-outline flex-1" style="flex:1" onclick="downloadExportText(this,\'' + escHtml(title).replace(/'/g, "\\'") + '\')">📥 下载 TXT</button><button class="btn btn-ghost flex-1" style="flex:1" onclick="this.closest(\'.modal-overlay\').remove()">关闭</button></div><div style="font-size:11px;color:var(--text-tertiary);text-align:center;margin-top:6px">💻 下载文件 → 电脑文档/桌面</div>') +
   '</div>';
   document.body.appendChild(ov);
   ov._exportContent = content;
   ov.addEventListener('click', function(e) { if (e.target === ov) ov.remove(); });
+}
+function shareExportFile(btn, title) {
+  var ov = btn.closest('.modal-overlay');
+  var content = ov._exportContent || '';
+  var filename = (title || '题库导出') + '.txt';
+  var file = new File([content], filename, { type: 'text/plain;charset=utf-8' });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    navigator.share({ files: [file], title: title || '题库导出' }).then(function() {
+      toast('✅ 已分享文件');
+    }).catch(function(err) {
+      if (err.name !== 'AbortError') {
+        // 分享文件失败，降级为下载
+        downloadExportText(btn, title);
+      }
+    });
+  } else {
+    // 不支持文件分享，降级为下载
+    downloadExportText(btn, title);
+  }
 }
 function shareExportText(btn, title) {
   var ov = btn.closest('.modal-overlay');
@@ -1424,7 +1449,7 @@ function renderEditBankModal(ov, name, bank) {
   var itemsHtml = '';
   for (var i = start; i < end; i++) {
     var q = bank[i];
-    itemsHtml += '<div class="edit-bank-item" id="editBankItem_' + i + '" data-idx="' + i + '" onclick="editBankItemClick(this,event)" style="padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s;touch-action:manipulation">' +
+    itemsHtml += '<div class="edit-bank-item" id="editBankItem_' + i + '" data-idx="' + i + '" style="padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s;touch-action:manipulation">' +
       '<div style="font-size:13px;font-weight:600;color:var(--primary);margin-bottom:2px">#' + (i + 1) + '</div>' +
       '<div style="font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(q.question || '') + '</div>' +
       '<div style="font-size:11px;color:var(--text-tertiary);margin-top:2px">答案：' + escHtml(q.answer || '') + '</div>' +
@@ -1458,28 +1483,42 @@ function renderEditBankModal(ov, name, bank) {
     '<div id="editBankList">' + itemsHtml + '</div>' +
   '</div>';
 
-  // 移动端 touchend 代理（onclick 在 iOS Safari 中不可靠）
+  // 事件代理：touch + click 双轨（iOS Safari onclick 不可靠，但 e.preventDefault 也不可靠）
   var listEl2 = ov.querySelector('#editBankList');
   if (listEl2) {
     var _touchStart = null;
+    var _lastHandleTime = 0;
     listEl2.addEventListener('touchstart', function(e) {
       if (e.touches.length === 1) _touchStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
     }, { passive: true });
+    // 统一的处理函数
+    function handleTap(target) {
+      var tag = (target) ? target.tagName : '';
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'BUTTON' || tag === 'SELECT' || tag === 'LABEL') return;
+      var item = target.closest('.edit-bank-item');
+      if (!item) return;
+      var idx = parseInt(item.getAttribute('data-idx'));
+      if (!isNaN(idx)) {
+        _lastHandleTime = Date.now();
+        toggleEditBankQuestion(name, idx);
+      }
+    }
+    // touchend：手指离开时判断是否点击（移动 < 8px）
     listEl2.addEventListener('touchend', function(e) {
       if (!_touchStart) return;
       var dx = (e.changedTouches[0].clientX - _touchStart.x);
       var dy = (e.changedTouches[0].clientY - _touchStart.y);
       _touchStart = null;
       if (Math.abs(dx) + Math.abs(dy) > 8) return; // 移动超过 8px 视为滚动
-      // 点击目标是表单元素时忽略，避免编辑模式下误触发折叠
-      var tag = (e.target) ? e.target.tagName : '';
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'BUTTON' || tag === 'SELECT' || tag === 'LABEL') return;
-      var item = e.target.closest('.edit-bank-item');
-      if (!item) return;
-      e.preventDefault();
-      var idx = parseInt(item.getAttribute('data-idx'));
-      if (!isNaN(idx)) toggleEditBankQuestion(name, idx);
+      e.preventDefault(); // 尝试阻止后续 click
+      handleTap(e.target);
     }, { passive: false });
+    // click：桌面端 + touchend 没挡住时的兜底
+    listEl2.addEventListener('click', function(e) {
+      // touchend 刚刚处理过（500ms 内），跳过
+      if (Date.now() - _lastHandleTime < 500) return;
+      handleTap(e.target);
+    });
   }
   // 事件代理：翻页按钮
   var pgBtns = ov.querySelectorAll('.edit-pg-btn');
