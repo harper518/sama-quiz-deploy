@@ -5218,7 +5218,7 @@ function renderSettings() {
 
     '<div class="section"><div class="section-title">关于</div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="showManualMenu()"><div><div class="setting-label">📖 使用说明</div><div class="setting-desc">查看使用指南</div></div><div style="display:flex;align-items:center">→</div></div>' +
-      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">手机刷题工具 · 纯前端离线可用 · <span id="appVersion">v106</span></div></div></div>' +
+      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">手机刷题工具 · 纯前端离线可用 · <span id="appVersion">v107</span></div></div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="clearAllData()"><div><div class="setting-label" style="color:var(--danger)">🗑️ 删除所有数据</div><div class="setting-desc">清空全部题库和设置，不可恢复</div></div><div style="display:flex;align-items:center;color:var(--danger)">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="checkUpdate()"><div><div class="setting-label">🔄 检查更新</div><div class="setting-desc">点击清除缓存并刷新，获取最新版本</div></div><div style="display:flex;align-items:center">→</div></div>' +
     '</div>';
@@ -5331,12 +5331,18 @@ function showManualMenu() {
         '</div>' +
       '</div>' +
 
-      // 📱 多设备同步
+      // 📦 备份 & 同步
       '<div style="margin-bottom:16px">' +
-        '<h4 style="font-size:15px;margin:0 0 8px;color:var(--primary)">📱 多设备同步</h4>' +
+        '<h4 style="font-size:15px;margin:0 0 8px;color:var(--primary)">📦 备份 & 同步</h4>' +
         '<div style="background:var(--bg-input);border-radius:10px;padding:12px 14px">' +
-          '<p style="margin:0 0 4px">不支持自动同步。手动方式：<b>设置页 → 📤 分享/导出备份文件 → 微信/QQ/AirDrop 传到另一台设备 → 导入</b>。</p>' +
-          '<p style="margin:0 0 4px"><b>📱 手机推荐：</b>点"分享/导出备份文件"，直接弹出系统分享菜单，一键发到微信或存 iCloud。</p>' +
+          '<p style="margin:0 0 6px"><b>两种备份方式，用途不同：</b></p>' +
+          '<table style="width:100%;font-size:13px;border-collapse:collapse;margin-bottom:6px">' +
+            '<tr style="border-bottom:1px solid var(--border)"><td style="padding:4px 8px"><b>📤 导出文件</b></td><td style="padding:4px 8px"><b>完整备份</b>（题库+进度+设置）</td><td style="padding:4px 8px;font-size:12px;color:var(--success);white-space:nowrap">✅ 推荐</td></tr>' +
+            '<tr style="border-bottom:1px solid var(--border)"><td style="padding:4px 8px">📋 复制备份码</td><td style="padding:4px 8px">仅备份<b>进度</b>（错题/正确率/收藏），<b>不含题目</b></td><td style="padding:4px 8px;font-size:12px;color:var(--text-tertiary)">短文本</td></tr>' +
+          '</table>' +
+          '<p style="margin:0 0 4px;font-size:12px;color:var(--text-secondary)">📋 <b>备份码</b>只用在这些情况：题库名称完全一致、题库还在、只丢了进度。如果题库也丢了，备份码<b>恢复不了题目</b>。</p>' +
+          '<p style="margin:0 0 4px;font-size:12px;color:var(--text-secondary)">📤 <b>导出文件</b>覆盖所有场景，最安全。恢复时粘贴备份码会先弹窗显示题库匹配情况。</p>' +
+          '<p style="margin:0 0 4px"><b>📱 多设备同步：</b>设置页 → 导出文件 → 微信/QQ/AirDrop 传到另一台设备 → 导入。</p>' +
           '<p style="margin:0">每次同步前先两边都导出备份，防止传输出错。</p>' +
         '</div>' +
       '</div>' +
@@ -5488,8 +5494,9 @@ function showManualMenu() {
       '<div style="margin-bottom:20px">' +
         '<h4 style="font-size:16px;margin:0 0 10px;color:var(--primary)">⚙️ 设置 & 数据</h4>' +
         '<div style="background:var(--bg-input);border-radius:10px;padding:14px 16px">' +
-          '<p style="margin:0 0 6px"><b>📤 分享/导出备份文件</b> — 将所有题库、错题记录、设置打包导出。<b>📱 手机：</b>自动弹出系统分享菜单，一键发微信/QQ/AirDrop/存 iCloud；<b>💻 电脑：</b>自动下载 JSON 文件。这是唯一的"安全确认点"——备份了就不怕任何意外。建议保留最近 2-3 次备份。可尝试用"粘贴备份码恢复"来验证备份文件是否完整。</p>' +
-          '<p style="margin:0 0 6px"><b>📥 导入数据</b> — 从之前导出的 JSON 文件恢复全部数据。<b>会覆盖当前所有数据</b>，操作前务必先导出备份！不要用记事本编辑导出的 JSON 文件，可能破坏编码导致导入失败。浏览器可能拦截下载弹窗，留意地址栏提示。导入大文件（1000+题）需要几秒，不是卡死。</p>' +
+          '<p style="margin:0 0 6px"><b>📤 分享/导出备份文件</b> — <b>完整备份</b>：将所有题库题目、错题记录、设置全部打包导出。📱 手机自动弹出系统分享菜单，一键发微信/QQ/AirDrop/存 iCloud；💻 电脑自动下载 JSON 文件。<b>这是最安全的方式，覆盖所有场景。</b>建议保留最近 2-3 次备份。</p>' +
+          '<p style="margin:0 0 6px"><b>📋 复制/分享备份码</b> — <b>仅备份进度</b>（错题次数、正确率、收藏），<b>不含题库题目</b>。适合题库还在、只丢了进度的场景。如果题库也丢了，备份码恢复不了题目。恢复时会弹窗显示题库匹配情况，名称必须完全一致才能匹配。</p>' +
+          '<p style="margin:0 0 6px"><b>📥 粘贴备份码恢复 / 上传 JSON 备份文件</b> — 从备份码恢复进度，或从 JSON 文件恢复全部数据。导入文件<b>会覆盖当前所有数据</b>，操作前务必先导出备份。不要用记事本编辑 JSON 文件，可能破坏编码。</p>' +
           '<p style="margin:0 0 6px"><b>🔄 恢复预设题库</b> — 题库为空或误删时，一键恢复内置的预设题库。</p>' +
           '<p style="margin:0 0 6px"><b>🎨 主题颜色</b> — 切换界面配色。</p>' +
           '<p style="margin:0 0 6px"><b>🔤 字体大小</b> — 拖动滑块调整全局字号。</p>' +
@@ -5505,7 +5512,7 @@ function showManualMenu() {
           '<p style="margin:0 0 6px"><b>💾 数据存储位置</b> — 所有题目、错题、设置都保存在浏览器本地存储（localStorage），不会上传到任何服务器，完全离线可用。但清除浏览器数据会导致数据丢失！</p>' +
           '<p style="margin:0 0 6px"><b>📊 存储容量</b> — localStorage 上限约 5–10 MB（不同浏览器有差异）。每个题目约占用 0.5–2 KB，理论可存 2500–10000+ 题。如遇"存储空间不足"提示，说明题库太大，需要分批存储或清理旧数据。</p>' +
           '<p style="margin:0 0 6px"><b>💾 缓存 ≠ 数据</b> — 很多人搞混：<b>"浏览器缓存"和"你的题库数据（localStorage）"是两回事</b>。清缓存（网页文件）一般不会丢题库。但"清除浏览数据"时如果勾选了"Cookie 和网站数据"，题库就会丢。</p>' +
-          '<p style="margin:0 0 6px"><b>📦 定期备份</b> — 强烈建议每周使用"📤 分享/导出备份文件"保存 JSON 文件到电脑或网盘。手机直接分享到微信/QQ，电脑自动下载。保留最近 2-3 次备份。备份后可尝试导入以验证文件完整性。换设备、重装浏览器后可通过"粘贴备份码恢复"一键恢复。</p>' +
+          '<p style="margin:0 0 6px"><b>📦 定期备份</b> — 强烈建议每周使用"📤 分享/导出备份文件"保存 JSON 文件到电脑或网盘。这是<b>唯一能完整恢复</b>的方式（含题目+进度）。备份码只能恢复进度，不含题目。换设备或重装浏览器后，先用导出文件恢复题库，再用备份码恢复进度（如果导出文件已含进度则不需要）。</p>' +
           '<p style="margin:0 0 6px"><b>📱 多设备同步</b> — 工具不支持自动同步。手机⇄电脑同步：设置页点"📤 分享/导出备份文件" → 微信/QQ/网盘发给另一台设备 → 在那边导入。</p>' +
           '<p style="margin:0 0 6px"><b>🗑️ 数据丢失场景</b> — 以下操作会清空 localStorage：① 浏览器"清除浏览数据"时勾选了 Cookie 和网站数据（只清缓存不勾选就安全）；② <b>iOS Safari 的"清除历史记录与网站数据"</b>（iOS 最坑，很多人中招）；③ 手机管家/清理软件的垃圾清理；④ 无痕/隐私模式关闭窗口；⑤ 手机存储空间不足时系统可能自动清理浏览器数据。</p>' +
           '<p style="margin:0"><b>🔒 隐私安全</b> — 纯前端工具，无后台服务器，题目数据不会被收集或分享。导出到本地的 JSON 文件请妥善保管。</p>' +
