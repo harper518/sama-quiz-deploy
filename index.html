@@ -1342,28 +1342,28 @@ function renderEditBankModal(ov, name, bank) {
   var start = (currentPage - 1) * PAGE_SIZE;
   var end = Math.min(start + PAGE_SIZE, bank.length);
 
-  // 只渲染当前页的题目
+  // 只渲染当前页的题目（用 data 属性代替 onclick 拼接，避免转义问题）
   var itemsHtml = '';
   for (var i = start; i < end; i++) {
     var q = bank[i];
-    itemsHtml += '<div class="edit-bank-item" id="editBankItem_' + i + '" style="padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s;content-visibility:auto;contain-intrinsic-size:0 52px" onclick="toggleEditBankQuestion(\'' + escHtml(name) + '\',' + i + ')">' +
+    itemsHtml += '<div class="edit-bank-item" id="editBankItem_' + i + '" data-idx="' + i + '" style="padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s;content-visibility:auto;contain-intrinsic-size:0 52px">' +
       '<div style="font-size:13px;font-weight:600;color:var(--primary);margin-bottom:2px">#' + (i + 1) + '</div>' +
       '<div style="font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(q.question || '') + '</div>' +
       '<div style="font-size:11px;color:var(--text-tertiary);margin-top:2px">答案：' + escHtml(q.answer || '') + '</div>' +
     '</div>';
   }
 
-  // 分页控件
+  // 分页控件（用 data-page 代替 onclick 拼接）
   var paginationHtml = '';
   if (totalPages > 1) {
     paginationHtml = '<div style="display:flex;gap:6px;align-items:center;justify-content:center;padding:8px;border-top:1px solid var(--border);flex-shrink:0;flex-wrap:wrap">' +
-      '<button class="btn btn-ghost btn-sm" onclick="editBankGoPage(\'' + escHtml(name) + '\',' + (currentPage - 1) + ')" ' + (currentPage <= 1 ? 'disabled style="opacity:.3"' : '') + '>◀ 上页</button>' +
+      '<button class="btn btn-ghost btn-sm edit-pg-btn" data-page="' + (currentPage - 1) + '" ' + (currentPage <= 1 ? 'disabled style="opacity:.3"' : '') + '>◀ 上页</button>' +
       '<span style="font-size:12px;color:var(--text-secondary)">' + currentPage + '/' + totalPages + '</span>' +
-      '<button class="btn btn-ghost btn-sm" onclick="editBankGoPage(\'' + escHtml(name) + '\',' + (currentPage + 1) + ')" ' + (currentPage >= totalPages ? 'disabled style="opacity:.3"' : '') + '>下页 ▶</button>' +
+      '<button class="btn btn-ghost btn-sm edit-pg-btn" data-page="' + (currentPage + 1) + '" ' + (currentPage >= totalPages ? 'disabled style="opacity:.3"' : '') + '>下页 ▶</button>' +
     '</div>';
   }
 
-  ov.innerHTML = '<div class="modal" style="animation:none;max-width:500px;margin:auto;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);padding:0;border-radius:var(--radius);max-height:80dvh;display:flex;flex-direction:column">' +
+  ov.innerHTML = '<div class="modal" style="animation:none;max-width:500px;margin:auto;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);padding:0;border-radius:var(--radius);max-height:80dvh;display:flex;flex-direction:column" data-bank-name="' + escHtml(name) + '" data-bank-total="' + bank.length + '">' +
     '<div style="padding:16px 18px;border-bottom:1px solid var(--border);flex-shrink:0">' +
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">' +
         '<h3 style="font-size:17px;margin:0">✏️ 编辑「' + escHtml(name) + '」（' + bank.length + '题）</h3>' +
@@ -1371,14 +1371,40 @@ function renderEditBankModal(ov, name, bank) {
       '</div>' +
       '<div style="display:flex;gap:6px;align-items:center">' +
         '<span style="font-size:12px;color:var(--text-secondary);white-space:nowrap">🔍 跳到第</span>' +
-        '<input type="number" id="editBankJumpInput" min="1" max="' + bank.length + '" placeholder="题号" style="width:60px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;text-align:center;background:var(--bg-input);color:var(--text)" onkeydown="if(event.key===\'Enter\')editBankJumpTo(\'' + escHtml(name) + '\',' + bank.length + ')">' +
+        '<input type="number" id="editBankJumpInput" min="1" max="' + bank.length + '" placeholder="题号" style="width:60px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;text-align:center;background:var(--bg-input);color:var(--text)" onkeydown="if(event.key===\'Enter\')document.querySelector(\'#editBankJumpGo\').click()">' +
         '<span style="font-size:12px;color:var(--text-secondary);white-space:nowrap">题</span>' +
-        '<button class="btn btn-sm" style="background:var(--primary);color:#fff;border:none;font-size:12px;padding:5px 12px;border-radius:6px" onclick="editBankJumpTo(\'' + escHtml(name) + '\',' + bank.length + ')">GO</button>' +
+        '<button class="btn btn-sm" id="editBankJumpGo" style="background:var(--primary);color:#fff;border:none;font-size:12px;padding:5px 12px;border-radius:6px">GO</button>' +
       '</div>' +
     '</div>' +
     '<div style="overflow-y:auto;flex:1" id="editBankList">' + itemsHtml + '</div>' +
     paginationHtml +
   '</div>';
+
+  // 事件代理：列表点击 → 展开编辑
+  var listEl = ov.querySelector('#editBankList');
+  if (listEl) {
+    listEl.addEventListener('click', function(e) {
+      var item = e.target.closest('.edit-bank-item');
+      if (!item) return;
+      var idx = parseInt(item.getAttribute('data-idx'));
+      if (!isNaN(idx)) toggleEditBankQuestion(name, idx);
+    });
+  }
+  // 事件代理：翻页按钮
+  var pgBtns = ov.querySelectorAll('.edit-pg-btn');
+  for (var bi = 0; bi < pgBtns.length; bi++) {
+    pgBtns[bi].addEventListener('click', function() {
+      var page = parseInt(this.getAttribute('data-page'));
+      if (!isNaN(page)) editBankGoPage(name, page);
+    });
+  }
+  // GO 按钮
+  var goBtn = ov.querySelector('#editBankJumpGo');
+  if (goBtn) {
+    goBtn.addEventListener('click', function() {
+      editBankJumpTo(name, bank.length);
+    });
+  }
 }
 
 // 跳转到指定题目
@@ -1447,7 +1473,7 @@ function toggleEditBankQuestion(name, idx) {
     // 退出编辑模式 - 保存
     window._editBankStates[stateKey] = false;
     saveEditBankQuestion(name, idx);
-    // 刷新列表中的这一项
+    // 刷新列表中的这一项（保留 data-idx）
     var newQ = bank[idx];
     itemEl.innerHTML = '<div style="font-size:13px;font-weight:600;color:var(--primary);margin-bottom:2px">#' + (idx + 1) + '</div>' +
       '<div style="font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(newQ.question || '') + '</div>' +
@@ -1457,7 +1483,8 @@ function toggleEditBankQuestion(name, idx) {
     // 进入编辑模式
     window._editBankStates[stateKey] = true;
     var letters = ['A','B','C','D'];
-    if (q.E && q.E.trim()) letters.push('E');
+    if (q.E && String(q.E).trim()) letters.push('E');
+    if (q.F && String(q.F).trim()) letters.push('F');
     var formHtml = '<div style="font-size:13px;font-weight:600;color:var(--primary);margin-bottom:8px">#' + (idx + 1) + ' 编辑</div>' +
       '<div style="margin-bottom:8px"><label style="font-size:11px;color:var(--text-secondary);display:block;margin-bottom:2px">题目</label><textarea id="ebQ_' + idx + '" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--bg-input);color:var(--text);resize:vertical;min-height:50px;font-family:inherit">' + escHtml(q.question || '') + '</textarea></div>' +
       letters.map(function(l) {
@@ -1465,9 +1492,14 @@ function toggleEditBankQuestion(name, idx) {
       }).join('') +
       '<div style="margin-bottom:8px"><label style="font-size:11px;color:var(--text-secondary);display:block;margin-bottom:2px">答案</label><input id="ebAns_' + idx + '" value="' + escHtml(q.answer || '') + '" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--bg-input);color:var(--text);font-family:inherit"></div>' +
       '<div style="margin-bottom:8px"><label style="font-size:11px;color:var(--text-secondary);display:block;margin-bottom:2px">解析（可选）</label><textarea id="ebExp_' + idx + '" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--bg-input);color:var(--text);resize:vertical;min-height:40px;font-family:inherit">' + escHtml(q.explanation || '') + '</textarea></div>' +
-      '<div style="display:flex;gap:8px"><button class="btn btn-primary btn-sm" style="flex:1" onclick="event.stopPropagation();saveEditBankInline(\'' + escHtml(name) + '\',' + idx + ')">💾 保存</button><button class="btn btn-ghost btn-sm" style="flex:1" onclick="event.stopPropagation();cancelEditBankInline(\'' + escHtml(name) + '\',' + idx + ')">取消</button></div>';
+      '<div style="display:flex;gap:8px"><button class="btn btn-primary btn-sm edit-save-btn" style="flex:1" data-idx="' + idx + '">💾 保存</button><button class="btn btn-ghost btn-sm edit-cancel-btn" style="flex:1" data-idx="' + idx + '">取消</button></div>';
     itemEl.innerHTML = formHtml;
     itemEl.style.background = 'var(--primary-light)';
+    // 绑定保存/取消事件（不用 onclick 拼接避免转义问题）
+    var saveBtn = itemEl.querySelector('.edit-save-btn');
+    var cancelBtn = itemEl.querySelector('.edit-cancel-btn');
+    if (saveBtn) saveBtn.addEventListener('click', function(e) { e.stopPropagation(); saveEditBankInline(name, idx); });
+    if (cancelBtn) cancelBtn.addEventListener('click', function(e) { e.stopPropagation(); cancelEditBankInline(name, idx); });
   }
 }
 
@@ -1477,14 +1509,21 @@ function saveEditBankQuestion(name, idx) {
   var q = bank[idx];
   var elQ = document.getElementById('ebQ_' + idx);
   if (elQ) q.question = elQ.value.trim();
-  var letters = ['A','B','C','D'];
-  if (q.E && q.E.trim()) letters.push('E');
-  for (var li = 0; li < letters.length; li++) {
-    var el = document.getElementById('eb' + letters[li] + '_' + idx);
-    if (el) q[letters[li]] = el.value.trim();
+  // 保存所有选项 A-F（空值的 E/F 自动删除，A-D 保留）
+  var allLetters = ['A','B','C','D','E','F'];
+  for (var li = 0; li < allLetters.length; li++) {
+    var el = document.getElementById('eb' + allLetters[li] + '_' + idx);
+    if (el) {
+      var v = el.value.trim();
+      if (v) q[allLetters[li]] = v; else if (allLetters[li] !== 'A' && allLetters[li] !== 'B' && allLetters[li] !== 'C' && allLetters[li] !== 'D') delete q[allLetters[li]];
+    }
   }
   var elAns = document.getElementById('ebAns_' + idx);
-  if (elAns) q.answer = elAns.value.trim().toUpperCase();
+  if (elAns) {
+    q.answer = elAns.value.trim().toUpperCase();
+    // 根据答案长度自动更新题型
+    q.type = q.answer.length > 1 ? 'multi' : 'single';
+  }
   var elExp = document.getElementById('ebExp_' + idx);
   if (elExp) q.explanation = elExp.value.trim();
   saveData(appData);
