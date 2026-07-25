@@ -706,6 +706,7 @@ textarea { min-height: 180px; resize: vertical; line-height: 1.8; }
     <div class="card browse-card" id="browseCard"></div>
     <div class="nav-row">
       <button class="btn btn-outline btn-sm" style="border-color:#C4B5FD;color:#A78BFA" onclick="browsePrev()">◀ 上一题</button>
+      <button class="btn btn-sm" id="deleteWrongBtn" style="background:var(--danger-light);border:none;color:var(--danger);display:none" onclick="deleteWrongFromBrowse()">🗑 移出错题本</button>
       <button class="btn btn-outline btn-sm" style="border-color:#C4B5FD;color:#A78BFA" onclick="browseNext()">下一题 ▶</button>
     </div>
   </div>
@@ -1353,7 +1354,7 @@ function renderEditBankModal(ov, name, bank) {
   var itemsHtml = '';
   for (var i = start; i < end; i++) {
     var q = bank[i];
-    itemsHtml += '<div class="edit-bank-item" id="editBankItem_' + i + '" data-idx="' + i + '" style="padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s;content-visibility:auto;contain-intrinsic-size:0 52px">' +
+    itemsHtml += '<div class="edit-bank-item" id="editBankItem_' + i + '" data-idx="' + i + '" style="padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s">' +
       '<div style="font-size:13px;font-weight:600;color:var(--primary);margin-bottom:2px">#' + (i + 1) + '</div>' +
       '<div style="font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(q.question || '') + '</div>' +
       '<div style="font-size:11px;color:var(--text-tertiary);margin-top:2px">答案：' + escHtml(q.answer || '') + '</div>' +
@@ -4251,8 +4252,11 @@ function renderBrowseQuestion() {
   document.getElementById('browseCard').innerHTML = html;
   var prevBtn = document.querySelector('#wrongBrowseActive .nav-row .btn:first-child');
   var nextBtn = document.querySelector('#wrongBrowseActive .nav-row .btn:last-child');
+  var delBtn = document.getElementById('deleteWrongBtn');
   if (prevBtn) prevBtn.style.visibility = idx > 0 ? '' : 'hidden';
   if (nextBtn) nextBtn.textContent = idx < browseState.total - 1 ? '下一题 ▶' : '回到错题本 📋';
+  // 错题浏览模式显示删除按钮，收藏浏览模式隐藏
+  if (delBtn) delBtn.style.display = (browseState.name && !browseState.isFavBrowse) ? '' : 'none';
 }
 
 function selectBrowseAnswer(letter) {
@@ -4368,6 +4372,41 @@ function browseNext() {
   }
   browseState.index++;
   renderBrowseQuestion();
+}
+
+function deleteWrongFromBrowse() {
+  if (!browseState || browseState.isFavBrowse) return;
+  var name = browseState.name;
+  var idx = browseState.index;
+  var q = browseState.questions[idx];
+  if (!q) return;
+  if (!confirm('确定将这道题从「' + name + '」的错题本中移除吗？')) return;
+  // 从错题本删除
+  var wrongs = appData.wrongBooks[name] || [];
+  var foundIdx = -1;
+  for (var i = 0; i < wrongs.length; i++) {
+    if (wrongs[i].id === q.id) { foundIdx = i; break; }
+  }
+  if (foundIdx >= 0) wrongs.splice(foundIdx, 1);
+  if (wrongs.length === 0) delete appData.wrongBooks[name];
+  saveData(appData);
+  // 从浏览列表移除
+  browseState.questions.splice(idx, 1);
+  browseState.total = browseState.questions.length;
+  if (browseState.total === 0) {
+    document.getElementById('wrongBrowseActive').style.display = 'none';
+    browseState = null;
+    switchPage('wrong', document.querySelector('[data-page="wrong"]'));
+    updateBadges();
+    toast('🗑 已移除，错题本为空');
+    return;
+  }
+  if (browseState.index >= browseState.total) {
+    browseState.index = browseState.total - 1;
+  }
+  updateBadges();
+  renderBrowseQuestion();
+  toast('🗑 已从错题本移除');
 }
 
 
