@@ -1161,7 +1161,6 @@ function toggleFav() {
     toast('已取消收藏');
   } else {
     favs.push(q);
-    toast('⭐ 已收藏');
   }
   saveData(appData);
   document.getElementById('favBtn').textContent = existIdx >= 0 ? '☆' : '⭐';
@@ -1929,7 +1928,7 @@ function toggleBrowseStarFromList(idx) {
   var fi = -1;
   for (var i = 0; i < favs.length; i++) { if (favs[i].id === card.id) { fi = i; break; } }
   if (fi >= 0) { favs.splice(fi, 1); toast('已取消收藏'); }
-  else { favs.push(card); toast('⭐ 已收藏'); }
+  else { favs.push(card); }
   saveData(appData);
   renderBrowseList();
 }
@@ -1966,7 +1965,7 @@ function toggleBrowseStar() {
   var idx = -1;
   for (var i = 0; i < favs.length; i++) { if (favs[i].id === card.id) { idx = i; break; } }
   if (idx >= 0) { favs.splice(idx, 1); toast('已取消收藏'); }
-  else { favs.push(card); toast('⭐ 已收藏'); }
+  else { favs.push(card); }
   saveData(appData);
   openBrowseDetail(st.index);
 }
@@ -4373,7 +4372,6 @@ function toggleFavFromBrowse() {
     // 添加收藏
     favs.push(q);
     saveData(appData);
-    toast('⭐ 已收藏');
   }
   renderBrowseQuestion();
 }
