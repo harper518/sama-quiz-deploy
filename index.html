@@ -1460,9 +1460,11 @@ function editBankGoPage(name, page) {
 }
 
 function editBankItemClick(el) {
+  toast('click idx=' + el.getAttribute('data-idx'));
   var modal = el.closest('[data-bank-name]');
-  if (!modal) return;
+  if (!modal) { toast('no modal'); return; }
   var name = modal.getAttribute('data-bank-name');
+  toast('name=' + name);
   var idx = parseInt(el.getAttribute('data-idx'));
   if (!isNaN(idx)) toggleEditBankQuestion(name, idx);
 }
