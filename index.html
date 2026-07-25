@@ -1419,7 +1419,7 @@ function renderEditBankModal(ov, name, bank) {
   var itemsHtml = '';
   for (var i = start; i < end; i++) {
     var q = bank[i];
-    itemsHtml += '<div class="edit-bank-item" id="editBankItem_' + i + '" data-idx="' + i + '" onclick="editBankItemClick(this,event)" style="padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s">' +
+    itemsHtml += '<div class="edit-bank-item" id="editBankItem_' + i + '" data-idx="' + i + '" onclick="editBankItemClick(this,event)" style="padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s;touch-action:manipulation">' +
       '<div style="font-size:13px;font-weight:600;color:var(--primary);margin-bottom:2px">#' + (i + 1) + '</div>' +
       '<div style="font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(q.question || '') + '</div>' +
       '<div style="font-size:11px;color:var(--text-tertiary);margin-top:2px">答案：' + escHtml(q.answer || '') + '</div>' +
@@ -1436,7 +1436,7 @@ function renderEditBankModal(ov, name, bank) {
     '</div>';
   }
 
-  ov.innerHTML = '<div class="modal" style="animation:none;max-width:500px;margin:auto;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);padding:0;border-radius:var(--radius);max-height:80dvh;display:flex;flex-direction:column" data-bank-name="' + escHtml(name) + '" data-bank-total="' + bank.length + '">' +
+  ov.innerHTML = '<div class="modal" style="animation:none;max-width:500px;width:100%;padding:0;border-radius:var(--radius);max-height:80dvh;display:flex;flex-direction:column;position:relative" data-bank-name="' + escHtml(name) + '" data-bank-total="' + bank.length + '">' +
     '<div style="padding:16px 18px;border-bottom:1px solid var(--border);flex-shrink:0">' +
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">' +
         '<h3 style="font-size:17px;margin:0">✏️ 编辑「' + escHtml(name) + '」（' + bank.length + '题）</h3>' +
