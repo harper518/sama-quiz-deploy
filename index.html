@@ -1214,7 +1214,17 @@ function switchPage(page, btn) {
     }
     document.getElementById('seqProgress').style.display = drawMode === 'sequential' ? '' : 'none';
   }
-  if (page === 'wrong') { if (wrongTab === 'fav') renderFavorites(); else renderWrongBooks(); }
+  if (page === 'wrong') {
+    // 确保容器显隐和chip状态同步
+    var wbEl = document.getElementById('wrongBanks');
+    var fbEl = document.getElementById('favBanks');
+    if (wbEl) wbEl.style.display = wrongTab === 'wrong' ? '' : 'none';
+    if (fbEl) fbEl.style.display = wrongTab === 'fav' ? '' : 'none';
+    document.querySelectorAll('#page-wrong .chip[data-wtab]').forEach(function(c) { c.classList.remove('active'); });
+    var activeChip = document.querySelector('#page-wrong .chip[data-wtab="' + wrongTab + '"]');
+    if (activeChip) activeChip.classList.add('active');
+    if (wrongTab === 'fav') renderFavorites(); else renderWrongBooks();
+  }
   if (page === 'stats') renderStats();
   if (page === 'settings') renderSettings();
   updateBadges();
@@ -1531,6 +1541,14 @@ function editBankJumpTo(name, total) {
   if (!input) return;
   var num = parseInt(input.value);
   if (!num || num < 1 || num > total) { toast('请输入有效题号 1-' + total); return; }
+  // 检查未保存编辑
+  if (editBankHasUnsaved(name)) {
+    if (!confirm('当前页有未保存的编辑，跳转会丢失修改。确定继续吗？')) return;
+    var states = window._editBankStates || {};
+    for (var key in states) {
+      if (key.indexOf(name + '|') === 0) states[key] = false;
+    }
+  }
   var page = Math.ceil(num / 100);
   window._editBankPage[name] = page;
   // 重新渲染
@@ -2333,6 +2351,7 @@ function finishFileImport(name, questions) {
 }
 
 // ====== 跳过标签和建议 ======
+var previewImportData;
 var SKIP_LABELS = { noOptions: "未找到ABCD选项", noQuestion: "题干提取失败", missingOpts: "选项不完整" };
 var SKIP_SUGGEST = {
   noOptions: "这段可能不是题目（如答案页、说明文字），或格式不兼容。可尝试合并断行或去空行后重试。",
@@ -2798,6 +2817,10 @@ function confirmImportFromPreview() {
   if (!previewImportData) return;
   var name = previewImportData.name;
   var questions = previewImportData.questions;
+  // 同名题库覆盖确认
+  if (appData.banks[name] && appData.banks[name].length > 0) {
+    if (!confirm('题库「' + name + '」已存在（' + appData.banks[name].length + '题），导入将覆盖为 ' + questions.length + ' 题。确定继续吗？')) return;
+  }
   // 清除编辑状态
   questions.forEach(function(q) { delete q._editing; });
   // ID 重排
@@ -3031,7 +3054,7 @@ function selectPasteFormat(fmt, el) {
 function extractOptions(optsPart) {
   var opts = { A: '', B: '', C: '', D: '', E: '', F: '' };
   // 匹配 A. xxx  B. xxx ... E. xxx（直到答案/解析或结尾）
-	  var optRegex = /([A-F])[.、．）)]\s*([\s\S]*?)(?=\s*[A-F][.、．）)]|答案|解析|【解析|$)/gs;
+	  var optRegex = /([A-F])[.、．）)]\s*([\s\S]*?)(?=\s*[A-F][.、．）)]|答案|解析|【解析】|$)/gs;
   var m;
   while ((m = optRegex.exec(optsPart)) !== null) {
     var l = m[1], t = m[2].trim().replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
@@ -3293,23 +3316,20 @@ function parseCSV(text) {
 
     var qObj = { id: questions.length + 1, question: question, A: A, B: B, C: C, D: D, answer: answer, type: qType, explanation: '' };
 
-    // 检查E选项（cols长度>=8时，offset+5是E，offset+6是答案）
-    if (cols.length >= 8 && offset + 5 < cols.length) {
+    // 检测E/F选项：如果答案列在D之后第2列或更后，中间列是E/F
+    // 标准列序：题目 | A | B | C | D | [E] | [F] | 答案 | [解析]
+    var extraOpts = cols.length - (offset + 6); // D列之后除了答案还有几列
+    if (extraOpts >= 1) {
       var eVal = (cols[offset + 5] || '').replace(/^[A-F][.、．）)]\s*/, '').trim();
-      if (eVal && !/[A-F]+/i.test(eVal.substring(0, 1) + 'X')) {
-        // 这列可能是E选项，重新分析
-      }
+      if (eVal && eVal.length > 0) qObj.E = eVal;
     }
-    // 简单判断：列数足够多时检查是否有E
-    var lastCol = cols[cols.length - 1];
-    var secondLastCol = cols[cols.length - 2];
-    if (cols.length >= 8) {
-      // 尝试识别E：看offset+5列是否像选项内容
-      var colAfterD = (cols[offset + 5 - 1] || '');
+    if (extraOpts >= 2) {
+      var fVal = (cols[offset + 6] || '').replace(/^[A-F][.、．）)]\s*/, '').trim();
+      if (fVal && fVal.length > 0) qObj.F = fVal;
     }
-
-    if (cols.length > offset + 6) {
-      qObj.explanation = cols[offset + 6].trim();
+    var explCol = offset + 5 + (extraOpts >= 1 ? 1 : 0) + (extraOpts >= 2 ? 1 : 0) + 1;
+    if (cols.length > explCol) {
+      qObj.explanation = cols[explCol].trim();
     }
 
     questions.push(qObj);
@@ -3638,9 +3658,11 @@ function handleTimerExpiry() {
   if (!quizState) return;
   var idx = quizState.currentIndex;
   var q = quizState.questions[idx];
-  // 当前题未作答视为错误
-  if (!quizState.userAnswers[idx]) {
-    quizState.userAnswers[idx] = '?';
+  // 当前题未作答视为错误；多选题部分选中但未确认也算未作答
+  var isUnconfirmedMulti = isMultiSelect(q) && document.getElementById('confirmMultiBtn');
+  if (!quizState.userAnswers[idx] || isUnconfirmedMulti) {
+    if (isUnconfirmedMulti) { quizState.userAnswers[idx] = '?'; }
+    else { quizState.userAnswers[idx] = '?'; }
     quizState.wrong++;
     quizState.wrongIds.push(q.id);
   }
@@ -3986,7 +4008,7 @@ function nextQuestion() {
   var userAns = quizState.userAnswers[idx];
 
   // 多选未确认：阻止前进（按钮可见且可点击时才拦截）
-  if (isMultiSelect(q) && isInstant) {
+  if (isMultiSelect(q)) {
     var confirmBtn = document.getElementById('confirmMultiBtn');
     if (confirmBtn && confirmBtn.style.display !== 'none' && confirmBtn.style.pointerEvents !== 'none') {
       toast('请先确认选择');
@@ -4647,7 +4669,7 @@ function renderStats() {
 
 // ====== Helpers ======
 function escHtml(s) {
-  if (!s) return '';
+  if (s == null || s === '') return '';
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
@@ -5083,7 +5105,7 @@ function renderSettings() {
 
     '<div class="section"><div class="section-title">关于</div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="showManualMenu()"><div><div class="setting-label">📖 使用说明</div><div class="setting-desc">查看使用指南</div></div><div style="display:flex;align-items:center">→</div></div>' +
-      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">手机刷题工具 · 纯前端离线可用 · <span id="appVersion">v98</span></div></div></div>' +
+      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">手机刷题工具 · 纯前端离线可用 · <span id="appVersion">v99</span></div></div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="clearAllData()"><div><div class="setting-label" style="color:var(--danger)">🗑️ 删除所有数据</div><div class="setting-desc">清空全部题库和设置，不可恢复</div></div><div style="display:flex;align-items:center;color:var(--danger)">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="checkUpdate()"><div><div class="setting-label">🔄 检查更新</div><div class="setting-desc">点击清除缓存并刷新，获取最新版本</div></div><div style="display:flex;align-items:center">→</div></div>' +
     '</div>';
@@ -5102,14 +5124,18 @@ function toggleRestoreSection() {
   }
 }
 
-function doRestoreFromSettings() {
+async function doRestoreFromSettings() {
   var textarea = document.getElementById('restoreTextarea');
   var hiddenText = document.getElementById('restoreText');
   if (textarea && hiddenText) {
     hiddenText.value = textarea.value.trim();
-    restoreFromPaste();
-    textarea.value = '';
-    toggleRestoreSection();
+    try {
+      await restoreFromPaste();
+      textarea.value = '';
+      toggleRestoreSection();
+    } catch(e) {
+      toast('❌ 恢复失败：' + (e.message || '数据格式错误'));
+    }
   }
 }
 
