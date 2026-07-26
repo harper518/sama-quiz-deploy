@@ -14,7 +14,6 @@
   --primary-hover: #6D28D9;
   --primary-light: #F5F3FF;
   --primary-soft: #EDE9FE;
-  --primary-bg: linear-gradient(to bottom, rgba(255,255,255,0.22), rgba(255,255,255,0.08)), var(--primary);
   --success: #10B981;
   --success-light: #ECFDF5;
   --danger: #EF4444;
@@ -203,7 +202,7 @@
 .toggle input { position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer; z-index:1; }
 .toggle .slider { position:absolute; cursor:pointer; inset:0; background:var(--border); border-radius:31px; transition:var(--transition); }
 .toggle .slider::before { content:""; position:absolute; height:25px; width:25px; left:3px; bottom:3px; background:#fff; border-radius:50%; transition:var(--transition); box-shadow:0 2px 4px rgba(0,0,0,.15); }
-.toggle input:checked+.slider { background:var(--primary-bg); }
+.toggle input:checked+.slider { background:var(--primary); }
 .toggle input:checked+.slider::before { transform:translateX(20px); }
 
 /* ====== Segmented ====== */
@@ -295,7 +294,7 @@ body {
   white-space: nowrap;
 }
 .btn:active { transform: scale(0.97); }
-.btn-primary { background: var(--primary-bg); color: #fff; }
+.btn-primary { background: var(--primary); color: #fff; }
 .btn-primary:active { opacity: 0.85; }
 .btn-success { background: var(--success); color: #fff; }
 .btn-danger { background: var(--danger); color: #fff; }
@@ -337,7 +336,7 @@ body {
   height: 6px; background: var(--border); border-radius: 3px;
   margin-bottom: 16px; overflow: hidden;
 }
-.progress-fill { height: 100%; background: var(--primary-bg); border-radius: 3px; transition: width 0.3s; }
+.progress-fill { height: 100%; background: var(--primary); border-radius: 3px; transition: width 0.3s; }
 .progress-text { font-size: 13px; color: var(--text-secondary); text-align: center; margin-bottom: 8px; }
 
 /* ====== Feedback ====== */
@@ -387,7 +386,7 @@ textarea { min-height: 180px; resize: vertical; line-height: 1.8; }
 }
 .bank-item::before {
   content: ''; position: absolute; left: 0; top: 0; bottom: 0;
-  width: 4px; background: var(--primary-bg); border-radius: 0 3px 3px 0;
+  width: 4px; background: var(--primary); border-radius: 0 3px 3px 0;
   opacity: 0; transition: opacity var(--transition);
 }
 .bank-item:active { background: var(--bg-input); transform: scale(.985); }
@@ -453,10 +452,10 @@ textarea { min-height: 180px; resize: vertical; line-height: 1.8; }
 .edit-bank-item { display:flex;align-items:flex-start;gap:6px;width:100%;border:none;border-bottom:1px solid var(--border);background:var(--card);font:inherit;text-align:left;padding:10px 12px;color:var(--text);margin:0; }
 .edit-bank-item.editing { display:block;background:var(--primary-light); }
 .edit-expand-btn { flex-shrink:0;width:44px;height:44px;padding:0;border:1px solid var(--border);border-radius:8px;background:var(--bg-input);color:var(--text-secondary);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;touch-action:manipulation;-webkit-appearance:none;appearance:none; }
-.edit-expand-btn:active { background:var(--primary-bg);color:#fff; }
+.edit-expand-btn:active { background:var(--primary);color:#fff; }
 .btn-sort { width: 44px; height: 44px; padding: 0; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-input); color: var(--text-tertiary); font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1; transition: all var(--transition); position: relative; z-index: 2; appearance: none; -webkit-appearance: none; touch-action: manipulation; }
 .btn-sort:hover:not(:disabled) { background: var(--primary-soft); color: var(--primary); border-color: var(--primary); }
-.btn-sort:active:not(:disabled) { background: var(--primary-bg); color: #fff; }
+.btn-sort:active:not(:disabled) { background: var(--primary); color: #fff; }
 .btn-sort:disabled { opacity: .25; cursor: not-allowed; pointer-events: none; }
 /* ====== Utility 工具类 ====== */
 .text-center { text-align: center; }
@@ -996,7 +995,7 @@ function saveData(data) {
 let appData = loadData();
 // ====== 内嵌题库数据 ======
 var _EMBED_BANKS = {};
-var _EMBED_VERSION = "2026-07-26T16-37-23";
+var _EMBED_VERSION = "2026-07-26T16-38-29";
 var _EMBED_TOTAL = 0;
 // ====== 内嵌题库数据 END ======
 
@@ -1632,7 +1631,7 @@ function renderBanks() {
     if (allWrongs.length > 0) {
       statusBarHtml += '<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">' +
         '<span style="font-size:13px;font-weight:600">📋 每日错题挑战</span>' +
-        '<button class="btn" style="background:var(--primary-bg);color:#fff;border:none;padding:6px 14px;font-size:13px;border-radius:8px;cursor:pointer" onclick="doDailyWrongChallenge()">抽5题</button>' +
+        '<button class="btn" style="background:var(--primary);color:#fff;border:none;padding:6px 14px;font-size:13px;border-radius:8px;cursor:pointer" onclick="doDailyWrongChallenge()">抽5题</button>' +
       '</div>';
     }
 
@@ -1905,7 +1904,7 @@ function renderEditBankModal(ov, name, bank) {
         '<span style="font-size:12px;color:var(--text-secondary);white-space:nowrap">🔍 跳到第</span>' +
         '<input type="number" id="editBankJumpInput" min="1" max="' + bank.length + '" placeholder="题号" style="width:60px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;text-align:center;background:var(--bg-input);color:var(--text)" onkeydown="if(event.key===\'Enter\')document.querySelector(\'#editBankJumpGo\').click()">' +
         '<span style="font-size:12px;color:var(--text-secondary);white-space:nowrap">题</span>' +
-        '<button class="btn btn-sm" id="editBankJumpGo" style="background:var(--primary-bg);color:#fff;border:none;font-size:12px;padding:5px 12px;border-radius:6px">GO</button>' +
+        '<button class="btn btn-sm" id="editBankJumpGo" style="background:var(--primary);color:#fff;border:none;font-size:12px;padding:5px 12px;border-radius:6px">GO</button>' +
         paginationHtml +
       '</div>' +
     '</div>' +
@@ -2795,7 +2794,7 @@ function showImportPreview(name, questions, stats) {
       '<span style="color:var(--text-secondary);white-space:nowrap">🔍 跳到第</span>' +
       '<input type="number" id="jumpCardInput" min="1" max="' + questions.length + '" placeholder="题号" style="width:56px;padding:6px 8px;border:2px solid var(--border);border-radius:6px;font-size:13px;text-align:center;background:var(--card);color:var(--text)">' +
       '<span style="color:var(--text-secondary);white-space:nowrap">题</span>' +
-      '<button class="btn btn-sm" style="background:var(--primary-bg);color:#fff;border:none;font-size:12px;padding:6px 14px;min-height:36px" onclick="jumpToPreviewCard()">GO</button>';
+      '<button class="btn btn-sm" style="background:var(--primary);color:#fff;border:none;font-size:12px;padding:6px 14px;min-height:36px" onclick="jumpToPreviewCard()">GO</button>';
     if (questions.length > 30) {
       var gs = 20;
       var grps = Math.ceil(questions.length / gs);
@@ -7174,7 +7173,7 @@ function renderSettings() {
 
     '<div class="section"><div class="section-title">关于</div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="showManualMenu()"><div><div class="setting-label">📖 使用说明</div><div class="setting-desc">查看使用指南</div></div><div style="display:flex;align-items:center">→</div></div>' +
-      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">手机刷题工具 · 纯前端离线可用 · <span id="appVersion">v174</span></div></div></div>' +
+      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">手机刷题工具 · 纯前端离线可用 · <span id="appVersion">v175</span></div></div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="clearAllData()"><div><div class="setting-label" style="color:var(--danger)">🗑️ 删除所有数据</div><div class="setting-desc">清空全部题库和设置，不可恢复</div></div><div style="display:flex;align-items:center;color:var(--danger)">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="checkUpdate()"><div><div class="setting-label">🔄 检查更新</div><div class="setting-desc">点击清除缓存并刷新，获取最新版本</div></div><div style="display:flex;align-items:center">→</div></div>' +
     '</div>';
@@ -7295,14 +7294,14 @@ function switchManualTab(tab) {
   if (tab === 'quick') {
     quick.style.display = '';
     full.style.display = 'none';
-    tabs[0].style.background = 'var(--primary-bg)';
+    tabs[0].style.background = 'var(--primary)';
     tabs[0].style.color = '#fff';
     tabs[1].style.background = 'transparent';
     tabs[1].style.color = 'var(--text-secondary)';
   } else {
     quick.style.display = 'none';
     full.style.display = '';
-    tabs[1].style.background = 'var(--primary-bg)';
+    tabs[1].style.background = 'var(--primary)';
     tabs[1].style.color = '#fff';
     tabs[0].style.background = 'transparent';
     tabs[0].style.color = 'var(--text-secondary)';
