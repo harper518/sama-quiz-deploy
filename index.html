@@ -5708,7 +5708,7 @@ function renderWrongBankDetail(name) {
       '<div style="padding:12px 16px;display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="toggleWrongTier(\'' + tierId + '\')">' +
         '<span style="font-weight:700;font-size:15px;color:' + color + '">' + icon + ' ' + label + ' <span style="font-weight:400;font-size:13px;opacity:.7">' + wrongs.length + ' 道</span> <span style="font-size:11px;opacity:.5">' + (isExpanded ? '▲' : '▼') + '</span></span>' +
         '<div style="display:flex;gap:6px" onclick="event.stopPropagation()">' +
-        '<button class="btn btn-outline btn-sm" style="border-color:#C4B5FD;color:#A78BFA" onclick="browseWrongsByTier(\'' + escQ(name) + '\',\'' + tierKey + '\')">🐚 练习</button>' +
+        '<button class="btn btn-outline btn-sm" style="border-color:var(--primary-soft);color:var(--primary)" onclick="browseWrongsByTier(\'' + escQ(name) + '\',\'' + tierKey + '\')">🐚 练习</button>' +
         '<button class="btn btn-sm" style="background:var(--border);border:none;color:var(--danger)" onclick="clearWrongsByTier(\'' + escQ(name) + '\',\'' + tierKey + '\')">🗑 清空</button>' +
         '</div>' +
       '</div>' +
@@ -5928,7 +5928,7 @@ function renderFavorites() {
           '</div>';
         }).join('') +
         '<div class="chip-group" style="padding:10px 14px">' +
-        '<button class="btn btn-outline btn-sm" style="width:auto;border-color:#C4B5FD;color:#A78BFA" onclick="browseFavs(\'' + escQ(name) + '\')">🐚 从头练习</button>' +
+        '<button class="btn btn-outline btn-sm" style="width:auto;border-color:var(--primary-soft);color:var(--primary)" onclick="browseFavs(\'' + escQ(name) + '\')">🐚 从头练习</button>' +
         '<button class="btn btn-sm" style="width:auto;background:var(--border);border:none;color:var(--danger)" onclick="clearFavs(\'' + escQ(name) + '\')">🗑 清空</button>' +
         '</div>' +
       '</div></div>';
@@ -6037,7 +6037,7 @@ function renderSuperFavs() {
           '</div>';
         }).join('') +
         '<div class="chip-group" style="padding:10px 14px">' +
-        '<button class="btn btn-outline btn-sm" style="width:auto;border-color:#C4B5FD;color:#8B5CF6" onclick="browseSuperFavs(\'' + escQ(name) + '\')">🐚 从头练习</button>' +
+        '<button class="btn btn-outline btn-sm" style="width:auto;border-color:var(--primary-soft);color:var(--primary)" onclick="browseSuperFavs(\'' + escQ(name) + '\')">🐚 从头练习</button>' +
         '<button class="btn btn-sm" style="width:auto;background:var(--border);border:none;color:var(--danger)" onclick="clearSuperFavs(\'' + escQ(name) + '\')">🗑 清空</button>' +
         '</div>' +
       '</div></div>';
@@ -7229,7 +7229,7 @@ function renderSettings() {
 
     '<div class="section"><div class="section-title">关于</div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="showManualMenu()"><div><div class="setting-label">📖 使用说明</div><div class="setting-desc">查看使用指南</div></div><div style="display:flex;align-items:center">→</div></div>' +
-      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">手机刷题工具 · 纯前端离线可用 · <span id="appVersion">v183</span></div></div></div>' +
+      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">手机刷题工具 · 纯前端离线可用 · <span id="appVersion">v184</span></div></div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="clearAllData()"><div><div class="setting-label" style="color:var(--danger)">🗑️ 删除所有数据</div><div class="setting-desc">清空全部题库和设置，不可恢复</div></div><div style="display:flex;align-items:center;color:var(--danger)">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="checkUpdate()"><div><div class="setting-label">🔄 检查更新</div><div class="setting-desc">点击清除缓存并刷新，获取最新版本</div></div><div style="display:flex;align-items:center">→</div></div>' +
     '</div>';
