@@ -73,11 +73,12 @@
   --primary: #ec4899; --primary-hover: #db2777; --primary-light: #fdf2f8; --primary-soft: #fce7f3;
   --border: #f5d0e8;
 }
-[data-color="green"] {
-  --bg: #f0fdf4; --card: #fff; --bg-input: #f0fdf4;
-  --text: #14532d; --text-secondary: #5c8e6e; --text-tertiary: #96bca6;
-  --primary: #22c55e; --primary-hover: #16a34a; --primary-light: #f0fdf4; --primary-soft: #dcfce7;
-  --border: #d0f5e0;
+/* 彩虹糖 */
+[data-color="candy"] {
+  --bg: #fdf3f8; --card: #fff; --bg-input: #fdf3f8;
+  --text: #4a2038; --text-secondary: #8c6078; --text-tertiary: #b894a8;
+  --primary: #f472b6; --primary-hover: #e45da0; --primary-light: #fef5f9; --primary-soft: #fce7f0;
+  --border: #a5d6a7;
 }
 [data-color="yellow"] {
   --bg: #fefce8; --card: #fff; --bg-input: #fefce8;
@@ -127,11 +128,19 @@
   --border: #dce4ec;
 }
 /* 暮光·梅紫+暖金 */
-[data-color="twilight"] {
-  --bg: #f8f6f3; --card: #fff; --bg-input: #f8f6f3;
-  --text: #3a2e34; --text-secondary: #7a6a6e; --text-tertiary: #b0a0a4;
-  --primary: #8b6f8b; --primary-hover: #6d556d; --primary-light: #f7f4f0; --primary-soft: #ede6de;
-  --border: #c4a882;
+/* 浆果薄荷 */
+[data-color="berrymint"] {
+  --bg: #fdf7f9; --card: #fff; --bg-input: #fdf7f9;
+  --text: #3d1e2a; --text-secondary: #8c6070; --text-tertiary: #b894a0;
+  --primary: #c0557a; --primary-hover: #a84066; --primary-light: #fef8fa; --primary-soft: #fae8ee;
+  --border: #8fbc8f;
+}
+/* 薰衣草柠檬 */
+[data-color="lavlemon"] {
+  --bg: #faf8fe; --card: #fff; --bg-input: #faf8fe;
+  --text: #2d2048; --text-secondary: #6b5c88; --text-tertiary: #a898c0;
+  --primary: #a78bfa; --primary-hover: #8b6fe8; --primary-light: #faf7ff; --primary-soft: #ede4fe;
+  --border: #f5c842;
 }
 
 /* ====== 暗黑模式 ====== */
@@ -178,11 +187,11 @@
   --primary: #f472b6; --primary-hover: #f9a8d4; --primary-light: #500724; --primary-soft: #701a3c;
   --border: #701a3c;
 }
-[data-theme="dark"][data-color="green"] {
-  --bg: #051a10; --card: #0d3320; --bg-input: #0a2818;
-  --text: #d5ffe8; --text-secondary: #9edcbc; --text-tertiary: #60a882;
-  --primary: #34d399; --primary-hover: #6ee7b7; --primary-light: #052e16; --primary-soft: #064e26;
-  --border: #064e26;
+[data-theme="dark"][data-color="candy"] {
+  --bg: #1c1018; --card: #2d1a25; --bg-input: #24141e;
+  --text: #fce8f0; --text-secondary: #d4a0b8; --text-tertiary: #8c6078;
+  --primary: #f99ec4; --primary-hover: #fbbbd6; --primary-light: #2d1822; --primary-soft: #3d1e2e;
+  --border: #5c9e5c;
 }
 [data-theme="dark"][data-color="yellow"] {
   --bg: #1a1508; --card: #332a0d; --bg-input: #281f0a;
@@ -226,11 +235,17 @@
   --primary: #8bb0cc; --primary-hover: #a8c8dd; --primary-light: #1a2838; --primary-soft: #243648;
   --border: #2c3d4e;
 }
-[data-theme="dark"][data-color="twilight"] {
-  --bg: #1c1816; --card: #2d2522; --bg-input: #241e1b;
-  --text: #ebe0d8; --text-secondary: #c4b0a0; --text-tertiary: #8c7868;
-  --primary: #c0a0c0; --primary-hover: #d4bcd4; --primary-light: #2d2025; --primary-soft: #3d2e35;
-  --border: #6b5a4e;
+[data-theme="dark"][data-color="berrymint"] {
+  --bg: #1c1216; --card: #2d1e24; --bg-input: #24161c;
+  --text: #fce4ec; --text-secondary: #d4a0b0; --text-tertiary: #8c6070;
+  --primary: #d47a96; --primary-hover: #e09aae; --primary-light: #2d1820; --primary-soft: #3d1e28;
+  --border: #5c9e5c;
+}
+[data-theme="dark"][data-color="lavlemon"] {
+  --bg: #161228; --card: #241e3d; --bg-input: #1c1832;
+  --text: #e8e0f8; --text-secondary: #c4b8e0; --text-tertiary: #8878b0;
+  --primary: #c4b5fd; --primary-hover: #d8ccfe; --primary-light: #1c1838; --primary-soft: #2d2450;
+  --border: #c9a820;
 }
 
 /* ====== 色点选择器 ====== */
@@ -7074,9 +7089,9 @@ function renderSettings() {
   if (!s.examDate) s.examDate = '';
   if (s.difficultyRating === undefined) s.difficultyRating = false;
 
-  var colorNames = { teal: '青绿', purple: '浅紫', blue: '浅蓝', rose: '玫红', pink: '粉色', green: '浅绿', yellow: '浅黄', bw: '黑白', cream: '护眼·米黄', sage: '护眼·豆沙绿', stone: '岩灰', iris: '鸢尾', seasalt: '海盐', twilight: '暮光' };
-  var colors = ['teal', 'purple', 'blue', 'rose', 'pink', 'green', 'yellow', 'bw', 'cream', 'sage', 'stone', 'iris', 'seasalt', 'twilight'];
-  var colorBgs = { teal: '#0891b2', purple: '#9333ea', blue: '#3b82f6', rose: '#e11d48', pink: '#ec4899', green: '#22c55e', yellow: '#eab308', bw: '#555', cream: '#c8965c', sage: '#6b9e6b', stone: '#504647', iris: '#818cf8', seasalt: '#6b8ca8', twilight: '#8b6f8b' };
+  var colorNames = { teal: '青绿', purple: '浅紫', blue: '浅蓝', rose: '玫红', pink: '粉色', yellow: '浅黄', bw: '黑白', cream: '护眼·米黄', sage: '护眼·豆沙绿', stone: '岩灰', iris: '鸢尾', seasalt: '海盐', candy: '彩虹糖', berrymint: '浆果薄荷', lavlemon: '薰衣草柠檬' };
+  var colors = ['teal', 'purple', 'blue', 'rose', 'pink', 'yellow', 'bw', 'cream', 'sage', 'stone', 'iris', 'seasalt', 'candy', 'berrymint', 'lavlemon'];
+  var colorBgs = { teal: '#0891b2', purple: '#9333ea', blue: '#3b82f6', rose: '#e11d48', pink: '#ec4899', yellow: '#eab308', bw: '#555', cream: '#c8965c', sage: '#6b9e6b', stone: '#504647', iris: '#818cf8', seasalt: '#6b8ca8', candy: '#f472b6', berrymint: '#c0557a', lavlemon: '#a78bfa' };
 
   c.innerHTML = '<div class="section"><div class="section-title">数据管理</div>' +
     '<div class="setting-item" style="flex-direction:column;align-items:stretch;gap:10px">' +
@@ -7214,7 +7229,7 @@ function renderSettings() {
 
     '<div class="section"><div class="section-title">关于</div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="showManualMenu()"><div><div class="setting-label">📖 使用说明</div><div class="setting-desc">查看使用指南</div></div><div style="display:flex;align-items:center">→</div></div>' +
-      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">手机刷题工具 · 纯前端离线可用 · <span id="appVersion">v182</span></div></div></div>' +
+      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">手机刷题工具 · 纯前端离线可用 · <span id="appVersion">v183</span></div></div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="clearAllData()"><div><div class="setting-label" style="color:var(--danger)">🗑️ 删除所有数据</div><div class="setting-desc">清空全部题库和设置，不可恢复</div></div><div style="display:flex;align-items:center;color:var(--danger)">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="checkUpdate()"><div><div class="setting-label">🔄 检查更新</div><div class="setting-desc">点击清除缓存并刷新，获取最新版本</div></div><div style="display:flex;align-items:center">→</div></div>' +
     '</div>';
