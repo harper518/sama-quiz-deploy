@@ -202,8 +202,11 @@
 .toggle input { position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer; z-index:1; }
 .toggle .slider { position:absolute; cursor:pointer; inset:0; background:var(--border); border-radius:31px; transition:var(--transition); }
 .toggle .slider::before { content:""; position:absolute; height:25px; width:25px; left:3px; bottom:3px; background:#fff; border-radius:50%; transition:var(--transition); box-shadow:0 2px 4px rgba(0,0,0,.15); }
-.toggle input:checked+.slider { background:var(--primary); }
+.toggle input:checked+.slider { background:linear-gradient(0deg, rgba(255,255,255,0.22), rgba(255,255,255,0.22)), var(--primary); }
 .toggle input:checked+.slider::before { transform:translateX(20px); }
+
+/* ====== 收藏/重点按钮聚焦 ====== */
+#favBtn:focus, #superFavBtn:focus { outline: 1px solid #333; outline-offset: 0; }
 
 /* ====== Segmented ====== */
 .segmented { display:inline-flex; background:var(--bg-input); border-radius:10px; padding:3px; gap:0; }
@@ -784,8 +787,8 @@ textarea { min-height: 180px; resize: vertical; line-height: 1.8; }
           <button id="editQuizBtn" style="background:none;border:none;font-size:13px;cursor:pointer;padding:2px 6px;color:var(--text-tertiary);opacity:0.4;min-height:32px" onclick="editCurrentQuizQuestion()" title="编辑此题">✏️</button>
         </div>
         <div style="display:flex;align-items:center;gap:2px">
-          <button id="superFavBtn" style="background:none;border:none;outline:none;font-size:18px;cursor:pointer;padding:0;line-height:1;color:#8B5CF6;display:none;min-height:44px;min-width:44px" onclick="toggleSuperFav()" title="重点标记">𓈒𓏸𓇼</button>
-          <button id="favBtn" style="background:none;border:none;outline:none;font-size:22px;cursor:pointer;padding:0;line-height:1;min-height:44px;min-width:44px" onclick="toggleFav()" title="收藏">☆</button>
+          <button id="superFavBtn" style="background:none;border:none;font-size:18px;cursor:pointer;padding:0;line-height:1;color:#8B5CF6;display:none;width:44px;height:44px;align-items:center;justify-content:center;touch-action:manipulation;-webkit-tap-highlight-color:transparent;border-radius:8px" onclick="toggleSuperFav()" title="重点标记">𓈒𓏸𓇼</button>
+          <button id="favBtn" style="background:none;border:none;font-size:22px;cursor:pointer;padding:0;line-height:1;width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;touch-action:manipulation;-webkit-tap-highlight-color:transparent;border-radius:8px" onclick="toggleFav()" title="收藏">☆</button>
         </div>
       </div>
       <div style="font-size:16px;font-weight:500;line-height:1.7;margin-bottom:16px" id="qText"></div>
@@ -992,56 +995,20 @@ function saveData(data) {
     return false;
   }
 }
-let appData = loadData();
-// ====== 内嵌题库数据 ======
-var _EMBED_BANKS = {};
-var _EMBED_VERSION = "2026-07-26T16-42-22";
-var _EMBED_TOTAL = 0;
-// ====== 内嵌题库数据 END ======
-
-// ====== 预置题库 ======
-// ====== 数据启动器（内嵌题库，离线可用）======
-// _EMBED_BANKS 和 _EMBED_VERSION 由构建脚本注入，无需网络请求
-(function bootloadAppData() {
-  if (!window._EMBED_BANKS) return;
-
-  function refreshUI() {
-    if (typeof renderBanks === 'function') renderBanks();
-    if (typeof updateBadges === 'function') updateBadges();
-  }
-
-  var cachedVer = localStorage.getItem('_dv');
-
-  if (window._EMBED_VERSION === cachedVer) {
-    // 版本一致，无需更新，补刷 UI
-    refreshUI();
-    return;
-  }
-
-  // 版本不一致或首次加载 — 将内嵌题库写入 localStorage
-  var bankNames = Object.keys(window._EMBED_BANKS);
-  var updated = false;
-  for (var i = 0; i < bankNames.length; i++) {
-    var name = bankNames[i];
-    // 如果用户已修改过此题库（有自定义数据），跳过
-    if (appData.banks[name] && appData.banks[name].length > 0) continue;
-    appData.banks[name] = window._EMBED_BANKS[name];
-    if (!appData.stats[name]) appData.stats[name] = { answered: 0, correct: 0, rounds: 0 };
-    if (!appData.wrongBooks[name]) appData.wrongBooks[name] = [];
-    updated = true;
-    console.log('📦 已加载题库：' + name + ' (' + window._EMBED_BANKS[name].length + '题)');
-  }
-
-  if (updated) {
-    localStorage.setItem('_dv', window._EMBED_VERSION);
-    saveData(appData);
-    console.log('✅ 题库数据已更新至 ' + window._EMBED_VERSION);
-  } else if (!cachedVer) {
-    // 首次加载但没有新数据（用户已有自定义题库）
-    localStorage.setItem('_dv', window._EMBED_VERSION);
-  }
-
-  refreshUI();
+const BANK_sample = [{"id":1,"question":"\"学而不思则罔，思而不学则殆\"体现了哪种教学原则？","A":"启发性原则","B":"巩固性原则","C":"理论联系实际原则","D":"循序渐进原则","answer":"C","type":"single","explanation":"这句话强调学习与思考相结合，体现了理论联系实际的教学原则。"},{"id":2,"question":"根据皮亚杰的认知发展阶段理论，具体运算阶段的年龄范围是？","A":"0-2岁","B":"2-7岁","C":"7-11岁","D":"11-15岁","answer":"C","type":"single","explanation":"皮亚杰将认知发展分为四个阶段，具体运算阶段为7-11岁，儿童开始具备逻辑思维能力。"},{"id":3,"question":"以下哪项不属于《中小学教师职业道德规范》的内容？","A":"爱国守法","B":"爱岗敬业","C":"追求卓越","D":"教书育人","answer":"C","type":"single","explanation":"《中小学教师职业道德规范》包括爱国守法、爱岗敬业、关爱学生、教书育人、为人师表、终身学习，不包括\"追求卓越\"。"},{"id":4,"question":"布卢姆将认知领域的教学目标分为哪几个层次？","A":"识记、理解、应用","B":"知识、领会、运用、分析、综合、评价","C":"了解、理解、掌握","D":"记忆、理解、应用、创新","answer":"B","type":"single","explanation":"布卢姆将认知目标分为知识、领会、运用、分析、综合、评价六个层次，由低到高排列。"},{"id":5,"question":"班主任工作的中心环节是？","A":"了解和研究学生","B":"组织和培养班集体","C":"做好个别教育工作","D":"协调各方面教育力量","answer":"B","type":"single","explanation":"组织和培养班集体是班主任工作的中心环节，其他工作都围绕此展开。"}];
+(function() {
+  try {
+    const data = loadData();
+    if (!data.banks || !data.banks["示例题库"]) {
+      if (!data.banks) data.banks = {};
+      data.banks["示例题库"] = BANK_sample;
+      if (!data.stats) data.stats = {};
+      if (!data.stats["示例题库"]) data.stats["示例题库"] = { answered: 0, correct: 0, rounds: 0 };
+      if (!data.wrongBooks) data.wrongBooks = {};
+      if (!data.wrongBooks["示例题库"]) data.wrongBooks["示例题库"] = [];
+      saveData(data);
+    }
+  } catch(e) { console.warn("预置题库注入失败:", e); }
 })();
 
 function fmtDate(ts) { var d = new Date(ts); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
@@ -1238,6 +1205,7 @@ function updateFontSize(val) {
   if (el) el.textContent = val + 'px';
 }
 
+let appData = loadData();
 let quizState = null;
 let browseState = null;
 let _searchTempQuestions = null;
@@ -1446,7 +1414,7 @@ function updateFavButtons() {
   var superBtn = document.getElementById('superFavBtn');
   if (superBtn) {
     if (isFav) {
-      superBtn.style.display = '';
+      superBtn.style.display = 'inline-flex';
       var superFavs = getSuperFavs(qBank);
       var isSuper = superFavs.some(function(f) { return f.id === q.id; });
       superBtn.textContent = isSuper ? '𓈒𓏸𓇼' : '𓈒𓏸𓇼';
@@ -2501,25 +2469,22 @@ function applySR(bankName, qId, wasCorrect) {
 // ====== Restore Preset ======
 function restorePresetBanks() {
   if (!appData.banks) appData.banks = {};
-  // 从 _EMBED_BANKS 恢复
-  if (!window._EMBED_BANKS) { toast('未找到预设题库数据，请刷新页面重试'); return; }
-  var embedNames = Object.keys(window._EMBED_BANKS);
-  var restored = 0;
-  for (var i = 0; i < embedNames.length; i++) {
-    var name = embedNames[i];
-    if (!appData.banks[name] || appData.banks[name].length === 0) {
-      appData.banks[name] = window._EMBED_BANKS[name];
-      if (!appData.stats[name]) appData.stats[name] = { answered: 0, correct: 0, rounds: 0 };
-      if (!appData.wrongBooks[name]) appData.wrongBooks[name] = [];
-      restored++;
-    }
-  }
-  if (restored > 0) {
+  var names = Object.keys(appData.banks);
+  // 检查是否已有非示例题库
+  var hasRealContent = names.some(function(n) { return n !== '示例题库'; });
+  if (hasRealContent) { toast('已有题库，无需恢复'); return; }
+  // 恢复 BANK_sample 预设题库
+  if (!appData.banks['示例题库']) {
+    appData.banks['示例题库'] = BANK_sample;
+    if (!appData.stats) appData.stats = {};
+    if (!appData.stats['示例题库']) appData.stats['示例题库'] = { answered: 0, correct: 0, rounds: 0 };
+    if (!appData.wrongBooks) appData.wrongBooks = {};
+    if (!appData.wrongBooks['示例题库']) appData.wrongBooks['示例题库'] = [];
     saveData(appData);
     renderBanks();
-    toast('✅ 已恢复 ' + restored + ' 个题库');
+    toast('✅ 已恢复示例题库（5题）');
   } else {
-    toast('题库已存在，无需恢复');
+    toast('示例题库已存在');
   }
 }
 
@@ -4209,6 +4174,7 @@ function applyFocusMode() {
   if (pomoEl) pomoEl.style.display = focusOn ? '' : 'none';
   var hideIds = ['favBtn', 'superFavBtn', 'editQuizBtn'];
   hideIds.forEach(function(id) { var el = document.getElementById(id); if (el) el.style.display = focusOn ? 'none' : ''; });
+  if (!focusOn) { var fb = document.getElementById('favBtn'); if (fb) fb.style.display = 'inline-flex'; updateFavButtons(); }
   // Hide analysis explanation toggles if visible
   if (focusOn) {
     var toggles = document.querySelectorAll('.toggle-btn');
@@ -6224,8 +6190,8 @@ function renderBrowseQuestion() {
       '<button style="background:none;border:none;font-size:13px;cursor:pointer;padding:2px 6px;color:var(--text-tertiary);opacity:0.4;min-height:32px" onclick="editCurrentBrowseQuestion()" title="编辑此题">✏️</button>' +
     '</div>' +
     '<div style="display:flex;align-items:center;gap:2px">' +
-      (isFav ? '<button style="background:none;border:none;outline:none;font-size:18px;cursor:pointer;padding:0;line-height:1;color:#8B5CF6;min-height:44px;min-width:44px;opacity:' + (isSuper ? '1' : '0.3') + '" onclick="toggleSuperFavFromBrowse()" title="重点标记">𓈒𓏸𓇼</button>' : '') +
-      '<button style="background:none;border:none;outline:none;font-size:22px;cursor:pointer;padding:0;line-height:1;min-height:44px;min-width:44px" onclick="toggleFavFromBrowse()" title="' + (isFav ? '取消收藏' : '收藏') + '">' + (isFav ? '⭐' : '☆') + '</button>' +
+      (isFav ? '<button style="background:none;border:none;outline:none;font-size:18px;cursor:pointer;padding:0;line-height:1;color:#8B5CF6;width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;touch-action:manipulation;-webkit-tap-highlight-color:transparent;border-radius:8px;opacity:' + (isSuper ? '1' : '0.3') + '" onclick="toggleSuperFavFromBrowse()" title="重点标记">𓈒𓏸𓇼</button>' : '') +
+      '<button style="background:none;border:none;outline:none;font-size:22px;cursor:pointer;padding:0;line-height:1;width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;touch-action:manipulation;-webkit-tap-highlight-color:transparent;border-radius:8px" onclick="toggleFavFromBrowse()" title="' + (isFav ? '取消收藏' : '收藏') + '">' + (isFav ? '⭐' : '☆') + '</button>' +
     '</div></div>';
   html += '<div style="font-size:16px;font-weight:500;line-height:1.7;margin-bottom:14px">' + escHtml(q.question) + '</div>';
 
@@ -7173,7 +7139,7 @@ function renderSettings() {
 
     '<div class="section"><div class="section-title">关于</div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="showManualMenu()"><div><div class="setting-label">📖 使用说明</div><div class="setting-desc">查看使用指南</div></div><div style="display:flex;align-items:center">→</div></div>' +
-      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">手机刷题工具 · 纯前端离线可用 · <span id="appVersion">v176</span></div></div></div>' +
+      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">手机刷题工具 · 纯前端离线可用 · <span id="appVersion">v177</span></div></div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="clearAllData()"><div><div class="setting-label" style="color:var(--danger)">🗑️ 删除所有数据</div><div class="setting-desc">清空全部题库和设置，不可恢复</div></div><div style="display:flex;align-items:center;color:var(--danger)">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="checkUpdate()"><div><div class="setting-label">🔄 检查更新</div><div class="setting-desc">点击清除缓存并刷新，获取最新版本</div></div><div style="display:flex;align-items:center">→</div></div>' +
     '</div>';
