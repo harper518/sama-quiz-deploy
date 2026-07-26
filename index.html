@@ -105,12 +105,26 @@
   --primary: #6b9e6b; --primary-hover: #4a7c4a; --primary-light: #f0f8f0; --primary-soft: #e0f0e0;
   --border: #c8dcc8;
 }
-/* 蜜桃 */
-[data-color="peach"] {
-  --bg: #fffaf7; --card: #fff; --bg-input: #fffaf7;
-  --text: #462823; --text-secondary: #886058; --text-tertiary: #b89088;
-  --primary: #f9736a; --primary-hover: #e85b52; --primary-light: #fff5f3; --primary-soft: #fee9e5;
-  --border: #f0d8d2;
+/* 岩灰·禅意 */
+[data-color="stone"] {
+  --bg: #f8f7f5; --card: #fff; --bg-input: #f8f7f5;
+  --text: #2d2425; --text-secondary: #7a6e6f; --text-tertiary: #b0a8a8;
+  --primary: #504647; --primary-hover: #3d3435; --primary-light: #f5f3f2; --primary-soft: #edeae9;
+  --border: #adAE9e;
+}
+/* 鸢尾·靛紫 */
+[data-color="iris"] {
+  --bg: #f8f8ff; --card: #fff; --bg-input: #f8f8ff;
+  --text: #1e1b4b; --text-secondary: #6b68a0; --text-tertiary: #a8a5cc;
+  --primary: #818cf8; --primary-hover: #6366f1; --primary-light: #f0f1ff; --primary-soft: #e0e2fe;
+  --border: #e0e2f5;
+}
+/* 海盐·静谧 */
+[data-color="seasalt"] {
+  --bg: #f7f9fb; --card: #fff; --bg-input: #f7f9fb;
+  --text: #1e3448; --text-secondary: #5e788c; --text-tertiary: #98b0c0;
+  --primary: #6b8ca8; --primary-hover: #557a98; --primary-light: #f4f7fa; --primary-soft: #e8eef4;
+  --border: #dce4ec;
 }
 
 /* ====== 暗黑模式 ====== */
@@ -187,11 +201,23 @@
   --primary: #7ab87a; --primary-hover: #a0d8a0; --primary-light: #1a3a1a; --primary-soft: #2a4a2a;
   --border: #2a4a2a;
 }
-[data-theme="dark"][data-color="peach"] {
-  --bg: #1c0e0b; --card: #2d1915; --bg-input: #241310;
-  --text: #fce6e1; --text-secondary: #cfa096; --text-tertiary: #8c6258;
-  --primary: #fb9287; --primary-hover: #fca9a0; --primary-light: #3d1714; --primary-soft: #54201c;
-  --border: #3d1b16;
+[data-theme="dark"][data-color="stone"] {
+  --bg: #1c1818; --card: #2d2627; --bg-input: #241e20;
+  --text: #e8e0e0; --text-secondary: #b8a8a8; --text-tertiary: #7a6e6e;
+  --primary: #b8a5a7; --primary-hover: #c9babb; --primary-light: #2d2022; --primary-soft: #3d2e30;
+  --border: #4a4041;
+}
+[data-theme="dark"][data-color="iris"] {
+  --bg: #141428; --card: #221f3d; --bg-input: #1c1a32;
+  --text: #e0def8; --text-secondary: #b0acd8; --text-tertiary: #7874a8;
+  --primary: #a5b4fc; --primary-hover: #c4cdfd; --primary-light: #201e40; --primary-soft: #2d2a55;
+  --border: #3d3a5e;
+}
+[data-theme="dark"][data-color="seasalt"] {
+  --bg: #141e28; --card: #1e2c3a; --bg-input: #182430;
+  --text: #dde8f2; --text-secondary: #a0b8cc; --text-tertiary: #6888a0;
+  --primary: #8bb0cc; --primary-hover: #a8c8dd; --primary-light: #1a2838; --primary-soft: #243648;
+  --border: #2c3d4e;
 }
 
 /* ====== 色点选择器 ====== */
@@ -800,8 +826,8 @@ textarea { min-height: 180px; resize: vertical; line-height: 1.8; }
           <button id="editQuizBtn" style="background:none;border:none;font-size:13px;cursor:pointer;padding:2px 6px;color:var(--text-tertiary);opacity:0.4;min-height:32px" onclick="editCurrentQuizQuestion()" title="编辑此题">✏️</button>
         </div>
         <div style="display:flex;align-items:center;gap:2px">
-          <button id="superFavBtn" style="background:none;border:none;font-size:18px;cursor:pointer;padding:0;line-height:1;color:#8B5CF6;display:none;width:44px;height:44px;align-items:center;justify-content:center;touch-action:manipulation;-webkit-tap-highlight-color:transparent;border-radius:8px;position:relative;z-index:91" onclick="toggleSuperFav()" title="重点标记">𓈒𓏸𓇼</button>
-          <button id="favBtn" style="background:none;border:none;font-size:22px;cursor:pointer;padding:0;line-height:1;width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;touch-action:manipulation;-webkit-tap-highlight-color:transparent;border-radius:8px;position:relative;z-index:91" onclick="toggleFav()" title="收藏">☆</button>
+          <button id="superFavBtn" style="background:none;border:none;font-size:18px;cursor:pointer;padding:0;line-height:1;color:#8B5CF6;display:none;width:44px;height:44px;align-items:center;justify-content:center;touch-action:manipulation;-webkit-tap-highlight-color:transparent;border-radius:8px;position:relative;z-index:91" onpointerdown="toggleSuperFav()" title="重点标记">𓈒𓏸𓇼</button>
+          <button id="favBtn" style="background:none;border:none;font-size:22px;cursor:pointer;padding:0;line-height:1;width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;touch-action:manipulation;-webkit-tap-highlight-color:transparent;border-radius:8px;position:relative;z-index:91" onpointerdown="toggleFav()" title="收藏">☆</button>
         </div>
       </div>
       <div style="font-size:16px;font-weight:500;line-height:1.7;margin-bottom:16px" id="qText"></div>
@@ -6203,8 +6229,8 @@ function renderBrowseQuestion() {
       '<button style="background:none;border:none;font-size:13px;cursor:pointer;padding:2px 6px;color:var(--text-tertiary);opacity:0.4;min-height:32px" onclick="editCurrentBrowseQuestion()" title="编辑此题">✏️</button>' +
     '</div>' +
     '<div style="display:flex;align-items:center;gap:2px">' +
-      (isFav ? '<button style="background:none;border:none;outline:none;font-size:18px;cursor:pointer;padding:0;line-height:1;color:#8B5CF6;width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;touch-action:manipulation;-webkit-tap-highlight-color:transparent;border-radius:8px;position:relative;z-index:91;opacity:' + (isSuper ? '1' : '0.3') + '" onclick="toggleSuperFavFromBrowse()" title="重点标记">𓈒𓏸𓇼</button>' : '') +
-      '<button style="background:none;border:none;outline:none;font-size:22px;cursor:pointer;padding:0;line-height:1;width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;touch-action:manipulation;-webkit-tap-highlight-color:transparent;border-radius:8px;position:relative;z-index:91" onclick="toggleFavFromBrowse()" title="' + (isFav ? '取消收藏' : '收藏') + '">' + (isFav ? '⭐' : '☆') + '</button>' +
+      (isFav ? '<button style="background:none;border:none;outline:none;font-size:18px;cursor:pointer;padding:0;line-height:1;color:#8B5CF6;width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;touch-action:manipulation;-webkit-tap-highlight-color:transparent;border-radius:8px;position:relative;z-index:91;opacity:' + (isSuper ? '1' : '0.3') + '" onpointerdown="toggleSuperFavFromBrowse()" title="重点标记">𓈒𓏸𓇼</button>' : '') +
+      '<button style="background:none;border:none;outline:none;font-size:22px;cursor:pointer;padding:0;line-height:1;width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;touch-action:manipulation;-webkit-tap-highlight-color:transparent;border-radius:8px;position:relative;z-index:91" onpointerdown="toggleFavFromBrowse()" title="' + (isFav ? '取消收藏' : '收藏') + '">' + (isFav ? '⭐' : '☆') + '</button>' +
     '</div></div>';
   html += '<div style="font-size:16px;font-weight:500;line-height:1.7;margin-bottom:14px">' + escHtml(q.question) + '</div>';
 
@@ -7012,9 +7038,9 @@ function renderSettings() {
   if (!s.examDate) s.examDate = '';
   if (s.difficultyRating === undefined) s.difficultyRating = false;
 
-  var colorNames = { teal: '青绿', purple: '浅紫', blue: '浅蓝', rose: '玫红', pink: '粉色', green: '浅绿', yellow: '浅黄', bw: '黑白', cream: '护眼·米黄', sage: '护眼·豆沙绿', peach: '蜜桃' };
-  var colors = ['teal', 'purple', 'blue', 'rose', 'pink', 'green', 'yellow', 'bw', 'cream', 'sage', 'peach'];
-  var colorBgs = { teal: '#0891b2', purple: '#9333ea', blue: '#3b82f6', rose: '#e11d48', pink: '#ec4899', green: '#22c55e', yellow: '#eab308', bw: '#555', cream: '#c8965c', sage: '#6b9e6b', peach: '#f9736a' };
+  var colorNames = { teal: '青绿', purple: '浅紫', blue: '浅蓝', rose: '玫红', pink: '粉色', green: '浅绿', yellow: '浅黄', bw: '黑白', cream: '护眼·米黄', sage: '护眼·豆沙绿', stone: '岩灰', iris: '鸢尾', seasalt: '海盐' };
+  var colors = ['teal', 'purple', 'blue', 'rose', 'pink', 'green', 'yellow', 'bw', 'cream', 'sage', 'stone', 'iris', 'seasalt'];
+  var colorBgs = { teal: '#0891b2', purple: '#9333ea', blue: '#3b82f6', rose: '#e11d48', pink: '#ec4899', green: '#22c55e', yellow: '#eab308', bw: '#555', cream: '#c8965c', sage: '#6b9e6b', stone: '#504647', iris: '#818cf8', seasalt: '#6b8ca8' };
 
   c.innerHTML = '<div class="section"><div class="section-title">数据管理</div>' +
     '<div class="setting-item" style="flex-direction:column;align-items:stretch;gap:10px">' +
@@ -7152,7 +7178,7 @@ function renderSettings() {
 
     '<div class="section"><div class="section-title">关于</div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="showManualMenu()"><div><div class="setting-label">📖 使用说明</div><div class="setting-desc">查看使用指南</div></div><div style="display:flex;align-items:center">→</div></div>' +
-      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">手机刷题工具 · 纯前端离线可用 · <span id="appVersion">v179</span></div></div></div>' +
+      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">手机刷题工具 · 纯前端离线可用 · <span id="appVersion">v180</span></div></div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="clearAllData()"><div><div class="setting-label" style="color:var(--danger)">🗑️ 删除所有数据</div><div class="setting-desc">清空全部题库和设置，不可恢复</div></div><div style="display:flex;align-items:center;color:var(--danger)">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="checkUpdate()"><div><div class="setting-label">🔄 检查更新</div><div class="setting-desc">点击清除缓存并刷新，获取最新版本</div></div><div style="display:flex;align-items:center">→</div></div>' +
     '</div>';
