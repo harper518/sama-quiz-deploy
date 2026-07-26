@@ -762,6 +762,14 @@ textarea { min-height: 180px; resize: vertical; line-height: 1.8; }
       <div class="form-group" id="mixedBankGroup" style="display:none">
         <label class="form-label">勾选题库（至少选2个）</label>
         <div id="mixedBankChecklist" style="max-height:200px;overflow-y:auto;border:2px solid var(--border);border-radius:8px;padding:4px"></div>
+        <div class="form-group" id="mixTypeFilterGroup" style="margin-top:8px">
+          <label class="form-label" style="font-size:13px">题目类型</label>
+          <div class="chip-group" id="mixTypeChips">
+            <span class="chip active" data-mtype="all" onclick="selectMixType('all', this)">全部混合</span>
+            <span class="chip" data-mtype="single" onclick="selectMixType('single', this)">仅单选</span>
+            <span class="chip" data-mtype="multi" onclick="selectMixType('multi', this)">仅多选</span>
+          </div>
+        </div>
       </div>
       <div class="form-group">
         <label class="form-label">每轮题数</label>
@@ -1271,6 +1279,12 @@ let timerSeconds = 75; // 默认每题75秒
 let timerInterval = null;
 let timerRemaining = 0;
 let _quizMixedMode = false;
+let _mixTypeFilter = 'all';
+function selectMixType(type, el) {
+  _mixTypeFilter = type;
+  document.querySelectorAll('#mixTypeChips .chip').forEach(function(c) { c.classList.remove('active'); });
+  if (el) el.classList.add('active');
+}
 
 function switchQuizMode(isMixed, el) {
   _quizMixedMode = isMixed;
@@ -4325,6 +4339,10 @@ function startQuiz() {
       bq.forEach(function(q) { allQs.push({ bank: bn, q: q }); });
     });
     if (allQs.length === 0) { toast('所选题库均为空'); return; }
+    // 题型过滤
+    if (_mixTypeFilter === 'single') { allQs = allQs.filter(function(item) { return item.q.type !== 'multi'; }); }
+    if (_mixTypeFilter === 'multi') { allQs = allQs.filter(function(item) { return item.q.type === 'multi'; }); }
+    if (allQs.length === 0) { toast('当前筛选无题目，请切换类型'); return; }
     var count = batchSize === 0 ? allQs.length : Math.min(batchSize, allQs.length);
     var shuffled = [].concat(allQs).sort(function() { return Math.random() - 0.5; });
     var selected = shuffled.slice(0, count);
@@ -7196,7 +7214,7 @@ function renderSettings() {
 
     '<div class="section"><div class="section-title">关于</div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="showManualMenu()"><div><div class="setting-label">📖 使用说明</div><div class="setting-desc">查看使用指南</div></div><div style="display:flex;align-items:center">→</div></div>' +
-      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">手机刷题工具 · 纯前端离线可用 · <span id="appVersion">v181</span></div></div></div>' +
+      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">手机刷题工具 · 纯前端离线可用 · <span id="appVersion">v182</span></div></div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="clearAllData()"><div><div class="setting-label" style="color:var(--danger)">🗑️ 删除所有数据</div><div class="setting-desc">清空全部题库和设置，不可恢复</div></div><div style="display:flex;align-items:center;color:var(--danger)">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="checkUpdate()"><div><div class="setting-label">🔄 检查更新</div><div class="setting-desc">点击清除缓存并刷新，获取最新版本</div></div><div style="display:flex;align-items:center">→</div></div>' +
     '</div>';
