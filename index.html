@@ -7260,7 +7260,7 @@ function renderSettings() {
 
     '<div class="section"><div class="section-title" id="aboutSectionTitle" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;min-height:44px" onclick="var c=document.getElementById(\'aboutSectionContent\');var a=document.getElementById(\'aboutSectionArrow\');if(c.style.display===\'none\'){c.style.display=\'\';a.textContent=\'▼\'}else{c.style.display=\'none\';a.textContent=\'▶\'}">ℹ️ 关于 <span id="aboutSectionArrow" style="font-size:11px">▼</span></div>' +
       '<div id="aboutSectionContent"><div class="setting-item" style="cursor:pointer" onclick="showManualMenu()"><div><div class="setting-label">📖 使用说明</div><div class="setting-desc">查看使用指南</div></div><div style="display:flex;align-items:center">→</div></div>' +
-      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">手机刷题工具 · 纯前端离线可用 · <span id="appVersion">v200</span></div></div></div>' +
+      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">手机刷题工具 · 纯前端离线可用 · <span id="appVersion">v201</span></div></div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="showDataOffsetTool()"><div><div class="setting-label">🔧 数据批量偏移</div><div class="setting-desc">修复答案/解析的错位问题（支持前移后移）</div></div><div style="display:flex;align-items:center">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="clearAllData()"><div><div class="setting-label" style="color:var(--danger)">🗑️ 删除所有数据</div><div class="setting-desc">清空全部题库和设置，不可恢复</div></div><div style="display:flex;align-items:center;color:var(--danger)">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="checkUpdate()"><div><div class="setting-label">🔄 检查更新</div><div class="setting-desc">点击清除缓存并刷新，获取最新版本</div></div><div style="display:flex;align-items:center">→</div></div>' +
@@ -7362,39 +7362,68 @@ function showDataOffsetTool() {
   var currentBank = bankNames[0];
   var currentField = 'explanation';
   var currentStart = 1;
+  var previewCount = 5;
 
   var overlay = document.createElement('div');
   overlay.id = 'offsetToolOverlay';
   overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px';
 
+  function trunc(s, maxLen) {
+    var t = s || '';
+    var m = maxLen || 30;
+    return t.length > m ? t.substring(0, m) + '…' : (t || '(空)');
+  }
+
   function getPreview() {
     var bank = banks[currentBank];
     if (!bank) return '';
     var start = Math.max(0, currentStart - 1);
-    var count = Math.min(3, bank.length - start);
-    if (count <= 0) return '<p style="color:var(--text-secondary)">起始题号超出题库范围</p>';
     var rows = '';
+    // 边界前一题（不受影响）
+    if (start > 0) {
+      var bq = bank[start - 1];
+      var bVal = (currentField === 'answer' ? bq.answer : bq.explanation) || '';
+      var bqText = bq.question ? (bq.question.length > 20 ? bq.question.substring(0, 20) + '…' : bq.question) : '';
+      rows += '<div style="padding:3px 8px;margin:2px 0;font-size:11px;color:var(--text-tertiary);border-left:2px solid var(--border)">' +
+        '◂ <b>第' + start + '题</b>' +
+        (bqText ? ' ' + escHtml(bqText) : '') +
+        ' — ' + escHtml(trunc(bVal, 40)) + ' <span style="opacity:.6">(不受影响)</span></div>';
+    }
+    var count = Math.min(previewCount, bank.length - start);
+    if (count <= 0) return '<div style="font-size:12px;color:var(--text-tertiary);text-align:center;padding:12px">起始题号超出题库范围</div>';
     for (var i = 0; i < count; i++) {
       var idx = start + i;
       var q = bank[idx];
-      var val = currentField === 'explanation' ? (q.explanation || '') : (q.answer || '');
-      var preview = val.length > 60 ? val.substring(0, 60) + '…' : val;
-      rows += '<div style="padding:6px 8px;margin:2px 0;background:var(--bg);border-radius:4px;font-size:13px">' +
-        '<b>第' + (idx+1) + '题</b>：' + escHtml(preview || '(空)') + '</div>';
+      var val = (currentField === 'answer' ? q.answer : q.explanation) || '';
+      var valPreview = val.length > 40 ? val.substring(0, 40) + '…' : val;
+      var qText = q.question ? (q.question.length > 20 ? q.question.substring(0, 20) + '…' : q.question) : '';
+      rows += '<div style="padding:4px 8px;margin:2px 0;background:var(--bg);border-radius:4px;font-size:12px">' +
+        '<b>第' + (idx+1) + '题</b>' +
+        (qText ? ' <span style="color:var(--text-secondary)">' + escHtml(qText) + '</span>' : '') +
+        '：' + escHtml(valPreview || '(空)') + '</div>';
     }
     return rows;
   }
 
   function renderUI() {
+    var bank = banks[currentBank];
+    var totalQ = bank ? bank.length : 0;
+    var startIdx = Math.max(0, currentStart - 1);
+    var affectedCount = Math.max(0, totalQ - startIdx);
+    var summaryText = '将偏移 <b>第' + currentStart + '~' + totalQ + '题</b>（共 ' + affectedCount + ' 题）';
+    var nearEndWarn = '';
+    if (affectedCount > 0 && affectedCount < 5) {
+      nearEndWarn = '<div style="margin-bottom:8px;padding:8px 12px;background:#fff3cd;border:1px solid #ffc107;border-radius:6px;font-size:12px;color:#856404">⚠️ 偏移范围只剩 <b>' + affectedCount + '</b> 题，请确认起始题号是否正确</div>';
+    }
     var preview = getPreview();
     overlay.innerHTML =
-      '<div style="background:var(--card);border-radius:16px;padding:24px;max-width:460px;width:100%;max-height:80vh;overflow-y:auto">' +
+      '<div style="background:var(--card);border-radius:16px;padding:24px;max-width:480px;width:100%;max-height:85vh;overflow-y:auto">' +
         '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">' +
           '<h3 style="margin:0;font-size:17px">🔧 数据批量偏移</h3>' +
           '<button style="background:none;border:none;font-size:20px;cursor:pointer;min-width:44px;min-height:44px;color:var(--text-secondary)" onclick="document.getElementById(\'offsetToolOverlay\').remove()">✕</button>' +
         '</div>' +
         '<div style="margin-bottom:12px">' +
-          '<div style="font-size:13px;color:var(--text-secondary);margin-bottom:4px">题库</div>' +
+          '<div style="font-size:13px;color:var(--text-secondary);margin-bottom:4px">题库 <span style="font-size:11px">（共 ' + totalQ + ' 题）</span></div>' +
           '<select id="offsetBank" style="width:100%;padding:8px 12px;border:2px solid var(--border);border-radius:8px;background:var(--bg-input);color:var(--text);font-size:14px">' +
             bankNames.map(function(n) { return '<option value="' + escHtml(n) + '"' + (n === currentBank ? ' selected' : '') + '>' + escHtml(n) + ' (' + banks[n].length + '题)</option>'; }).join('') +
           '</select>' +
@@ -7406,22 +7435,32 @@ function showDataOffsetTool() {
             '<label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:14px"><input type="radio" name="offsetField" value="explanation"' + (currentField === 'explanation' ? ' checked' : '') + '> 解析</label>' +
           '</div>' +
         '</div>' +
-        '<div style="margin-bottom:4px">' +
+        '<div style="margin-bottom:8px">' +
           '<div style="font-size:13px;color:var(--text-secondary);margin-bottom:4px">从第几题开始偏移（含该题）</div>' +
-          '<input type="number" id="offsetStart" min="1" max="' + banks[currentBank].length + '" value="' + currentStart + '" style="width:100%;padding:8px 12px;border:2px solid var(--border);border-radius:8px;background:var(--bg-input);color:var(--text);font-size:14px">' +
+          '<div style="display:flex;gap:8px;align-items:center">' +
+            '<input type="number" id="offsetStart" min="1" max="' + totalQ + '" value="' + currentStart + '" style="flex:1;padding:8px 12px;border:2px solid var(--border);border-radius:8px;background:var(--bg-input);color:var(--text);font-size:14px">' +
+            '<div style="display:flex;background:var(--bg-input);border-radius:8px;padding:2px;gap:1px;flex-shrink:0">' +
+              '<button class="preview-count-btn" data-count="3" style="padding:6px 10px;border:none;border-radius:6px;font-size:12px;cursor:pointer;min-width:36px;min-height:36px;' + (previewCount === 3 ? 'background:var(--primary);color:#fff;font-weight:600' : 'background:transparent;color:var(--text-secondary)') + '">3</button>' +
+              '<button class="preview-count-btn" data-count="5" style="padding:6px 10px;border:none;border-radius:6px;font-size:12px;cursor:pointer;min-width:36px;min-height:36px;' + (previewCount === 5 ? 'background:var(--primary);color:#fff;font-weight:600' : 'background:transparent;color:var(--text-secondary)') + '">5</button>' +
+              '<button class="preview-count-btn" data-count="10" style="padding:6px 10px;border:none;border-radius:6px;font-size:12px;cursor:pointer;min-width:36px;min-height:36px;' + (previewCount === 10 ? 'background:var(--primary);color:#fff;font-weight:600' : 'background:transparent;color:var(--text-secondary)') + '">10</button>' +
+            '</div>' +
+          '</div>' +
         '</div>' +
-        '<div style="display:flex;gap:10px;margin-bottom:16px">' +
+        '<div style="margin-bottom:8px;font-size:12px;color:var(--primary);font-weight:600">📊 ' + summaryText + '</div>' +
+        nearEndWarn +
+        '<div style="display:flex;gap:10px;margin-bottom:12px">' +
           '<button id="offsetBackward" class="btn btn-outline btn-sm" style="flex:1;min-height:44px;border-color:var(--primary-soft);color:var(--primary)">← 前移一位</button>' +
           '<button id="offsetForward" class="btn btn-outline btn-sm" style="flex:1;min-height:44px;border-color:var(--primary-soft);color:var(--primary)">后移一位 →</button>' +
         '</div>' +
-        '<div style="margin-bottom:16px">' +
-          '<div style="font-size:12px;color:var(--text-secondary);margin-bottom:6px">📋 预览（前3题当前值）</div>' +
-          '<div id="offsetPreview" style="max-height:140px;overflow-y:auto">' + preview + '</div>' +
+        '<div style="margin-bottom:14px">' +
+          '<div style="font-size:12px;color:var(--text-secondary);margin-bottom:6px">📋 预览（前 ' + previewCount + ' 题）</div>' +
+          '<div id="offsetPreview" style="max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:6px 4px">' + (preview || '<div style="font-size:12px;color:var(--text-tertiary);text-align:center;padding:12px">暂无数据</div>') + '</div>' +
         '</div>' +
         '<div style="display:flex;gap:10px">' +
+          '<button id="offsetBackup" class="btn btn-outline btn-sm" style="flex:1;min-height:44px">📤 先备份</button>' +
           '<button id="offsetExecute" class="btn btn-primary btn-sm" style="flex:1;min-height:44px;background:var(--danger);border-color:var(--danger);color:#fff">⚠ 执行偏移</button>' +
         '</div>' +
-        '<p style="font-size:11px;color:var(--text-tertiary);text-align:center;margin-top:8px">不可撤销，请先导出备份</p>' +
+        '<p style="font-size:11px;color:var(--text-tertiary);text-align:center;margin-top:8px">执行后弹窗不关闭，可继续调整。偏移不可撤销。</p>' +
       '</div>';
 
     // Event listeners
@@ -7430,12 +7469,17 @@ function showDataOffsetTool() {
     for (var ri = 0; ri < radios.length; ri++) { radios[ri].onchange = function() { currentField = this.value; renderUI(); }; }
     document.getElementById('offsetStart').onchange = function() { currentStart = parseInt(this.value) || 1; renderUI(); };
     document.getElementById('offsetStart').oninput = function() { currentStart = parseInt(this.value) || 1; renderUI(); };
+    var pcBtns = overlay.querySelectorAll('.preview-count-btn');
+    for (var pi = 0; pi < pcBtns.length; pi++) {
+      pcBtns[pi].onclick = function() { previewCount = parseInt(this.getAttribute('data-count')); renderUI(); };
+    }
     document.getElementById('offsetBackward').onclick = function() { doOffset(-1); };
     document.getElementById('offsetForward').onclick = function() { doOffset(1); };
+    document.getElementById('offsetBackup').onclick = function() { shareBackupFile(); toast('请保存备份文件后再执行偏移'); };
     document.getElementById('offsetExecute').onclick = function() {
       var dir = this._offsetDir;
       if (dir == null) { toast('请先点击"前移一位"或"后移一位"预览效果'); return; }
-      if (!confirm('确认执行偏移？\n\n方向：' + (dir === -1 ? '前移' : '后移') + '\n对象：' + (currentField === 'answer' ? '答案' : '解析') + '\n范围：从第' + currentStart + '题开始\n\n此操作不可撤销，请先导出备份！')) return;
+      if (!confirm('确认执行偏移？\n\n方向：' + (dir === -1 ? '前移' : '后移') + '\n对象：' + (currentField === 'answer' ? '答案' : '解析') + '\n范围：第' + currentStart + '题到最后一题（共' + (bank.length - Math.max(0, currentStart - 1)) + '题）\n\n此操作不可撤销！')) return;
       doOffset(dir, true);
     };
   }
@@ -7446,17 +7490,35 @@ function showDataOffsetTool() {
     var start = Math.max(0, currentStart - 1);
     if (start >= bank.length) { toast('起始题号超出题库范围'); return; }
     var preview = '';
+    // 边界前一题（不受偏移影响）
+    if (start > 0) {
+      var bq = bank[start - 1];
+      var bVal = (currentField === 'answer' ? bq.answer : bq.explanation) || '';
+      var bqText = bq.question ? (bq.question.length > 20 ? bq.question.substring(0, 20) + '…' : bq.question) : '';
+      preview += '<div style="padding:3px 8px;margin:2px 0;font-size:11px;color:var(--text-tertiary);border-left:2px solid var(--border)">' +
+        '◂ <b>第' + start + '题</b>' +
+        (bqText ? ' ' + escHtml(bqText) : '') +
+        ' — ' + escHtml(trunc(bVal, 40)) + ' <span style="opacity:.6">(不受影响)</span></div>';
+    }
+    var lastWarn = '';
     if (direction === -1) {
       // 前移：q[i] ← q[i+1]，最后一道清空
       for (var i = start; i < bank.length; i++) {
         var oldV = bank[i][currentField] || '';
         var newV = (i < bank.length - 1) ? (bank[i + 1][currentField] || '') : '';
-        if (i - start < 3) {
-          preview += '<div style="padding:4px 6px;margin:2px 0;font-size:12px"><b>第' + (i+1) + '题</b>：<span style="opacity:.5">' + escHtml(trunc(oldV)) + '</span> → ' + escHtml(trunc(newV)) + '</div>';
+        if (i - start < previewCount) {
+          var qText2 = bank[i].question ? (bank[i].question.length > 20 ? bank[i].question.substring(0, 20) + '…' : bank[i].question) : '';
+          preview += '<div style="padding:3px 6px;margin:2px 0;font-size:12px"><b>第' + (i+1) + '题</b>' +
+            (qText2 ? ' <span style="color:var(--text-secondary);font-size:11px">' + escHtml(qText2) + '</span>' : '') +
+            '：<span style="opacity:.5">' + escHtml(trunc(oldV, 30)) + '</span> → ' +
+            '<span style="' + (i === bank.length - 1 ? 'color:var(--danger);font-weight:700' : 'color:var(--success)') + '">' + (i === bank.length - 1 ? '⚠ (将清空)' : escHtml(trunc(newV, 30))) + '</span></div>';
         }
         if (execute && i < bank.length - 1) { bank[i][currentField] = bank[i + 1][currentField] || ''; }
       }
       if (execute && bank.length > start) { bank[bank.length - 1][currentField] = ''; }
+      if (!execute || execute) {
+        lastWarn = '<div style="margin-top:4px;padding:6px 10px;background:#fff5f5;border-radius:6px;font-size:11px;color:#c0392b">⚠ 最后一道题（第<b>' + bank.length + '</b>题）的' + (currentField === 'answer' ? '答案' : '解析') + '将<b>被清空</b></div>';
+      }
     } else {
       // 后移：q[i] ← q[i-1]，起始题清空
       if (execute) {
@@ -7464,24 +7526,26 @@ function showDataOffsetTool() {
         bank[start][currentField] = '';
       }
       // 预览
-      for (var i2 = start; i2 < Math.min(start + 3, bank.length); i2++) {
+      for (var i2 = start; i2 < Math.min(start + previewCount, bank.length); i2++) {
         var oldV2 = bank[i2][currentField] || '';
-        var newV2 = (i2 > start) ? (execute ? bank[i2][currentField] : (bank[i2 - 1][currentField] || '')) : (execute ? '' : '');
-        var newLabel = i2 === start ? '(清空)' : ((execute ? newV2 : bank[i2 - 1][currentField] || '') || '(空)');
-        preview += '<div style="padding:4px 6px;margin:2px 0;font-size:12px"><b>第' + (i2+1) + '题</b>：<span style="opacity:.5">' + escHtml(trunc(oldV2)) + '</span> → ' + escHtml(trunc(i2 === start ? '(清空)' : (bank[i2 - 1][currentField] || '(空)'))) + '</div>';
+        var qText3 = bank[i2].question ? (bank[i2].question.length > 20 ? bank[i2].question.substring(0, 20) + '…' : bank[i2].question) : '';
+        preview += '<div style="padding:3px 6px;margin:2px 0;font-size:12px"><b>第' + (i2+1) + '题</b>' +
+          (qText3 ? ' <span style="color:var(--text-secondary);font-size:11px">' + escHtml(qText3) + '</span>' : '') +
+          '：<span style="opacity:.5">' + escHtml(trunc(oldV2, 30)) + '</span> → ' +
+          '<span style="' + (i2 === start ? 'color:var(--danger);font-weight:700' : 'color:var(--success)') + '">' + (i2 === start ? '⚠ (将清空)' : escHtml(trunc(bank[i2 - 1][currentField] || '(空)', 30))) + '</span></div>';
       }
+      lastWarn = '<div style="margin-top:4px;padding:6px 10px;background:#fff5f5;border-radius:6px;font-size:11px;color:#c0392b">⚠ 起始题（第<b>' + currentStart + '</b>题）的' + (currentField === 'answer' ? '答案' : '解析') + '将<b>被清空</b>，后面题目依次往后移一位</div>';
     }
     if (execute) {
       saveData(appData);
-      toast('✅ 已偏移 ' + (bank.length - start) + ' 道题的' + (currentField === 'answer' ? '答案' : '解析'));
-      overlay.remove();
-      renderSettings();
+      toast('✅ 已偏移 ' + (bank.length - start) + ' 道题的' + (currentField === 'answer' ? '答案' : '解析') + '，可继续调整');
+      document.getElementById('offsetExecute')._offsetDir = null;
+      renderUI();
     } else {
-      document.getElementById('offsetPreview').innerHTML = preview || '<div style="font-size:12px;color:var(--text-tertiary)">无匹配题目</div>';
+      document.getElementById('offsetPreview').innerHTML = preview + lastWarn || '<div style="font-size:12px;color:var(--text-tertiary)">无匹配题目</div>';
       document.getElementById('offsetExecute')._offsetDir = direction;
     }
   }
-  function trunc(s) { var t = s || ''; return t.length > 30 ? t.substring(0, 30) + '…' : (t || '(空)'); }
 
   document.body.appendChild(overlay);
   renderUI();
