@@ -737,10 +737,11 @@ textarea { min-height: 180px; resize: vertical; line-height: 1.8; }
       <p style="font-size:12px;color:var(--text-secondary)">📚 管理你的选择题库</p>
     </div>
     <button class="btn btn-primary" onclick="showPasteModal()" style="padding:10px 18px">＋ 导入</button>
+    <button class="btn btn-outline" onclick="document.getElementById('fileInput').click()" style="padding:10px 12px;min-width:44px;min-height:44px;font-size:12px" title="同时选2个文件自动合并">📎 合并</button>
     <button class="btn btn-outline" onclick="showSearchModal()" style="padding:10px 12px;min-width:44px;min-height:44px" title="搜索题目">🔍</button>
     <button class="btn btn-outline" onclick="showMergeModal()" style="padding:10px 18px">🔀 合并</button>
   </div>
-  <input type="file" id="fileInput" class="file-input" accept=".json,.txt,.csv,.docx,.pdf,.xlsx,.xls" onchange="loadFile(this)">
+  <input type="file" id="fileInput" class="file-input" accept=".json,.txt,.csv,.docx,.pdf,.xlsx,.xls" onchange="loadFile(this)" multiple>
   <input type="file" id="fileContentInput" class="file-input" accept=".txt,.csv,.json,.docx,.wps,.pdf,.xlsx,.xls" onchange="loadFileToTextarea(this, 'pasteContent')">
   <input type="file" id="fileQuestionsInput" class="file-input" accept=".txt,.csv,.docx,.wps,.pdf,.xlsx,.xls" onchange="loadFileToTextarea(this, 'pasteQuestions')">
   <input type="file" id="fileAnswersInput" class="file-input" accept=".txt,.csv,.json,.docx,.wps" onchange="loadFileToTextarea(this, 'pasteAnswers')">
@@ -2905,8 +2906,20 @@ function restorePresetBanks() {
 
 // ====== Load File (multi-format) ======
 function loadFile(input) {
-  var file = input.files[0];
-  if (!file) return;
+  var files = input.files;
+  if (!files || files.length === 0) return;
+
+  // === 双文件智能合并模式 ===
+  if (files.length === 2) {
+    var name = prompt('请给合并后的题库起个名字：', files[0].name.replace(/\.\w+$/i, ''));
+    if (!name) { input.value = ''; return; }
+    showFileProgress('正在解析两个文件并自动合并...');
+    loadDualFilesAndMerge(files[0], files[1], name, input);
+    return;
+  }
+
+  // === 单文件模式（原有逻辑） ===
+  var file = files[0];
   var ext = file.name.split('.').pop().toLowerCase();
   var reader = new FileReader();
   var name = prompt('请给这个题库起个名字：', file.name.replace(/\.\w+$/i, ''));
@@ -3005,6 +3018,122 @@ function loadFile(input) {
 
   toast('❌ 不支持的文件格式：.' + ext);
   input.value = '';
+}
+
+// ====== 双文件智能合并 ======
+function loadDualFilesAndMerge(fileA, fileB, name, input) {
+  var extA = fileA.name.split('.').pop().toLowerCase();
+  var extB = fileB.name.split('.').pop().toLowerCase();
+  var results = {};
+  var pending = 2;
+  var hasError = false;
+
+  function extractText(file, ext, key, cb) {
+    if (ext === 'docx') {
+      loadMammoth(function() {
+        if (hasError) return;
+        var reader = new FileReader();
+        reader.onload = function(e) {
+          mammoth.extractRawText({ arrayBuffer: e.target.result }).then(function(result) {
+            cb(null, result.value);
+          }).catch(function() { cb('❌ Word解析失败：' + file.name); });
+        };
+        reader.readAsArrayBuffer(file);
+      });
+    } else if (ext === 'txt' || ext === 'csv' || ext === 'json') {
+      var reader = new FileReader();
+      reader.onload = function(e) { cb(null, e.target.result); };
+      reader.readAsText(file);
+    } else if (ext === 'xlsx' || ext === 'xls') {
+      loadXLSX(function() {
+        if (hasError) return;
+        var reader = new FileReader();
+        reader.onload = function(e) {
+          try {
+            var wb = XLSX.read(e.target.result, { type: 'array' });
+            var sheet = wb.Sheets[wb.SheetNames[0]];
+            var data = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+            var text = data.map(function(r) { return (r || []).join('\t'); }).join('\n');
+            cb(null, text);
+          } catch(err) { cb('❌ Excel解析失败：' + file.name); }
+        };
+        reader.readAsArrayBuffer(file);
+      });
+    } else {
+      // Other formats: try reading as text
+      var reader = new FileReader();
+      reader.onload = function(e) { cb(null, e.target.result); };
+      reader.readAsText(file);
+    }
+  }
+
+  function checkDone() {
+    if (hasError) return;
+    if (pending > 0) return;
+    var textA = results.a || '';
+    var textB = results.b || '';
+
+    // Auto-detect: which is the question file and which is the answer file
+    var aHasOptions = /[A-F][.、．）)]\s*\S/.test(textA);
+    var aHasAnswers = /【答案】|答案[：:]/.test(textA);
+    var bHasOptions = /[A-F][.、．）)]\s*\S/.test(textB);
+    var bHasAnswers = /【答案】|答案[：:]/.test(textB);
+
+    var qText, aText;
+    if (aHasOptions && bHasAnswers) {
+      qText = textA; aText = textB;
+    } else if (bHasOptions && aHasAnswers) {
+      qText = textB; aText = textA;
+    } else if (aHasOptions && !bHasOptions) {
+      qText = textA; aText = textB;
+    } else if (bHasOptions && !aHasOptions) {
+      qText = textB; aText = textA;
+    } else if (aHasAnswers && !bHasAnswers) {
+      aText = textA; qText = textB;
+    } else if (bHasAnswers && !aHasAnswers) {
+      aText = textB; qText = textA;
+    } else {
+      // Fallback: first file = questions, second file = answers
+      qText = textA; aText = textB;
+    }
+
+    // Parse and merge
+    var qParsed = parseQuestionsOnly(qText);
+    var ansParsed = parseAnswerExplanationFormat(aText);
+
+    var questions = [];
+    var blockResults = qParsed.blockResults || [];
+    for (var bj = 0; bj < blockResults.length; bj++) {
+      var q2 = blockResults[bj];
+      if (!q2) continue;
+      questions.push({ id: questions.length + 1, question: q2.question, A: q2.A, B: q2.B, C: q2.C, D: q2.D, E: q2.E, answer: '', type: 'single', explanation: '' });
+    }
+
+    var mergeResult = mergeQuestionsWithAnswers(questions, ansParsed);
+    var stats = qParsed.stats;
+    if (!stats) stats = { totalBlocks: 0, noOptions: 0, noQuestion: 0, missingOpts: 0, noAnswer: 0, multiSelect: 0, imported: 0, skipped: [] };
+    stats.imported = questions.length;
+    if (mergeResult.extra > 0) {
+      if (!stats.answerMismatch) stats.answerMismatch = '';
+      stats.answerMismatch = '答案条目数(' + ansParsed.length + ')多于题目数(' + questions.length + ')，末尾' + mergeResult.extra + '条答案未使用';
+    }
+    if (mergeResult.unmatched > 0) {
+      stats.noAnswer = mergeResult.unmatched;
+    }
+
+    hideFileProgress();
+    input.value = '';
+    showImportPreview(name, questions, stats, qText);
+  }
+
+  extractText(fileA, extA, 'a', function(err, text) {
+    if (err) { hasError = true; hideFileProgress(); toast(err); input.value = ''; return; }
+    results.a = text; pending--; checkDone();
+  });
+  extractText(fileB, extB, 'b', function(err, text) {
+    if (err) { hasError = true; hideFileProgress(); toast(err); input.value = ''; return; }
+    results.b = text; pending--; checkDone();
+  });
 }
 
 function showFileProgress(msg) {
@@ -8059,7 +8188,7 @@ function renderSettings() {
 
     '<div class="section"><div class="section-title" id="aboutSectionTitle" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;min-height:44px" onclick="var c=document.getElementById(\'aboutSectionContent\');var a=document.getElementById(\'aboutSectionArrow\');if(c.style.display===\'none\'){c.style.display=\'\';a.textContent=\'▼\'}else{c.style.display=\'none\';a.textContent=\'▶\'}">ℹ️ 关于 <span id="aboutSectionArrow" style="font-size:11px">▼</span></div>' +
       '<div id="aboutSectionContent"><div class="setting-item" style="cursor:pointer" onclick="showManualMenu()"><div><div class="setting-label">📖 使用说明</div><div class="setting-desc">查看使用指南</div></div><div style="display:flex;align-items:center">→</div></div>' +
-      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">手机刷题工具 · 纯前端离线可用 · <span id="appVersion">v212</span></div></div></div>' +
+      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">手机刷题工具 · 纯前端离线可用 · <span id="appVersion">v213</span></div></div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="showDataOffsetTool()"><div><div class="setting-label">🔧 数据批量偏移</div><div class="setting-desc">修复答案/解析的错位问题（支持前移后移）</div></div><div style="display:flex;align-items:center">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="clearAllData()"><div><div class="setting-label" style="color:var(--danger)">🗑️ 删除所有数据</div><div class="setting-desc">清空全部题库和设置，不可恢复</div></div><div style="display:flex;align-items:center;color:var(--danger)">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="checkUpdate()"><div><div class="setting-label">🔄 检查更新</div><div class="setting-desc">点击清除缓存并刷新，获取最新版本</div></div><div style="display:flex;align-items:center">→</div></div>' +
