@@ -1710,7 +1710,8 @@ function renderBanks() {
       '</div>' +
       '<div class="actions">' +
         '<button type="button" class="btn-sort" onclick="moveBankUp(\'' + escQ(name) + '\')"' + (isFirst ? ' disabled' : '') + ' title="上移">↑</button>' +
-        '<button type="button" class="btn-sort" onclick="moveBankDown(\'' + escQ(name) + '\')"' + (isLast ? ' disabled' : '') + ' title="下移">↓</button>' +
+        '<button type="button" class="btn-sort" onclick="moveBankDown(\'' + escQ(name) + '\')"' + (isLast ? ' disabled style="display:none"' : '') + ' title="下移">↓</button>' +
+        (isLast ? '<button type="button" class="btn-sort" onclick="showEditBankPicker()" title="编辑题库" style="font-size:14px">✏️</button>' : '') +
                 '<button class="btn-icon" onclick="exportBank(\'' + escQ(name) + '\')" title="导出">📤</button>' +
         '<button class="btn-icon" onclick="deleteBankConfirm(\'' + escQ(name) + '\')" title="删除">🗑️</button>' +
       '</div>' +
@@ -1892,6 +1893,37 @@ function deleteBank(name) {
   toast('题库已删除');
 }
 
+// ====== 题库选择器（从✏️进入，选要编辑的题库）======
+function showEditBankPicker() {
+  var bankNames = getSortedBankNames();
+  if (bankNames.length === 0) { toast('没有题库'); return; }
+  var ov = document.createElement('div');
+  ov.className = 'modal-overlay';
+  ov.style.animation = 'none';
+  var listHtml = '';
+  for (var i = 0; i < bankNames.length; i++) {
+    var bn = bankNames[i];
+    var qCount = (appData.banks[bn] || []).length;
+    listHtml += '<div style="padding:14px 16px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;justify-content:space-between;align-items:center;min-height:44px" data-bank="' + escHtml(bn) + '">' +
+      '<span style="font-size:15px;font-weight:600">' + escHtml(bn) + '</span>' +
+      '<span style="font-size:12px;color:var(--text-secondary)">' + qCount + ' 题 →</span>' +
+    '</div>';
+  }
+  ov.innerHTML = '<div class="modal" style="animation:none;max-width:420px;width:100%;padding:0;border-radius:var(--radius);max-height:80dvh;overflow-y:auto">' +
+    '<div style="padding:16px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">' +
+      '<h3 style="margin:0;font-size:17px">✏️ 选择题库编辑</h3>' +
+      '<button class="btn btn-ghost btn-sm" onclick="this.closest(\'.modal-overlay\').remove()" style="font-size:20px;padding:4px 8px;min-width:44px;min-height:44px">✕</button>' +
+    '</div>' +
+    '<div>' + listHtml + '</div>' +
+  '</div>';
+  document.body.appendChild(ov);
+  ov.addEventListener('click', function(e) {
+    if (e.target === ov) { ov.remove(); return; }
+    var row = e.target.closest('[data-bank]');
+    if (row) { var bn = row.getAttribute('data-bank'); ov.remove(); editBankContent(bn); }
+  });
+}
+
 // ====== Edit Bank Content ======
 function editBankContent(name) {
   var bank = appData.banks[name];
@@ -1964,7 +1996,7 @@ function renderEditBankModal(ov, name, bank) {
       var tag = e.target.tagName;
       if (tag === 'TEXTAREA' || tag === 'INPUT' || tag === 'SELECT' || tag === 'LABEL') return;
       // 不拦截保存/取消按钮
-      if (e.target.closest('.edit-save-btn') || e.target.closest('.edit-cancel-btn')) return;
+      if (e.target.closest('.edit-save-btn') || e.target.closest('.edit-cancel-btn') || e.target.closest('.edit-delete-btn')) return;
       // 找最近的题目行
       var row = e.target.closest('[data-idx]');
       if (!row) return;
@@ -2084,7 +2116,8 @@ function toggleEditBankQuestion(name, idx) {
       }).join('') +
       '<div style="margin-bottom:8px"><label style="font-size:11px;color:var(--text-secondary);display:block;margin-bottom:2px">答案</label><input id="ebAns_' + idx + '" value="' + escHtml(q.answer || '') + '" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--bg-input);color:var(--text);font-family:inherit"></div>' +
       '<div style="margin-bottom:8px"><label style="font-size:11px;color:var(--text-secondary);display:block;margin-bottom:2px">解析（可选）</label><textarea id="ebExp_' + idx + '" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--bg-input);color:var(--text);resize:vertical;min-height:40px;font-family:inherit">' + escHtml(q.explanation || '') + '</textarea></div>' +
-      '<div style="display:flex;gap:8px"><button class="btn btn-primary btn-sm edit-save-btn" style="flex:1;text-align:center" onclick="saveEditBankInlineFromBtn(this)">💾 保存</button><button class="btn btn-ghost btn-sm edit-cancel-btn" style="flex:1;text-align:center" onclick="cancelEditBankInlineFromBtn(this)">取消</button></div>';
+      '<div style="display:flex;gap:8px"><button class="btn btn-primary btn-sm edit-save-btn" style="flex:1;text-align:center" onclick="saveEditBankInlineFromBtn(this)">💾 保存</button><button class="btn btn-ghost btn-sm edit-cancel-btn" style="flex:1;text-align:center" onclick="cancelEditBankInlineFromBtn(this)">取消</button></div>' +
+      '<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border)"><button class="btn btn-ghost btn-sm edit-delete-btn" style="width:100%;text-align:center;color:var(--danger);min-height:36px" onclick="deleteBankQuestion(\'' + escQ(name) + '\',' + idx + ')">🗑️ 删除此题</button></div>';
     itemEl.innerHTML = formHtml;
     itemEl.classList.add('editing');
   }
@@ -2171,6 +2204,24 @@ function cancelEditBankInlineFromBtn(btn) {
   if (!name || !itemEl) return;
   var idx = parseInt(itemEl.getAttribute('data-idx'));
   if (!isNaN(idx)) cancelEditBankInline(name, idx);
+}
+
+function deleteBankQuestion(name, idx) {
+  var bank = appData.banks[name];
+  if (!bank || !bank[idx]) return;
+  var q = bank[idx];
+  var preview = q.question ? (q.question.length > 30 ? q.question.substring(0, 30) + '…' : q.question) : '';
+  if (!confirm('确认删除第 ' + (idx+1) + ' 题？\n\n' + preview + '\n\n此操作不可撤销！')) return;
+  bank.splice(idx, 1);
+  if (appData.stats && appData.stats[name]) {
+    var st = appData.stats[name];
+    if (st.answered > 0) st.answered = Math.max(0, st.answered - 1);
+  }
+  saveData(appData);
+  toast('✅ 已删除第 ' + (idx+1) + ' 题');
+  // 刷新编辑弹窗
+  var modalContent = document.querySelector('.modal-overlay [data-bank-name]');
+  if (modalContent) { renderEditBankModal(modalContent.closest('.modal-overlay'), name, bank); }
 }
 
 
@@ -7260,7 +7311,7 @@ function renderSettings() {
 
     '<div class="section"><div class="section-title" id="aboutSectionTitle" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;min-height:44px" onclick="var c=document.getElementById(\'aboutSectionContent\');var a=document.getElementById(\'aboutSectionArrow\');if(c.style.display===\'none\'){c.style.display=\'\';a.textContent=\'▼\'}else{c.style.display=\'none\';a.textContent=\'▶\'}">ℹ️ 关于 <span id="aboutSectionArrow" style="font-size:11px">▼</span></div>' +
       '<div id="aboutSectionContent"><div class="setting-item" style="cursor:pointer" onclick="showManualMenu()"><div><div class="setting-label">📖 使用说明</div><div class="setting-desc">查看使用指南</div></div><div style="display:flex;align-items:center">→</div></div>' +
-      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">手机刷题工具 · 纯前端离线可用 · <span id="appVersion">v203</span></div></div></div>' +
+      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">手机刷题工具 · 纯前端离线可用 · <span id="appVersion">v204</span></div></div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="showDataOffsetTool()"><div><div class="setting-label">🔧 数据批量偏移</div><div class="setting-desc">修复答案/解析的错位问题（支持前移后移）</div></div><div style="display:flex;align-items:center">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="clearAllData()"><div><div class="setting-label" style="color:var(--danger)">🗑️ 删除所有数据</div><div class="setting-desc">清空全部题库和设置，不可恢复</div></div><div style="display:flex;align-items:center;color:var(--danger)">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="checkUpdate()"><div><div class="setting-label">🔄 检查更新</div><div class="setting-desc">点击清除缓存并刷新，获取最新版本</div></div><div style="display:flex;align-items:center">→</div></div>' +
