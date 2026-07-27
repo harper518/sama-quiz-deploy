@@ -2927,10 +2927,11 @@ function loadFile(input) {
       } else if (ext === 'csv') {
         questions = parseCSV(text);
       } else {
-        var result = parseMergedFormat(text);
+        var result = parseWithFallback(text);
         questions = result.questions;
+        var stats = result.stats;
       }
-      finishFileImport(name, questions);
+      finishFileImport(name, questions, stats, text);
     };
     reader.readAsText(file);
     input.value = '';
@@ -2944,9 +2945,9 @@ function loadFile(input) {
       reader.onload = function(e) {
         try {
           mammoth.extractRawText({ arrayBuffer: e.target.result }).then(function(result) {
-            var mfResult = parseMergedFormat(result.value);
+            var mfResult = parseWithFallback(result.value);
             hideFileProgress();
-            finishFileImport(name, mfResult.questions);
+            finishFileImport(name, mfResult.questions, mfResult.stats, result.value);
           }).catch(function() { hideFileProgress(); toast('❌ Word解析失败'); input.value = ''; });
         } catch(err) { hideFileProgress(); toast('❌ Word解析失败：' + err.message); input.value = ''; }
       };
@@ -2964,7 +2965,7 @@ function loadFile(input) {
           var wb = XLSX.read(e.target.result, { type: 'array' });
           var questions = parseExcelWorkbook(wb);
           hideFileProgress();
-          finishFileImport(name, questions);
+          finishFileImport(name, questions, null, null);
         } catch(err) { hideFileProgress(); toast('❌ Excel解析失败：' + err.message); input.value = ''; }
       };
       reader.readAsArrayBuffer(file);
@@ -2990,9 +2991,9 @@ function loadFile(input) {
           }
           Promise.all(promises).then(function() {
             var fullText = pages.join('\n');
-            var mfResult = parseMergedFormat(fullText);
+            var mfResult = parseWithFallback(fullText);
             hideFileProgress();
-            finishFileImport(name, mfResult.questions);
+            finishFileImport(name, mfResult.questions, mfResult.stats, fullText);
           }).catch(function() { hideFileProgress(); toast('❌ PDF解析失败'); input.value = ''; });
         }).catch(function() { hideFileProgress(); toast('❌ PDF解析失败，文件可能损坏'); input.value = ''; });
       };
@@ -3115,12 +3116,8 @@ function loadFileToTextarea(input, textareaId) {
   input.value = '';
 }
 
-function finishFileImport(name, questions) {
-  if (!questions || questions.length === 0) {
-    toast('❌ 未识别到有效题目，请检查文件格式');
-    return;
-  }
-  showImportPreview(name, questions);
+function finishFileImport(name, questions, stats, rawText) {
+  showImportPreview(name, questions || [], stats, rawText);
 }
 
 // ====== 跳过标签和建议 ======
@@ -3132,8 +3129,9 @@ var SKIP_SUGGEST = {
   missingOpts: "选项不完整（需A/B/C/D齐全）。可点击补全模板快速填充缺失选项。"
 };
 
-function showImportPreview(name, questions, stats) {
+function showImportPreview(name, questions, stats, rawText) {
   var skipped = (stats && stats.skipped) ? stats.skipped : [];
+  var allFailed = questions.length === 0 && skipped.length > 0;
   previewImportData = { name: name, questions: questions, skipped: skipped };
   _dismissedStack = [];
   var ov = document.createElement("div");
@@ -3142,28 +3140,66 @@ function showImportPreview(name, questions, stats) {
   ov.style.cssText = "align-items:flex-start;overflow-y:auto;padding:16px;padding-bottom:100px;z-index:250;touch-action:manipulation";
   ov.addEventListener("click", function(e) { if (e.target === ov) closeImportPreview(); });
 
-  // 统计汇总
+  // 诊断面板 — 始终显示（有跳过或0题或有stats时）
   var statsHtml = "";
   var hasIssues = (stats && (stats.noOptions > 0 || stats.noQuestion > 0 || stats.missingOpts > 0 || stats.noAnswer > 0 || stats.answerMismatch));
-  if (hasIssues || (stats && stats.multiSelect > 0)) {
-    statsHtml = '<div id="importStatsPanel" style="background:var(--warning-light,#fffbeb);border:1px solid var(--warning);border-radius:10px;padding:12px;margin-bottom:14px;font-size:12px;line-height:1.8">' +
-      '<div style="font-weight:700;color:var(--warning-text,#b45309);margin-bottom:6px">⚠️ 部分内容未能导入</div>';
-    if (stats.noOptions) statsHtml += '<div>· ' + stats.noOptions + ' 条：<b>未找到ABCD选项</b>（可能是答案页、说明文字或格式不符）</div>';
-    if (stats.noQuestion) statsHtml += '<div>· ' + stats.noQuestion + ' 条：<b>题干提取失败</b>（题号后无有效题目文本）</div>';
-    if (stats.missingOpts) statsHtml += '<div>· ' + stats.missingOpts + ' 条：<b>选项不完整</b>（缺少A/B/C/D中的某些选项）</div>';
-    if (stats.noAnswer) statsHtml += '<div>· ' + stats.noAnswer + ' 条：<b>未识别到答案</b>（缺少答案：X行）</div>';
-    if (stats.answerMismatch) statsHtml += '<div>· <b>答案不匹配：</b>' + stats.answerMismatch + '</div>';
-    if (stats.multiSelect) statsHtml += '<div style="margin-top:4px;color:var(--success)">✅ 识别到 ' + stats.multiSelect + ' 道<b>多选题</b></div>';
-    if (stats.imported > 0) statsHtml += '<div style="margin-top:4px;color:var(--success)">✅ 成功导入 ' + stats.imported + ' 题</div>';
+  var showStats = hasIssues || (stats && stats.multiSelect > 0) || (questions.length === 0 && stats && stats.totalBlocks > 0) || allFailed;
+  if (showStats || (stats && stats.imported > 0)) {
+    var panelBg = allFailed ? 'var(--danger-light,#fee2e2)' : 'var(--warning-light,#fffbeb)';
+    var panelBorder = allFailed ? 'var(--danger,#ef4444)' : 'var(--warning)';
+    var panelTitle = allFailed ?
+      '⚠️ 全部 ' + (stats ? stats.totalBlocks : skipped.length) + ' 条内容未能通过解析' :
+      (stats && stats.imported > 0 ? '⚠️ 部分内容未能导入' : '📋 解析结果');
+    var titleColor = allFailed ? 'var(--danger-text,#991b1b)' : 'var(--warning-text,#b45309)';
+    statsHtml = '<div id="importStatsPanel" style="background:' + panelBg + ';border:1px solid ' + panelBorder + ';border-radius:10px;padding:12px;margin-bottom:14px;font-size:12px;line-height:1.8">' +
+      '<div style="font-weight:700;color:' + titleColor + ';margin-bottom:6px">' + panelTitle + '</div>';
+    if (stats && stats.noOptions) statsHtml += '<div>· ' + stats.noOptions + ' 条：<b>未找到ABCD选项</b>（可能是答案页、说明文字或格式不符）</div>';
+    if (stats && stats.noQuestion) statsHtml += '<div>· ' + stats.noQuestion + ' 条：<b>题干提取失败</b>（题号后无有效题目文本）</div>';
+    if (stats && stats.missingOpts) statsHtml += '<div>· ' + stats.missingOpts + ' 条：<b>选项不完整</b>（缺少A/B/C/D中的某些选项）</div>';
+    if (stats && stats.noAnswer) statsHtml += '<div>· ' + stats.noAnswer + ' 条：<b>未识别到答案</b>（缺少答案：X行）</div>';
+    if (stats && stats.answerMismatch) statsHtml += '<div>· <b>答案不匹配：</b>' + stats.answerMismatch + '</div>';
+    if (stats && stats.multiSelect) statsHtml += '<div style="margin-top:4px;color:var(--success)">✅ 识别到 ' + stats.multiSelect + ' 道<b>多选题</b></div>';
+    if (questions.length > 0) statsHtml += '<div style="margin-top:4px;color:var(--success)">✅ 成功导入 ' + questions.length + ' 题</div>';
+    if (allFailed) {
+      var hasAnswerMarkers = rawText && /【答案】|答案[：:]/.test(rawText);
+      statsHtml += '<div style="margin-top:6px;padding:8px 10px;background:rgba(255,255,255,0.6);border-radius:6px;font-size:11px;color:var(--text)">';
+      statsHtml += '<div style="font-weight:600;margin-bottom:3px">💡 建议：</div>';
+      if (hasAnswerMarkers) {
+        statsHtml += '<div>· 检测到<b>答案/解析标记</b>但缺少题目选项 — 这可能是<b>答案文件</b></div>';
+        statsHtml += '<div>· 请使用下方的 <b>📎 题目+答案双文件合并</b> 模式，将题目文件和答案文件一起导入</div>';
+      } else {
+        statsHtml += '<div>· 尝试在粘贴前先用 <b>🧹 去空行 / ↔️ 合并断行</b> 清洗文本</div>';
+        statsHtml += '<div>· 如果文本看起来混乱，建议 Word 另存为 .txt 再导入</div>';
+      }
+      statsHtml += '</div>';
+    }
     statsHtml += '</div>';
   }
 
-  // 被跳过条目（可折叠）
+  // 原始文本预览
+  var rawTextHtml = "";
+  if (rawText && skipped.length > 0) {
+    var previewText = rawText.length > 800 ? rawText.substring(0, 800) + '\n...（共 ' + rawText.length + ' 字符，仅显示前800字）' : rawText;
+    rawTextHtml = '<div style="margin-bottom:14px">' +
+      '<button id="toggleRawTextBtn" class="btn btn-sm" style="background:var(--bg-input);border:1px solid var(--border);font-size:12px;width:100%;text-align:left;padding:10px 14px;min-height:44px" onclick="toggleRawTextPreview()">📄 查看原始提取文本（' + rawText.length + '字）▸</button>' +
+      '<div id="rawTextContainer" style="display:none;margin-top:8px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:12px;font-family:monospace;white-space:pre-wrap;word-break:break-all;max-height:200px;overflow-y:auto;line-height:1.6;color:var(--text-secondary)">' + escHtml(previewText) + '</div>' +
+    '</div>';
+  }
+
+  // 被跳过条目
   var skippedHtml = "";
   if (skipped.length > 0) {
-    skippedHtml = '<div style="margin-bottom:14px">' +
-      '<button id="toggleSkippedBtn" class="btn btn-sm" style="background:var(--bg-input);border:1px solid var(--border);font-size:12px;width:100%;text-align:left;padding:10px 14px;min-height:44px" onclick="toggleSkippedList()">📋 查看全部 ' + skipped.length + ' 条被跳过内容 ▸</button>' +
-      '<div id="skippedListContainer" style="display:none;margin-top:8px"></div>' +
+    var skipBtnClass = allFailed ? 'style="background:var(--danger-light,#fee2e2);border:2px solid var(--danger,#ef4444);font-size:12px;width:100%;text-align:left;padding:10px 14px;min-height:44px;font-weight:700;color:var(--danger-text,#991b1b);border-radius:8px"' : 'style="background:var(--bg-input);border:1px solid var(--border);font-size:12px;width:100%;text-align:left;padding:10px 14px;min-height:44px"';
+    var skipBtnText = allFailed ? '⚠️ 全部 ' + skipped.length + ' 条未通过解析（已展开）▾' : '📋 查看全部 ' + skipped.length + ' 条被跳过内容 ▸';
+    var skipDisplay = allFailed ? 'display:block' : 'display:none';
+    skippedHtml = '<div style="margin-bottom:14px" id="skippedSection">' +
+      '<button id="toggleSkippedBtn" class="btn btn-sm" ' + skipBtnClass + ' onclick="toggleSkippedList()">' + skipBtnText + '</button>' +
+      '<div id="skippedListContainer" style="' + skipDisplay + ';margin-top:8px"></div>' +
+      (skipped.length >= 2 ? '<div id="batchActionsRow" style="display:' + (allFailed ? 'flex' : 'none') + ';flex-wrap:wrap;gap:6px;margin-top:8px">' +
+        '<button class="btn btn-sm" style="background:var(--bg-input);border:1px solid var(--border);font-size:11px;padding:6px 10px;min-height:36px;border-radius:6px" onclick="batchAutoFix(\'cleanEmpty\')">🧹 全部去空行</button>' +
+        '<button class="btn btn-sm" style="background:var(--bg-input);border:1px solid var(--border);font-size:11px;padding:6px 10px;min-height:36px;border-radius:6px" onclick="batchAutoFix(\'mergeLines\')">↔️ 全部合并断行</button>' +
+        '<button class="btn btn-sm" style="background:var(--primary);color:#fff;border:none;font-size:11px;padding:6px 10px;min-height:36px;border-radius:6px;font-weight:600" onclick="batchRetryAll()">🔄 全部重试</button>' +
+      '</div>' : '') +
     '</div>';
   }
 
@@ -3188,18 +3224,21 @@ function showImportPreview(name, questions, stats) {
     jumpHtml += '</div>';
   }
 
-  ov.innerHTML = '<div class="modal" style="border-radius:18px;max-width:520px;width:100%;margin:0 auto;padding:20px;animation:none;border-top:3px solid var(--primary)">' +
+  var borderColor = allFailed ? 'var(--danger,#ef4444)' : 'var(--primary)';
+  var titleText = allFailed ? '⚠️ 解析失败' : '📋 导入预览';
+  ov.innerHTML = '<div class="modal" style="border-radius:18px;max-width:520px;width:100%;margin:0 auto;padding:20px;animation:none;border-top:3px solid ' + borderColor + '">' +
     '<div class="flex-between mb-12">' +
-      '<div><h2 style="font-size:18px;margin:0;color:var(--text)">📋 导入预览</h2><p style="font-size:12px;color:var(--text-secondary);margin:4px 0 0">' + escHtml(name) + ' · ' + questions.length + ' 题' + (stats && stats.totalBlocks ? '（共扫描 ' + stats.totalBlocks + ' 条）' : '') + ' · 点击 ✏️ 编辑，确认后导入</p></div>' +
+      '<div><h2 style="font-size:18px;margin:0;color:var(--text)">' + titleText + '</h2><p style="font-size:12px;color:var(--text-secondary);margin:4px 0 0">' + escHtml(name) + ' · ' + questions.length + ' 题' + (stats && stats.totalBlocks ? '（共扫描 ' + stats.totalBlocks + ' 条）' : '') + ' · 点击 ✏️ 编辑，确认后导入</p></div>' +
       '<button class="btn btn-sm" style="background:var(--border);border:none;color:var(--text)" onclick="closeImportPreview()">✕</button>' +
     '</div>' +
     statsHtml +
+    rawTextHtml +
     skippedHtml +
     jumpHtml +
     '<div id="importPreviewCards"></div>' +
     '<div class="flex gap-8 mt-16" style="position:sticky;bottom:0;background:var(--card);padding:12px 0">' +
       '<button class="btn btn-outline flex-1" onclick="closeImportPreview()">取消</button>' +
-      '<button class="btn btn-primary btn-lg flex-1" onclick="confirmImportFromPreview()">✅ 确认导入</button>' +
+      '<button class="btn btn-primary btn-lg flex-1" onclick="confirmImportFromPreview()">✅ 确认导入' + (questions.length > 0 ? '（' + questions.length + '题）' : '') + '</button>' +
     '</div>' +
   '</div>';
   document.body.appendChild(ov);
@@ -3306,8 +3345,84 @@ function toggleSkippedList() {
   var c = document.getElementById("skippedListContainer");
   var b = document.getElementById("toggleSkippedBtn");
   if (!c || !b) return;
-  if (c.style.display !== "none") { c.style.display = "none"; b.innerHTML = "📋 查看全部 " + previewImportData.skipped.length + " 条被跳过内容 ▸"; }
-  else { c.style.display = "block"; b.innerHTML = "📋 收起跳过内容 ▾"; renderSkippedItems(); }
+  var skippedLen = (previewImportData && previewImportData.skipped) ? previewImportData.skipped.length : 0;
+  if (c.style.display !== "none") {
+    c.style.display = "none";
+    b.innerHTML = "📋 查看全部 " + skippedLen + " 条被跳过内容 ▸";
+    // Hide batch actions
+    var ba = document.getElementById("batchActionsRow");
+    if (ba) ba.style.display = "none";
+  } else {
+    c.style.display = "block";
+    b.innerHTML = "📋 收起跳过内容 ▾";
+    // Show batch actions if >=2 skipped items
+    var ba2 = document.getElementById("batchActionsRow");
+    if (ba2 && skippedLen >= 2) ba2.style.display = "flex";
+    renderSkippedItems();
+  }
+}
+
+function toggleRawTextPreview() {
+  var c = document.getElementById("rawTextContainer");
+  var b = document.getElementById("toggleRawTextBtn");
+  if (!c || !b) return;
+  if (c.style.display !== "none") { c.style.display = "none"; b.innerHTML = b.innerHTML.replace("▾", "▸"); }
+  else { c.style.display = "block"; b.innerHTML = b.innerHTML.replace("▸", "▾"); }
+}
+
+function batchAutoFix(action) {
+  if (!previewImportData || !previewImportData.skipped) return;
+  var count = 0;
+  for (var i = 0; i < previewImportData.skipped.length; i++) {
+    var item = previewImportData.skipped[i];
+    if (!item._prevText) item._prevText = item.text;
+    var text = item.text;
+    if (action === "cleanEmpty") {
+      text = text.split("\n").filter(function(l) { return l.trim(); }).join("\n");
+    } else if (action === "mergeLines") {
+      text = text.split(/\n/).reduce(function(acc, l) {
+        var t = l.trim();
+        if (!t) { acc.push(""); return acc; }
+        if (acc.length > 0 && acc[acc.length - 1] !== "" && !/^\d/.test(t) && !/^[①-⑩]/.test(t) && !/^\(/.test(t) && !/^（/.test(t) && !/^[A-F][.、．）)]/.test(t) && !/^答案/.test(t) && !/^【答案】/.test(t) && !/^【解析】/.test(t)) {
+          acc[acc.length - 1] += t;
+        } else { acc.push(t); }
+        return acc;
+      }, []).filter(function(l) { return l !== ""; }).join("\n");
+    }
+    if (text !== item.text) { item.text = text; count++; }
+  }
+  renderSkippedItems();
+  updateStatsPanel();
+  var actionLabel = action === "cleanEmpty" ? "去空行" : "合并断行";
+  toast("✅ 已处理 " + count + "/" + previewImportData.skipped.length + " 条（" + actionLabel + "）");
+}
+
+function batchRetryAll() {
+  if (!previewImportData || !previewImportData.skipped) return;
+  var skipped = previewImportData.skipped.slice(); // Copy since we'll modify during iteration
+  var success = 0, fail = 0;
+  for (var i = skipped.length - 1; i >= 0; i--) {
+    // Re-read from previewImportData.skipped since indices may have shifted
+    var currentSkipped = previewImportData.skipped;
+    if (i >= currentSkipped.length) { i = currentSkipped.length - 1; if (i < 0) break; }
+    var item = currentSkipped[i];
+    if (!item || !item.text) continue;
+    var text = normalizeText(item.text.trim());
+    var result = parseWithFallback(text);
+    if (result.questions.length > 0) {
+      var sid = previewImportData.questions.length;
+      for (var qi = 0; qi < result.questions.length; qi++) { result.questions[qi].id = sid + qi + 1; previewImportData.questions.push(result.questions[qi]); }
+      previewImportData.skipped.splice(i, 1);
+      success++;
+    } else {
+      var rs = result.stats;
+      var reason = rs && rs.noOptions > 0 ? "noOptions" : (rs && rs.noQuestion > 0 ? "noQuestion" : (rs && rs.missingOpts > 0 ? "missingOpts" : "noOptions"));
+      item.reason = reason;
+      fail++;
+    }
+  }
+  renderSkippedItems(); renderImportPreviewCards(); updateJumpNav(); updateStatsPanel();
+  toast("🔄 批量重试完成：✅ " + success + " 题修复，⚠️ " + fail + " 题仍需处理");
 }
 
 function toggleSkippedEdit(idx) {
@@ -3437,7 +3552,7 @@ function retrySkippedBlock(idx) {
   var ta = document.getElementById("skippedEdit_" + idx);
   if (!ta || !ta.value.trim()) { toast("内容不能为空"); return; }
   var text = normalizeText(ta.value.trim());
-  var result = parseMergedFormat(text);
+  var result = parseWithFallback(text);
   if (result.questions.length > 0) {
     var sid = previewImportData.questions.length;
     for (var qi = 0; qi < result.questions.length; qi++) { result.questions[qi].id = sid + qi + 1; previewImportData.questions.push(result.questions[qi]); }
@@ -3839,52 +3954,77 @@ function importFromPaste() {
       var excelResult = parseExcelPaste(content);
       questions = excelResult.questions;
     } else {
-      var result = parseMergedFormat(content);
+      var result = parseWithFallback(content);
       questions = result.questions;
       stats = result.stats;
     }
   } else if (qText) {
     originalText = qText + '\n' + aText;
-    const qParsed = parseQuestionsOnly(qText);
-    const aParsed = parseAnswersOnly(aText);
-    // 按分块位置一一对应匹配，被跳过的题目对应位置的答案也跳过
-    var skippedAnswers = 0;
-    questions = [];
-    var blockResults = qParsed.blockResults || [];
-    for (var bi = 0; bi < Math.min(blockResults.length, aParsed.length); bi++) {
-      var q = blockResults[bi];
-      if (!q) { skippedAnswers++; continue; } // 题目被跳过，对应位置答案也跳过
-      var ans = aParsed[bi];
-      var letters = (ans || '').split('').filter(function(ch) { return ch >= 'A' && ch <= 'F'; });
-      letters = letters.filter(function(ch, idx) { return letters.indexOf(ch) === idx; }).sort();
-      questions.push({ id: questions.length + 1, question: q.question, A: q.A, B: q.B, C: q.C, D: q.D, E: q.E, answer: letters.join(''), type: letters.length > 1 ? 'multi' : 'single', explanation: '' });
-    }
-    stats = qParsed.stats;
-    // 构建不匹配报告
-    var mismatchParts = [];
-    if (blockResults.length !== aParsed.length) {
-      mismatchParts.push('题目分块数(' + blockResults.length + ')与答案行数(' + aParsed.length + ')不一致');
-    }
-    if (skippedAnswers > 0) {
-      mismatchParts.push(skippedAnswers + '条答案因对应题目无效被跳过');
-    }
-    if (blockResults.length > aParsed.length) {
-      mismatchParts.push('末尾' + (blockResults.length - aParsed.length) + '题缺少答案');
-    } else if (aParsed.length > blockResults.length) {
-      mismatchParts.push('多余' + (aParsed.length - blockResults.length) + '行答案被忽略');
+    var qParsed = parseQuestionsOnly(qText);
+    // 检测答案格式：如果有【答案】标记，用答案文件解析器；否则用逐行答案
+    var hasAnswerMarkers = aText && /【答案】|答案[：:]/.test(aText);
+    if (hasAnswerMarkers) {
+      // 双文件合并模式：题目文件 + 答案文件（含解析）
+      var ansParsed = parseAnswerExplanationFormat(aText);
+      var qOnlyQuestions = [];
+      var blockResults2 = qParsed.blockResults || [];
+      for (var bj = 0; bj < blockResults2.length; bj++) {
+        var q2 = blockResults2[bj];
+        if (!q2) continue;
+        qOnlyQuestions.push({ id: qOnlyQuestions.length + 1, question: q2.question, A: q2.A, B: q2.B, C: q2.C, D: q2.D, E: q2.E, answer: '', type: 'single', explanation: '' });
+      }
+      var mergeResult = mergeQuestionsWithAnswers(qOnlyQuestions, ansParsed);
+      questions = qOnlyQuestions;
+      stats = qParsed.stats;
+      if (!stats) stats = { totalBlocks: 0, noOptions: 0, noQuestion: 0, missingOpts: 0, noAnswer: 0, multiSelect: 0, imported: 0, skipped: [] };
+      stats.imported = questions.length;
+      if (mergeResult.extra > 0) {
+        if (!stats.answerMismatch) stats.answerMismatch = '';
+        stats.answerMismatch = '答案条目数(' + ansParsed.length + ')多于题目数(' + questions.length + ')，末尾' + mergeResult.extra + '条答案未使用';
+      }
+      if (mergeResult.unmatched > 0) {
+        stats.noAnswer = mergeResult.unmatched;
+      }
+    } else {
+      // 传统模式：逐行答案
+      var aParsed = parseAnswersOnly(aText);
+      var skippedAnswers = 0;
+      questions = [];
+      var blockResults = qParsed.blockResults || [];
+      for (var bi = 0; bi < Math.min(blockResults.length, aParsed.length); bi++) {
+        var q = blockResults[bi];
+        if (!q) { skippedAnswers++; continue; }
+        var ans = aParsed[bi];
+        var letters = (ans || '').split('').filter(function(ch) { return ch >= 'A' && ch <= 'F'; });
+        letters = letters.filter(function(ch, idx) { return letters.indexOf(ch) === idx; }).sort();
+        questions.push({ id: questions.length + 1, question: q.question, A: q.A, B: q.B, C: q.C, D: q.D, E: q.E, answer: letters.join(''), type: letters.length > 1 ? 'multi' : 'single', explanation: '' });
+      }
+      stats = qParsed.stats;
+      // 构建不匹配报告
+      var mismatchParts = [];
+      if (blockResults.length !== aParsed.length) {
+        mismatchParts.push('题目分块数(' + blockResults.length + ')与答案行数(' + aParsed.length + ')不一致');
+      }
+      if (skippedAnswers > 0) {
+        mismatchParts.push(skippedAnswers + '条答案因对应题目无效被跳过');
+      }
+      if (blockResults.length > aParsed.length) {
+        mismatchParts.push('末尾' + (blockResults.length - aParsed.length) + '题缺少答案');
+      } else if (aParsed.length > blockResults.length) {
+        mismatchParts.push('多余' + (aParsed.length - blockResults.length) + '行答案被忽略');
     }
     if (mismatchParts.length) {
       if (!stats) stats = { totalBlocks: 0, noOptions: 0, noQuestion: 0, missingOpts: 0, noAnswer: 0, multiSelect: 0, imported: 0, skipped: [] };
       stats.answerMismatch = mismatchParts.join('；');
     }
+    }
   }
 
-  if (questions.length === 0) { toast('❌ 未识别到有效题目，请检查格式'); return; }
-
   // 尝试从文本末尾提取答案块（如 1-5: ABCAD）并匹配
-  if (originalText) questions = applyBulkAnswers(questions, originalText);
+  if (originalText && questions.length > 0) questions = applyBulkAnswers(questions, originalText);
 
-  showImportPreview(name, questions, stats);
+  // 即使0题也进预览，让用户看到诊断信息
+  showImportPreview(name, questions, stats, originalText);
 }
 
 var pasteFormat = 'standard';
@@ -4049,6 +4189,10 @@ function normalizeText(text) {
 
 // ====== 格式智能标准化：将常见非标准格式转为标准格式 ======
 function normalizeImportFormat(text) {
+  // Step -1: "第X题"/"第 X 题" → "X."
+  text = text.replace(/^第\s*(\d+)\s*题[.、．）)]?\s*/gm, '$1. ');
+  text = text.replace(/^第\s+(\d+)\s+题[.、．）)]?\s*/gm, '$1. ');
+
   // Step 0: Bracket格式分组 — 如果每段落是独立行且以[多选]/[单选]开头（docx提取常见），
   //    先把同一题的段落合并，用双空行分隔不同题目
   if (/\[(?:多选|单选)\]/.test(text)) {
@@ -4168,6 +4312,158 @@ function parseMergedFormat(text) {
   return { questions: questions, stats: stats };
 }
 
+// ====== 多策略回退解析 ======
+function parseWithFallback(text) {
+  var strategies = [
+    { name: 'standard', fn: function(t) { return parseMergedFormat(t); } },
+    { name: 'loose', fn: function(t) { return parseLooseFormat(t); } },
+    { name: 'lineSplit', fn: function(t) { return parseLineSplitFormat(t); } },
+    { name: 'noNumber', fn: function(t) { return parseNoNumberFormat(t); } }
+  ];
+  var best = null;
+  for (var si = 0; si < strategies.length; si++) {
+    try {
+      var result = strategies[si].fn(text);
+      if (result && result.questions && result.questions.length > 0) {
+        if (!best || result.questions.length > best.questions.length) {
+          best = result;
+          // If we got a good result with the first strategy, use it
+          if (si === 0 && result.questions.length >= 3) break;
+        }
+      }
+    } catch(e) {
+      // Skip failing strategies
+    }
+  }
+  if (best) return best;
+  // All strategies failed — return the standard result for diagnostic info
+  try { return parseMergedFormat(text); } catch(e) { return { questions: [], stats: { totalBlocks: 0, noOptions: 0, noQuestion: 0, missingOpts: 0, noAnswer: 0, multiSelect: 0, imported: 0, skipped: [] } }; }
+}
+
+function parseLooseFormat(text) {
+  // Like parseMergedFormat but relaxed: only needs 3 options (A+B+C), doesn't require answer
+  text = normalizeText(text);
+  text = normalizeImportFormat(text);
+  var stats = { totalBlocks: 0, noOptions: 0, noQuestion: 0, missingOpts: 0, noAnswer: 0, multiSelect: 0, imported: 0, skipped: [] };
+  var blocks;
+  if (/\n\n\d+[.、．）)]/.test(text) || /^\d+[.、．）)]/.test(text)) {
+    blocks = text.split(/\n\n/).filter(function(b) { return b.trim(); });
+    var merged = [];
+    for (var mi = 0; mi < blocks.length; mi++) {
+      var b = blocks[mi];
+      if (merged.length > 0 && !/^\d+[.、．）)]/.test(b.trim())) { merged[merged.length - 1] += '\n' + b; }
+      else { merged.push(b); }
+    }
+    blocks = merged;
+  } else {
+    blocks = text.split(/\n(?=\d+[.、．）)])/);
+  }
+  stats.totalBlocks = blocks.length;
+  var questions = [];
+  for (var bi = 0; bi < blocks.length; bi++) {
+    var block = blocks[bi];
+    var hasOptions = /[A-F][.、．）)]\s*\S/.test(block);
+    if (!hasOptions) { stats.noOptions++; stats.skipped.push({ reason: 'noOptions', index: bi + 1, text: block.substring(0, 300) }); continue; }
+    var qText = block.replace(/^\d+[.、．）)]\s*/, '');
+    var firstOpt = qText.search(/[A-F][.、．）)]\s*\S/);
+    if (firstOpt === -1) { stats.noQuestion++; stats.skipped.push({ reason: 'noQuestion', index: bi + 1, text: block.substring(0, 300) }); continue; }
+    var question = qText.slice(0, firstOpt).trim().replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+    var optsPart = qText.slice(firstOpt);
+    var opts = extractOptions(optsPart);
+    // Relaxed: only need at least 3 options (A+B+C)
+    var optCount = 0;
+    if (opts.A) optCount++; if (opts.B) optCount++; if (opts.C) optCount++; if (opts.D) optCount++;
+    if (optCount < 3) { stats.missingOpts++; stats.skipped.push({ reason: 'missingOpts', index: bi + 1, text: block.substring(0, 300) }); continue; }
+    var ansInfo = extractAnswer(block);
+    if (ansInfo.answer === '?') stats.noAnswer++;
+    if (ansInfo.type === 'multi') stats.multiSelect++;
+    var qObj = { id: questions.length + 1, question: question, A: opts.A || '', B: opts.B || '', C: opts.C || '', D: opts.D || '', answer: ansInfo.answer, type: ansInfo.type, explanation: extractExplanation(block) };
+    if (opts.E) qObj.E = opts.E;
+    if (opts.F) qObj.F = opts.F;
+    questions.push(qObj);
+  }
+  stats.imported = questions.length;
+  return { questions: questions, stats: stats };
+}
+
+function parseLineSplitFormat(text) {
+  // Split by single blank lines (more aggressive than double)
+  text = normalizeText(text);
+  text = normalizeImportFormat(text);
+  var stats = { totalBlocks: 0, noOptions: 0, noQuestion: 0, missingOpts: 0, noAnswer: 0, multiSelect: 0, imported: 0, skipped: [] };
+  var blocks = text.split(/\n(?=\d+[.、．）)])/).filter(function(b) { return b.trim(); });
+  // Merge blocks that don't start with number
+  var merged = [];
+  for (var mi = 0; mi < blocks.length; mi++) {
+    var b = blocks[mi];
+    if (merged.length > 0 && !/^\d+[.、．）)]/.test(b.trim())) { merged[merged.length - 1] += '\n' + b; }
+    else { merged.push(b); }
+  }
+  blocks = merged;
+  stats.totalBlocks = blocks.length;
+  var questions = [];
+  for (var bi = 0; bi < blocks.length; bi++) {
+    var block = blocks[bi];
+    var hasOptions = /[A-F][.、．）)]/.test(block);
+    if (!hasOptions) { stats.noOptions++; stats.skipped.push({ reason: 'noOptions', index: bi + 1, text: block.substring(0, 300) }); continue; }
+    var qText = block.replace(/^\d+[.、．）)]\s*/, '');
+    var firstOpt = qText.search(/[A-F][.、．）)]\s*\S/);
+    if (firstOpt === -1) { stats.noQuestion++; stats.skipped.push({ reason: 'noQuestion', index: bi + 1, text: block.substring(0, 300) }); continue; }
+    var question = qText.slice(0, firstOpt).trim().replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+    var optsPart = qText.slice(firstOpt);
+    var opts = extractOptions(optsPart);
+    if (!opts.A || !opts.B || !opts.C || !opts.D) { stats.missingOpts++; stats.skipped.push({ reason: 'missingOpts', index: bi + 1, text: block.substring(0, 300) }); continue; }
+    var ansInfo = extractAnswer(block);
+    if (ansInfo.answer === '?') stats.noAnswer++;
+    if (ansInfo.type === 'multi') stats.multiSelect++;
+    var qObj = { id: questions.length + 1, question: question, A: opts.A, B: opts.B, C: opts.C, D: opts.D, answer: ansInfo.answer, type: ansInfo.type, explanation: extractExplanation(block) };
+    if (opts.E) qObj.E = opts.E;
+    if (opts.F) qObj.F = opts.F;
+    questions.push(qObj);
+  }
+  stats.imported = questions.length;
+  return { questions: questions, stats: stats };
+}
+
+function parseNoNumberFormat(text) {
+  // No numbering — split by blank lines, auto-number
+  text = normalizeText(text);
+  text = normalizeImportFormat(text);
+  var stats = { totalBlocks: 0, noOptions: 0, noQuestion: 0, missingOpts: 0, noAnswer: 0, multiSelect: 0, imported: 0, skipped: [] };
+  var chunks = text.split(/[\n\r]{2,}/).filter(function(c) { return c.trim(); });
+  // Only use this strategy if there are multiple chunks with option patterns
+  var hasOptionsChunks = chunks.filter(function(c) { return /[A-F][.、．）)]\s*\S/.test(c); });
+  if (hasOptionsChunks.length < 1) {
+    stats.totalBlocks = chunks.length;
+    stats.noOptions = chunks.length;
+    for (var ci = 0; ci < chunks.length; ci++) stats.skipped.push({ reason: 'noOptions', index: ci + 1, text: chunks[ci].substring(0, 300) });
+    return { questions: [], stats: stats };
+  }
+  // Auto-prepend numbers
+  var blocks = hasOptionsChunks.map(function(c, i) { return (i + 1) + '. ' + c.trim(); });
+  stats.totalBlocks = blocks.length;
+  var questions = [];
+  for (var bi = 0; bi < blocks.length; bi++) {
+    var block = blocks[bi];
+    var qText = block.replace(/^\d+[.、．）)]\s*/, '');
+    var firstOpt = qText.search(/[A-F][.、．）)]\s*\S/);
+    if (firstOpt === -1) { stats.noQuestion++; stats.skipped.push({ reason: 'noQuestion', index: bi + 1, text: block.substring(0, 300) }); continue; }
+    var question = qText.slice(0, firstOpt).trim().replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+    var optsPart = qText.slice(firstOpt);
+    var opts = extractOptions(optsPart);
+    if (!opts.A || !opts.B || !opts.C || !opts.D) { stats.missingOpts++; stats.skipped.push({ reason: 'missingOpts', index: bi + 1, text: block.substring(0, 300) }); continue; }
+    var ansInfo = extractAnswer(block);
+    if (ansInfo.answer === '?') stats.noAnswer++;
+    if (ansInfo.type === 'multi') stats.multiSelect++;
+    var qObj = { id: questions.length + 1, question: question, A: opts.A, B: opts.B, C: opts.C, D: opts.D, answer: ansInfo.answer, type: ansInfo.type, explanation: extractExplanation(block) };
+    if (opts.E) qObj.E = opts.E;
+    if (opts.F) qObj.F = opts.F;
+    questions.push(qObj);
+  }
+  stats.imported = questions.length;
+  return { questions: questions, stats: stats };
+}
+
 function parseQuestionsOnly(text) {
   text = normalizeText(text);
   text = normalizeImportFormat(text);
@@ -4218,6 +4514,96 @@ function parseAnswersOnly(text) {
     if (!m) return '';
     return m[1].toUpperCase();
   }).filter(function(a) { return a; });
+}
+
+// ====== 答案+解析文件解析（双文件合并用） ======
+function parseAnswerExplanationFormat(text) {
+  // 支持格式：X.【答案】Y【解析】Z / X.答案：Y / X.【答案】Y
+  text = normalizeText(text);
+  var results = [];
+  // Split by question number patterns at line start
+  var blocks = text.split(/\n(?=\d+[.、．）)]\s*(?:【答案】|答案[：:]))/);
+  for (var i = 0; i < blocks.length; i++) {
+    var block = blocks[i].trim();
+    if (!block) continue;
+    // Extract question number
+    var numMatch = block.match(/^(\d+)[.、．）)]/);
+    if (!numMatch) continue;
+    var index = parseInt(numMatch[1], 10);
+    // Extract answer
+    var ansMatch = block.match(/(?:【答案】|答案[：:])\s*([A-F,，、\s]+)/i);
+    var answer = '';
+    if (ansMatch) {
+      var raw = ansMatch[1].replace(/[,，、\s]/g, '').toUpperCase();
+      var letters = [];
+      for (var j = 0; j < raw.length; j++) {
+        var ch = raw[j];
+        if (ch >= 'A' && ch <= 'F' && letters.indexOf(ch) === -1) letters.push(ch);
+      }
+      letters.sort();
+      answer = letters.join('');
+    }
+    // Extract explanation
+    var explMatch = block.match(/(?:【解析】|解析[：:])\s*([\s\S]*?)(?=\n\d+[.、．）)]\s*(?:【答案】|答案[：:])|$)/);
+    var explanation = explMatch && explMatch[1] ? explMatch[1].trim() : '';
+    // If no explicit answer marker, try to find standalone A-F at end
+    if (!answer) {
+      var lastLine = block.split(/\n/).pop().trim();
+      var soloMatch = lastLine.match(/^([A-Fa-f]+)$/);
+      if (soloMatch) answer = soloMatch[1].toUpperCase();
+    }
+    results.push({ index: index, answer: answer, explanation: explanation });
+  }
+  // If block split didn't work, try split by consecutive answer markers
+  if (results.length === 0 && /【答案】/.test(text)) {
+    var altBlocks = text.split(/(?=\d+[.、．）)]\s*【答案】)/);
+    for (var ai = 0; ai < altBlocks.length; ai++) {
+      var ab = altBlocks[ai].trim();
+      if (!ab) continue;
+      var nm = ab.match(/^(\d+)[.、．）)]/);
+      if (!nm) continue;
+      var idx = parseInt(nm[1], 10);
+      var am2 = ab.match(/【答案】\s*([A-F,，、\s]+)/i);
+      var ans = '';
+      if (am2) {
+        var raw2 = am2[1].replace(/[,，、\s]/g, '').toUpperCase();
+        ans = raw2.split('').filter(function(c, p, a) { return a.indexOf(c) === p; }).sort().join('');
+      }
+      var em2 = ab.match(/【解析】\s*([\s\S]*)/);
+      var expl = em2 && em2[1] ? em2[1].trim() : '';
+      results.push({ index: idx, answer: ans, explanation: expl });
+    }
+  }
+  return results;
+}
+
+function mergeQuestionsWithAnswers(questions, answers) {
+  if (!answers || !answers.length) return { merged: 0, unmatched: 0 };
+  var merged = 0, unmatched = 0;
+  // Try index-based alignment first
+  for (var i = 0; i < questions.length; i++) {
+    var q = questions[i];
+    // Find matching answer by index (1-based)
+    var matched = null;
+    for (var j = 0; j < answers.length; j++) {
+      if (answers[j].index === i + 1) { matched = answers[j]; break; }
+    }
+    // Fallback: position-based (skip answers without index match)
+    if (!matched && i < answers.length && !answers[i].index) {
+      matched = answers[i];
+    }
+    if (matched && matched.answer) {
+      q.answer = matched.answer;
+      q.type = matched.answer.length > 1 ? 'multi' : 'single';
+      if (matched.explanation) q.explanation = matched.explanation;
+      merged++;
+    } else if (!q.answer || q.answer === '?') {
+      unmatched++;
+    }
+  }
+  // Report if extra answers beyond question count
+  var extra = Math.max(0, answers.length - questions.length);
+  return { merged: merged, unmatched: unmatched, extra: extra };
 }
 
 // ====== 聊天记录解析 ======
@@ -4483,6 +4869,79 @@ function loadXLSX(cb) {
   document.head.appendChild(script);
 }
 
+// ====== KaTeX 数学公式渲染 ======
+var _katexLoaded = false;
+function loadKaTeX(cb) {
+  if (_katexLoaded) { cb(); return; }
+  if (typeof katex !== 'undefined') { _katexLoaded = true; cb(); return; }
+  // Load CSS
+  var link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = 'https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css';
+  document.head.appendChild(link);
+  // Load JS
+  var script = document.createElement('script');
+  script.src = 'https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js';
+  script.onload = function() { _katexLoaded = true; cb(); };
+  script.onerror = function() { console.warn('KaTeX load failed'); };
+  document.head.appendChild(script);
+}
+
+function renderMathInText(text) {
+  if (!text || typeof text !== 'string') return text || '';
+  // Check if text contains math delimiters
+  if (!/\$/.test(text)) return text;
+  if (typeof katex === 'undefined') return text;
+  try {
+    // Render block math: $$...$$
+    text = text.replace(/\$\$([\s\S]*?)\$\$/g, function(m, formula) {
+      try {
+        return katex.renderToString(formula.trim(), { displayMode: true, throwOnError: false });
+      } catch(e) { return m; }
+    });
+    // Render inline math: $...$ (not $$)
+    text = text.replace(/(?<!\\)\$((?!\$)[\s\S]*?[^\\])\$/g, function(m, formula) {
+      try {
+        return katex.renderToString(formula.trim(), { displayMode: false, throwOnError: false });
+      } catch(e) { return m; }
+    });
+  } catch(e) { /* ignore rendering errors */ }
+  return text;
+}
+
+// Wrapper: escHtml + renderMath (safe: non-math text is escaped)
+function escHtmlWithMath(text) {
+  if (!text || typeof text !== 'string') return text || '';
+  // If no math delimiters, just escape
+  if (!/\$/.test(text)) return escHtml(text);
+  if (typeof katex === 'undefined') return escHtml(text);
+  try {
+    var placeholders = [];
+    // Replace math blocks with placeholders, escape the rest, then restore
+    var result = text.replace(/\$\$([\s\S]*?)\$\$/g, function(m, formula) {
+      try {
+        var rendered = katex.renderToString(formula.trim(), { displayMode: true, throwOnError: false });
+        placeholders.push(rendered);
+        return '\x00MATH' + (placeholders.length - 1) + '\x00';
+      } catch(e) { return escHtml(m); }
+    });
+    result = result.replace(/(?<!\\)\$((?!\$)[\s\S]*?[^\\])\$/g, function(m, formula) {
+      try {
+        var rendered = katex.renderToString(formula.trim(), { displayMode: false, throwOnError: false });
+        placeholders.push(rendered);
+        return '\x00MATH' + (placeholders.length - 1) + '\x00';
+      } catch(e) { return escHtml(m); }
+    });
+    // Escape HTML in the non-math parts
+    result = escHtml(result);
+    // Restore KaTeX placeholders
+    result = result.replace(/\x00MATH(\d+)\x00/g, function(m, idx) {
+      return placeholders[parseInt(idx, 10)] || '';
+    });
+    return result;
+  } catch(e) { return escHtml(text); }
+}
+
 // ====== Quiz Setup ======
 function renderQuizSetup() {
   const select = document.getElementById('bankSelect');
@@ -4513,6 +4972,8 @@ function renderQuizSetup() {
 document.addEventListener('DOMContentLoaded', function() {
   var sel = document.getElementById('bankSelect');
   if (sel) sel.addEventListener('change', function() { updateSeqProgressUI(); renderCategoryFilter(sel.value); });
+  // Eager load KaTeX for math rendering in quiz content
+  loadKaTeX(function() { console.log('KaTeX ready'); });
 });
 
 function selectCount(n, el) {
@@ -7598,7 +8059,7 @@ function renderSettings() {
 
     '<div class="section"><div class="section-title" id="aboutSectionTitle" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;min-height:44px" onclick="var c=document.getElementById(\'aboutSectionContent\');var a=document.getElementById(\'aboutSectionArrow\');if(c.style.display===\'none\'){c.style.display=\'\';a.textContent=\'▼\'}else{c.style.display=\'none\';a.textContent=\'▶\'}">ℹ️ 关于 <span id="aboutSectionArrow" style="font-size:11px">▼</span></div>' +
       '<div id="aboutSectionContent"><div class="setting-item" style="cursor:pointer" onclick="showManualMenu()"><div><div class="setting-label">📖 使用说明</div><div class="setting-desc">查看使用指南</div></div><div style="display:flex;align-items:center">→</div></div>' +
-      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">手机刷题工具 · 纯前端离线可用 · <span id="appVersion">v208</span></div></div></div>' +
+      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">手机刷题工具 · 纯前端离线可用 · <span id="appVersion">v209</span></div></div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="showDataOffsetTool()"><div><div class="setting-label">🔧 数据批量偏移</div><div class="setting-desc">修复答案/解析的错位问题（支持前移后移）</div></div><div style="display:flex;align-items:center">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="clearAllData()"><div><div class="setting-label" style="color:var(--danger)">🗑️ 删除所有数据</div><div class="setting-desc">清空全部题库和设置，不可恢复</div></div><div style="display:flex;align-items:center;color:var(--danger)">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="checkUpdate()"><div><div class="setting-label">🔄 检查更新</div><div class="setting-desc">点击清除缓存并刷新，获取最新版本</div></div><div style="display:flex;align-items:center">→</div></div>' +
