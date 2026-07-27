@@ -3395,7 +3395,6 @@ function showImportPreview(name, questions, stats, rawText) {
     '</div>' +
   '</div>';
   document.body.appendChild(ov);
-  _previewPage = 1;
   renderImportPreviewCards();
   if (skipped.length > 0) renderSkippedItems();
 }
@@ -3777,37 +3776,13 @@ function updateStatsPanel() {
   if (!noOptions && !noQuestion && !missingOpts && !noAnswer && !multiSelect) h += '<div style="color:var(--success)">所有内容均已成功导入</div>';
   panel.innerHTML = h;
 }
-var _previewPage = 1;
-var _previewPageSize = 20;
-
 function renderImportPreviewCards() {
   if (!previewImportData || !previewImportData.questions) return;
   var container = document.getElementById("importPreviewCards");
   if (!container) return;
   var questions = previewImportData.questions;
-  var total = questions.length;
-
-  // Pagination
-  var totalPages = Math.ceil(total / _previewPageSize);
-  if (_previewPage > totalPages) _previewPage = totalPages;
-  if (_previewPage < 1) _previewPage = 1;
-  var start = (_previewPage - 1) * _previewPageSize;
-  var end = Math.min(start + _previewPageSize, total);
-
-  // Page nav HTML
-  var pageNavHtml = '';
-  if (totalPages > 1) {
-    pageNavHtml = '<div class="flex items-center gap-8 mb-12" style="flex-wrap:wrap;padding:10px 14px;background:var(--bg-input);border-radius:10px;font-size:13px;justify-content:center">' +
-      '<button class="btn btn-sm" style="background:var(--bg-input);border:1px solid var(--border);min-height:36px;min-width:36px"' + (_previewPage <= 1 ? ' disabled' : '') + ' onclick="_previewPage=1;renderImportPreviewCards();document.getElementById(\'importPreviewOverlay\').scrollTo({top:0,behavior:\'smooth\'})">⏮</button>' +
-      '<button class="btn btn-sm" style="background:var(--bg-input);border:1px solid var(--border);min-height:36px;min-width:36px"' + (_previewPage <= 1 ? ' disabled' : '') + ' onclick="_previewPage--;renderImportPreviewCards();document.getElementById(\'importPreviewOverlay\').scrollTo({top:0,behavior:\'smooth\'})">◀</button>' +
-      '<span style="font-weight:600;padding:0 8px">' + start + '-' + end + ' / ' + total + '</span>' +
-      '<button class="btn btn-sm" style="background:var(--bg-input);border:1px solid var(--border);min-height:36px;min-width:36px"' + (_previewPage >= totalPages ? ' disabled' : '') + ' onclick="_previewPage++;renderImportPreviewCards();document.getElementById(\'importPreviewOverlay\').scrollTo({top:0,behavior:\'smooth\'})">▶</button>' +
-      '<button class="btn btn-sm" style="background:var(--bg-input);border:1px solid var(--border);min-height:36px;min-width:36px"' + (_previewPage >= totalPages ? ' disabled' : '') + ' onclick="_previewPage=' + totalPages + ';renderImportPreviewCards();document.getElementById(\'importPreviewOverlay\').scrollTo({top:0,behavior:\'smooth\'})">⏭</button>' +
-    '</div>';
-  }
-
-  var h = pageNavHtml;
-  for (var i = start; i < end; i++) {
+  var h = '';
+  for (var i = 0; i < questions.length; i++) {
     var q = questions[i];
     var isMulti = q.type === 'multi';
     var allLetters = ['A','B','C','D','E','F'];
@@ -8321,7 +8296,7 @@ function renderSettings() {
 
     '<div class="section"><div class="section-title" id="aboutSectionTitle" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;min-height:44px" onclick="var c=document.getElementById(\'aboutSectionContent\');var a=document.getElementById(\'aboutSectionArrow\');if(c.style.display===\'none\'){c.style.display=\'\';a.textContent=\'▼\'}else{c.style.display=\'none\';a.textContent=\'▶\'}">ℹ️ 关于 <span id="aboutSectionArrow" style="font-size:11px">▼</span></div>' +
       '<div id="aboutSectionContent"><div class="setting-item" style="cursor:pointer" onclick="showManualMenu()"><div><div class="setting-label">📖 使用说明</div><div class="setting-desc">查看使用指南</div></div><div style="display:flex;align-items:center">→</div></div>' +
-      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">手机刷题工具 · 纯前端离线可用 · <span id="appVersion">v219</span></div></div></div>' +
+      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">手机刷题工具 · 纯前端离线可用 · <span id="appVersion">v220</span></div></div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="showDataOffsetTool()"><div><div class="setting-label">🔧 数据批量偏移</div><div class="setting-desc">修复答案/解析的错位问题（支持前移后移）</div></div><div style="display:flex;align-items:center">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="clearAllData()"><div><div class="setting-label" style="color:var(--danger)">🗑️ 删除所有数据</div><div class="setting-desc">清空全部题库和设置，不可恢复</div></div><div style="display:flex;align-items:center;color:var(--danger)">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="checkUpdate()"><div><div class="setting-label">🔄 检查更新</div><div class="setting-desc">点击清除缓存并刷新，获取最新版本</div></div><div style="display:flex;align-items:center">→</div></div>' +
