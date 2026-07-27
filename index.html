@@ -7260,7 +7260,7 @@ function renderSettings() {
 
     '<div class="section"><div class="section-title" id="aboutSectionTitle" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;min-height:44px" onclick="var c=document.getElementById(\'aboutSectionContent\');var a=document.getElementById(\'aboutSectionArrow\');if(c.style.display===\'none\'){c.style.display=\'\';a.textContent=\'▼\'}else{c.style.display=\'none\';a.textContent=\'▶\'}">ℹ️ 关于 <span id="aboutSectionArrow" style="font-size:11px">▼</span></div>' +
       '<div id="aboutSectionContent"><div class="setting-item" style="cursor:pointer" onclick="showManualMenu()"><div><div class="setting-label">📖 使用说明</div><div class="setting-desc">查看使用指南</div></div><div style="display:flex;align-items:center">→</div></div>' +
-      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">手机刷题工具 · 纯前端离线可用 · <span id="appVersion">v202</span></div></div></div>' +
+      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">手机刷题工具 · 纯前端离线可用 · <span id="appVersion">v203</span></div></div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="showDataOffsetTool()"><div><div class="setting-label">🔧 数据批量偏移</div><div class="setting-desc">修复答案/解析的错位问题（支持前移后移）</div></div><div style="display:flex;align-items:center">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="clearAllData()"><div><div class="setting-label" style="color:var(--danger)">🗑️ 删除所有数据</div><div class="setting-desc">清空全部题库和设置，不可恢复</div></div><div style="display:flex;align-items:center;color:var(--danger)">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="checkUpdate()"><div><div class="setting-label">🔄 检查更新</div><div class="setting-desc">点击清除缓存并刷新，获取最新版本</div></div><div style="display:flex;align-items:center">→</div></div>' +
@@ -7465,14 +7465,14 @@ function showDataOffsetTool() {
           '<div style="font-size:13px;color:var(--text-secondary);margin-bottom:4px">到第几题结束（含该题，0=到最后一题）</div>' +
           '<input type="number" id="offsetEnd" min="0" max="' + totalQ + '" value="' + currentEnd + '" style="width:100%;padding:8px 12px;border:2px solid var(--border);border-radius:8px;background:var(--bg-input);color:var(--text);font-size:14px">' +
         '</div>' +
-        '<div style="margin-bottom:8px;font-size:12px;color:var(--primary);font-weight:600">📊 ' + summaryText + '</div>' +
-        nearEndWarn +
+        '<div id="offsetSummary" style="margin-bottom:8px;font-size:12px;color:var(--primary);font-weight:600">📊 ' + summaryText + '</div>' +
+        '<div id="offsetWarnWrapper">' + nearEndWarn + '</div>' +
         '<div style="display:flex;gap:10px;margin-bottom:12px">' +
           '<button id="offsetBackward" class="btn btn-outline btn-sm" style="flex:1;min-height:44px;border-color:var(--primary-soft);color:var(--primary)">← 前移一位</button>' +
           '<button id="offsetForward" class="btn btn-outline btn-sm" style="flex:1;min-height:44px;border-color:var(--primary-soft);color:var(--primary)">后移一位 →</button>' +
         '</div>' +
         '<div style="margin-bottom:14px">' +
-          '<div style="font-size:12px;color:var(--text-secondary);margin-bottom:6px">📋 预览（前 ' + previewCount + ' 题）</div>' +
+          '<div id="offsetPreviewTitle" style="font-size:12px;color:var(--text-secondary);margin-bottom:6px">📋 预览（前 ' + previewCount + ' 题）</div>' +
           '<div id="offsetPreview" style="max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:6px 4px">' + (preview || '<div style="font-size:12px;color:var(--text-tertiary);text-align:center;padding:12px">暂无数据</div>') + '</div>' +
         '</div>' +
         '<div style="display:flex;gap:10px">' +
@@ -7487,9 +7487,9 @@ function showDataOffsetTool() {
     var radios = document.getElementsByName('offsetField');
     for (var ri = 0; ri < radios.length; ri++) { radios[ri].onchange = function() { currentField = this.value; renderUI(); }; }
     document.getElementById('offsetStart').onchange = function() { currentStart = parseInt(this.value) || 1; renderUI(); };
-    document.getElementById('offsetStart').oninput = function() { currentStart = parseInt(this.value) || 1; renderUI(); };
+    document.getElementById('offsetStart').oninput = function() { currentStart = parseInt(this.value) || 1; refreshPreview(); };
     document.getElementById('offsetEnd').onchange = function() { currentEnd = parseInt(this.value) || 0; renderUI(); };
-    document.getElementById('offsetEnd').oninput = function() { currentEnd = parseInt(this.value) || 0; renderUI(); };
+    document.getElementById('offsetEnd').oninput = function() { currentEnd = parseInt(this.value) || 0; refreshPreview(); };
     var pcBtns = overlay.querySelectorAll('.preview-count-btn');
     for (var pi = 0; pi < pcBtns.length; pi++) {
       pcBtns[pi].onclick = function() { previewCount = parseInt(this.getAttribute('data-count')); renderUI(); };
@@ -7504,6 +7504,37 @@ function showDataOffsetTool() {
       if (!confirm('确认执行偏移？\n\n方向：' + (dir === -1 ? '前移' : '后移') + '\n对象：' + (currentField === 'answer' ? '答案' : '解析') + '\n范围：第' + currentStart + '~' + cfmEnd + '题（共' + (cfmEnd - currentStart + 1) + '题）\n\n此操作不可撤销！')) return;
       doOffset(dir, true);
     };
+  }
+
+  function refreshPreview() {
+    var bank = banks[currentBank];
+    var totalQ = bank ? bank.length : 0;
+    var startIdx = Math.max(0, currentStart - 1);
+    var endIdx = currentEnd > 0 ? Math.min(currentEnd - 1, totalQ - 1) : totalQ - 1;
+    var endDisplay = currentEnd > 0 ? currentEnd : totalQ;
+    var affectedCount = Math.max(0, endIdx - startIdx + 1);
+    var summaryEl = document.getElementById('offsetSummary');
+    if (summaryEl) {
+      summaryEl.innerHTML = '📊 将偏移 <b>第' + currentStart + '~' + endDisplay + '题</b>（共 ' + affectedCount + ' 题）';
+    }
+    var warnEl = document.getElementById('offsetWarnWrapper');
+    if (warnEl) {
+      if (affectedCount > 0 && affectedCount < 5) {
+        warnEl.innerHTML = '<div style="padding:8px 12px;background:#fff3cd;border:1px solid #ffc107;border-radius:6px;font-size:12px;color:#856404">⚠️ 偏移范围只剩 <b>' + affectedCount + '</b> 题，请确认题号是否正确</div>';
+      } else {
+        warnEl.innerHTML = '';
+      }
+    }
+    var previewEl = document.getElementById('offsetPreview');
+    if (previewEl) {
+      var p = getPreview();
+      previewEl.innerHTML = p || '<div style="font-size:12px;color:var(--text-tertiary);text-align:center;padding:12px">暂无数据</div>';
+    }
+    // 更新预览标题
+    var previewTitle = overlay.querySelector('#offsetPreviewTitle');
+    if (previewTitle) {
+      previewTitle.textContent = '📋 预览（前 ' + Math.min(previewCount, affectedCount) + ' 题）';
+    }
   }
 
   function doOffset(direction, execute) {
