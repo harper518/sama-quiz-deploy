@@ -737,7 +737,6 @@ textarea { min-height: 180px; resize: vertical; line-height: 1.8; }
       <p style="font-size:12px;color:var(--text-secondary)">📚 管理你的选择题库</p>
     </div>
     <button class="btn btn-primary" onclick="showPasteModal()" style="padding:10px 18px">＋ 导入</button>
-    <button class="btn btn-outline" onclick="document.getElementById('fileInput').click()" style="padding:10px 12px;min-width:44px;min-height:44px;font-size:12px" title="同时选2个文件自动合并">📎 合并</button>
     <button class="btn btn-outline" onclick="showSearchModal()" style="padding:10px 12px;min-width:44px;min-height:44px" title="搜索题目">🔍</button>
     <button class="btn btn-outline" onclick="showMergeModal()" style="padding:10px 18px">🔀 合并</button>
   </div>
@@ -953,6 +952,28 @@ textarea { min-height: 180px; resize: vertical; line-height: 1.8; }
     <div class="form-group">
       <label class="form-label">题库名称</label>
       <input type="text" id="pasteBankName" placeholder="例如：教资科目二">
+    </div>
+    <!-- 双文件合并卡片 -->
+    <div style="background:var(--primary-light);border:2px solid var(--primary);border-radius:12px;padding:14px;margin-bottom:16px">
+      <div style="font-size:14px;font-weight:700;color:var(--primary);margin-bottom:6px">📎 题目+答案双文件合并</div>
+      <p style="font-size:11px;color:var(--text-secondary);margin-bottom:10px">同时选中题目文件和答案文件，自动识别并合并——题目+选项+答案+解析一条龙</p>
+      <div style="display:flex;gap:10px;align-items:center">
+        <button class="btn btn-sm flex-1" style="background:var(--card);border:2px dashed var(--primary);font-size:13px;padding:12px;min-height:48px" onclick="document.getElementById('dualQFileInput').click()">
+          <span style="display:block;font-size:11px;color:var(--text-tertiary)">📝 题目文件</span>
+          <span id="dualQFileLabel" style="display:block;font-size:12px;color:var(--text);margin-top:2px">含题干+选项</span>
+        </button>
+        <span style="color:var(--primary);font-weight:700;font-size:18px">+</span>
+        <button class="btn btn-sm flex-1" style="background:var(--card);border:2px dashed var(--success);font-size:13px;padding:12px;min-height:48px" onclick="document.getElementById('dualAFileInput').click()">
+          <span style="display:block;font-size:11px;color:var(--text-tertiary)">✅ 答案文件</span>
+          <span id="dualAFileLabel" style="display:block;font-size:12px;color:var(--text);margin-top:2px">含答案+解析</span>
+        </button>
+      </div>
+      <div style="margin-top:10px;display:flex;align-items:center;gap:8px">
+        <div style="flex:1;font-size:10px;color:var(--text-tertiary);display:none" id="dualFileStatus"></div>
+        <button class="btn btn-primary btn-sm" id="dualMergeBtn" style="min-height:40px;padding:6px 16px" onclick="executeDualMerge()" disabled>🔀 开始合并</button>
+      </div>
+      <input type="file" id="dualQFileInput" class="file-input" accept=".docx,.txt,.json,.csv,.xlsx,.xls" onchange="handleDualFileSelect(this, 'Q')" style="display:none">
+      <input type="file" id="dualAFileInput" class="file-input" accept=".docx,.txt,.csv,.json,.xlsx,.xls" onchange="handleDualFileSelect(this, 'A')" style="display:none">
     </div>
     <div class="form-group">
       <label class="form-label">内容格式</label>
@@ -3885,6 +3906,48 @@ function confirmImportFromPreview() {
 // ====== Paste Import ======
 function showPasteModal() { document.getElementById('pasteModal').style.display = 'block'; }
 function closePasteModal() { document.getElementById('pasteModal').style.display = 'none'; }
+
+// ====== 导入弹窗内双文件合并 ======
+var _dualFiles = { Q: null, A: null };
+
+function handleDualFileSelect(input, type) {
+  var file = input.files[0];
+  if (!file) return;
+  _dualFiles[type] = file;
+  var label = document.getElementById('dual' + type + 'FileLabel');
+  if (label) { label.textContent = file.name; label.style.color = 'var(--success)'; label.style.fontWeight = '700'; }
+
+  // Update status and enable merge button if both files selected
+  var statusEl = document.getElementById('dualFileStatus');
+  var mergeBtn = document.getElementById('dualMergeBtn');
+  if (_dualFiles.Q && _dualFiles.A) {
+    if (statusEl) { statusEl.style.display = 'block'; statusEl.textContent = '✅ 两个文件已就绪'; }
+    if (mergeBtn) mergeBtn.disabled = false;
+  } else {
+    if (statusEl) { statusEl.style.display = 'block'; statusEl.textContent = '已选 ' + (_dualFiles.Q ? 1 : 0) + '/2 个文件'; }
+    if (mergeBtn) mergeBtn.disabled = true;
+  }
+  input.value = '';
+}
+
+function executeDualMerge() {
+  if (!_dualFiles.Q || !_dualFiles.A) { toast('请先选择题目文件和答案文件'); return; }
+  var name = document.getElementById('pasteBankName').value.trim();
+  if (!name) { toast('请先输入题库名称'); return; }
+
+  showFileProgress('正在解析两个文件并自动合并...');
+  loadDualFilesAndMerge(_dualFiles.Q, _dualFiles.A, name, { value: '' });
+  // Reset state
+  _dualFiles = { Q: null, A: null };
+  document.getElementById('dualQFileLabel').textContent = '含题干+选项';
+  document.getElementById('dualQFileLabel').style.color = '';
+  document.getElementById('dualQFileLabel').style.fontWeight = '';
+  document.getElementById('dualAFileLabel').textContent = '含答案+解析';
+  document.getElementById('dualAFileLabel').style.color = '';
+  document.getElementById('dualAFileLabel').style.fontWeight = '';
+  document.getElementById('dualFileStatus').style.display = 'none';
+  document.getElementById('dualMergeBtn').disabled = true;
+}
 
 // 剪贴板粘贴：从系统剪贴板读取并填充到指定文本框（解决手机上原生粘贴手势不稳定的问题）
 function clipboardPasteTo(targetId) {
@@ -8228,7 +8291,7 @@ function renderSettings() {
 
     '<div class="section"><div class="section-title" id="aboutSectionTitle" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;min-height:44px" onclick="var c=document.getElementById(\'aboutSectionContent\');var a=document.getElementById(\'aboutSectionArrow\');if(c.style.display===\'none\'){c.style.display=\'\';a.textContent=\'▼\'}else{c.style.display=\'none\';a.textContent=\'▶\'}">ℹ️ 关于 <span id="aboutSectionArrow" style="font-size:11px">▼</span></div>' +
       '<div id="aboutSectionContent"><div class="setting-item" style="cursor:pointer" onclick="showManualMenu()"><div><div class="setting-label">📖 使用说明</div><div class="setting-desc">查看使用指南</div></div><div style="display:flex;align-items:center">→</div></div>' +
-      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">手机刷题工具 · 纯前端离线可用 · <span id="appVersion">v214</span></div></div></div>' +
+      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">手机刷题工具 · 纯前端离线可用 · <span id="appVersion">v215</span></div></div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="showDataOffsetTool()"><div><div class="setting-label">🔧 数据批量偏移</div><div class="setting-desc">修复答案/解析的错位问题（支持前移后移）</div></div><div style="display:flex;align-items:center">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="clearAllData()"><div><div class="setting-label" style="color:var(--danger)">🗑️ 删除所有数据</div><div class="setting-desc">清空全部题库和设置，不可恢复</div></div><div style="display:flex;align-items:center;color:var(--danger)">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="checkUpdate()"><div><div class="setting-label">🔄 检查更新</div><div class="setting-desc">点击清除缓存并刷新，获取最新版本</div></div><div style="display:flex;align-items:center">→</div></div>' +
