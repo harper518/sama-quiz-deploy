@@ -381,7 +381,7 @@ body {
 .option-btn.wrong { border-color: var(--danger); background: var(--danger-light); color: #991B1B; }
 .option-btn.reveal { border-color: var(--success); background: var(--success-light); }
 .option-btn.disabled { pointer-events: none; opacity: 0.7; }
-.option-btn.striked { opacity: 0.35; text-decoration: line-through; background: rgba(128,128,128,0.08); }
+.option-btn.striked { opacity: 0.35; background: rgba(128,128,128,0.08); }
 /* 多选题选项 */
 .option-btn.option-multi { cursor: pointer; user-select: none; }
 .option-btn.option-multi.multi-on { border-color: var(--primary); background: var(--primary-light); color: var(--primary); font-weight: 600; box-shadow: 0 0 0 1px var(--primary); }
@@ -896,7 +896,7 @@ textarea { min-height: 180px; resize: vertical; line-height: 1.8; }
       <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
         <button class="btn btn-primary" onclick="startQuiz()" style="width:100%;min-height:44px">▶ 相同设置再来一轮</button>
         <div id="resultWrongQuickReview" style="display:none">
-          <button class="btn" style="width:100%;min-height:44px;background:#8B5CF6;color:#fff;border:none" onclick="quickReviewWrongs()">🔍 错题速览（30秒）</button>
+          <button class="btn" style="width:100%;min-height:44px;background:#8B5CF6;color:#fff;border:none" onclick="quickReviewWrongs()">🔍 错题速览（每题10秒）</button>
         </div>
         <button class="btn btn-outline" onclick="reviewWrongFromResult()" id="reviewWrongBtn" style="width:100%;min-height:44px">📌 错题重做</button>
         <div style="display:flex;gap:8px">
@@ -2534,7 +2534,7 @@ function applySR(bankName, qId, wasCorrect) {
   } else if (card.srStage && card.srStage > 0) {
     var intervals = [0, 86400000, 259200000, 604800000, 1296000000, 2592000000];
     card.srStage = Math.min(6, card.srStage + 1);
-    if (card.srStage >= 6) { card.srNextReview = null; card.srStage = 0; }
+    if (card.srStage >= 6) { card.srNextReview = null; card.srStage = 0; /* 毕业自动移出错题本 */ if (appData.wrongBooks && appData.wrongBooks[bankName]) { var wb = appData.wrongBooks[bankName]; for (var wi = 0; wi < wb.length; wi++) { if (wb[wi].id === qId) { wb.splice(wi, 1); break; } } if (wb.length === 0) delete appData.wrongBooks[bankName]; } }
     else card.srNextReview = Date.now() + intervals[card.srStage];
   }
   saveData(appData);
@@ -4213,7 +4213,7 @@ function doQuickQuiz(n) {
   document.getElementById('sideTapRight').classList.add('active');
   var lbl = document.getElementById('bankNameLabel'); if (lbl) lbl.textContent = '⚡ 快速' + n + '题';
   document.getElementById('modeHint').textContent = '⚡ 即时反馈 · 随机';
-  stopTimer(); renderQuestion(); applyFocusMode();
+  stopTimer(); renderQuestion(); applyFocusMode(); applyPomodoro(); applyPomodoro();
 }
 function doDailyWrongChallenge() {
   try {
@@ -4239,13 +4239,11 @@ function doDailyWrongChallenge() {
   document.getElementById('sideTapRight').classList.add('active');
   var lbl = document.getElementById('bankNameLabel'); if (lbl) lbl.textContent = '📋 每日错题挑战';
   document.getElementById('modeHint').textContent = '⚡ 即时反馈 · 随机5题';
-  stopTimer(); renderQuestion(); applyFocusMode();
+  stopTimer(); renderQuestion(); applyFocusMode(); applyPomodoro(); applyPomodoro();
   } catch(e) { console.error('doDailyWrongChallenge error:', e); toast('操作失败，请重试'); }
 }
 function applyFocusMode() {
   var focusOn = appData.settings && appData.settings.focusMode;
-  var pomoEl = document.getElementById('pomodoroTimer');
-  if (pomoEl) pomoEl.style.display = focusOn ? '' : 'none';
   var hideIds = ['favBtn', 'superFavBtn', 'editQuizBtn'];
   hideIds.forEach(function(id) { var el = document.getElementById(id); if (el) el.style.display = focusOn ? 'none' : ''; });
   if (!focusOn) { var fb = document.getElementById('favBtn'); if (fb) fb.style.display = 'inline-flex'; updateFavButtons(); }
@@ -4256,7 +4254,13 @@ function applyFocusMode() {
     var contents = document.querySelectorAll('.explanation-box .content');
     contents.forEach(function(c) { c.style.display = 'none'; });
   }
-  if (focusOn) startPomodoro(); else stopPomodoro();
+}
+
+function applyPomodoro() {
+  var pomoOn = appData.settings && appData.settings.pomodoroEnabled;
+  var pomoEl = document.getElementById('pomodoroTimer');
+  if (pomoEl) pomoEl.style.display = pomoOn ? '' : 'none';
+  if (pomoOn) startPomodoro(); else stopPomodoro();
 }
 
 function startSearchTempQuiz() {
@@ -4386,7 +4390,7 @@ function startQuiz() {
       startTimer();
     }
     renderQuestion();
-    applyFocusMode();
+    applyFocusMode(); applyPomodoro();
     return;
   }
 
@@ -4506,7 +4510,7 @@ function startQuiz() {
   }
 
   renderQuestion();
-  applyFocusMode();
+  applyFocusMode(); applyPomodoro();
 }
 
 // ====== 计时器 ======
@@ -5543,7 +5547,7 @@ function quickReviewWrongs() {
         prevBtn.className = 'btn btn-outline btn-sm';
         prevBtn.style.cssText = 'flex:1;min-height:44px';
         prevBtn.textContent = '◀ 上一题';
-        prevBtn.onclick = function() { if (idx > 0) { idx--; renderSlide(); } };
+        prevBtn.onclick = function() { if (idx > 0) { idx--; renderSlide(); startSlideTimer(); } };
         navEl.appendChild(prevBtn);
       }
       if (idx < wrongQs.length - 1) {
@@ -5551,29 +5555,34 @@ function quickReviewWrongs() {
         nextBtn.className = 'btn btn-primary btn-sm';
         nextBtn.style.cssText = 'flex:1;min-height:44px';
         nextBtn.textContent = '下一题 ▶';
-        nextBtn.onclick = function() { if (idx < wrongQs.length - 1) { idx++; renderSlide(); } };
+        nextBtn.onclick = function() { if (idx < wrongQs.length - 1) { idx++; renderSlide(); startSlideTimer(); } };
         navEl.appendChild(nextBtn);
       } else {
         var doneBtn = document.createElement('button');
         doneBtn.className = 'btn btn-primary btn-sm';
         doneBtn.style.cssText = 'flex:1;min-height:44px';
         doneBtn.textContent = '✓ 完成';
-        doneBtn.onclick = function() { overlay.remove(); clearInterval(autoTimer); };
+        doneBtn.onclick = function() { overlay.remove(); if (autoTimer) clearTimeout(autoTimer); };
         navEl.appendChild(doneBtn);
       }
     }
   }
+  var autoTimer = null;
+  function startSlideTimer() {
+    if (autoTimer) clearTimeout(autoTimer);
+    autoTimer = setTimeout(function() {
+      var o = document.getElementById('quickReviewOverlay');
+      if (!o) return;
+      idx++;
+      if (idx >= wrongQs.length) { o.remove(); return; }
+      renderSlide();
+    }, 10000);
+  }
   renderSlide();
   document.body.appendChild(overlay);
-  var autoTimer = setInterval(function() {
-    var o = document.getElementById('quickReviewOverlay');
-    if (!o) { clearInterval(autoTimer); return; }
-    idx++;
-    if (idx >= wrongQs.length) { o.remove(); clearInterval(autoTimer); return; }
-    renderSlide();
-  }, 10000);
+  startSlideTimer();
   overlay.addEventListener('click', function(e) {
-    if (e.target === overlay) { overlay.remove(); clearInterval(autoTimer); }
+    if (e.target === overlay) { overlay.remove(); if (autoTimer) clearTimeout(autoTimer); }
   });
 }
 
@@ -5904,7 +5913,7 @@ function browseAllWrongs() {
   stopTimer();
   document.getElementById('timerDisplay').style.display = 'none';
   renderQuestion();
-  applyFocusMode();
+  applyFocusMode(); applyPomodoro();
   } catch(e) { console.error('browseAllWrongs error:', e); toast('操作失败，请重试'); }
 }
 
@@ -7091,6 +7100,7 @@ function renderSettings() {
   if (!s.fontSize) s.fontSize = 16;
   if (s.srEnabled === undefined) s.srEnabled = true;
   if (s.focusMode === undefined) s.focusMode = false;
+  if (s.pomodoroEnabled === undefined) s.pomodoroEnabled = false;
   if (!s.pomodoroMinutes) s.pomodoroMinutes = 25;
   if (s.dailyGoal === undefined) s.dailyGoal = 0;
   if (s.safetyMode === undefined) s.safetyMode = false;
@@ -7207,9 +7217,11 @@ function renderSettings() {
       '<div class="setting-item"><div><div class="setting-label">🎯 每日目标</div><div class="setting-desc">每天做多少题算达标（0=不启用）</div></div>' +
         '<div style="display:flex;align-items:center;gap:4px"><input type="number" min="0" max="500" value="' + s.dailyGoal + '" style="width:70px;text-align:center;padding:8px;border:2px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:14px" onchange="saveSetting(\'dailyGoal\', parseInt(this.value)||0)"><span style="font-size:12px;color:var(--text-secondary)">题/天</span></div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="showWeeklySummary()"><div><div class="setting-label">📊 本周小结</div><div class="setting-desc" id="weeklySummaryInline">' + getWeeklySummaryText() + '</div></div><div style="display:flex;align-items:center">→</div></div>' +
-      '<div class="setting-item"><div><div class="setting-label">🧘 专注模式</div><div class="setting-desc">刷题时隐藏所有干扰，只留题目和番茄钟</div></div>' +
-        '<label class="toggle"><input type="checkbox" id="focusToggle"' + (s.focusMode ? ' checked' : '') + ' onchange="saveSetting(\'focusMode\', this.checked);var sd=document.getElementById(\'pomodoroSelect\');if(sd)sd.style.display=this.checked?\'\':\'none\'"><span class="slider"></span></label></div>' +
-      '<div class="setting-item" id="pomodoroSetting" style="display:' + (s.focusMode ? '' : 'none') + '"><div><div class="setting-label">⏱ 番茄钟时长</div><div class="setting-desc">专注一段时间后自动提醒休息</div></div>' +
+      '<div class="setting-item"><div><div class="setting-label">🧘 专注模式</div><div class="setting-desc">刷题时隐藏所有干扰元素</div></div>' +
+        '<label class="toggle"><input type="checkbox" id="focusToggle"' + (s.focusMode ? ' checked' : '') + ' onchange="saveSetting(\'focusMode\', this.checked)"><span class="slider"></span></label></div>' +
+      '<div class="setting-item"><div><div class="setting-label">🍅 番茄钟</div><div class="setting-desc">刷题时自动倒计时，到时休息提醒</div></div>' +
+        '<label class="toggle"><input type="checkbox" id="pomodoroToggle"' + (s.pomodoroEnabled ? ' checked' : '') + ' onchange="saveSetting(\'pomodoroEnabled\', this.checked)"><span class="slider"></span></label></div>' +
+      '<div class="setting-item" id="pomodoroSetting"><div><div class="setting-label">⏱ 番茄钟时长</div><div class="setting-desc">专注一段时间后自动提醒休息</div></div>' +
         '<select id="pomodoroSelect" style="padding:8px 12px;border:2px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:14px" onchange="saveSetting(\'pomodoroMinutes\', parseInt(this.value))">' +
           ['20','25','30','45'].map(function(m){return '<option value="'+m+'"'+(s.pomodoroMinutes==m?' selected':'')+'>'+m+' 分钟</option>';}).join('') +
         '</select></div>' +
@@ -7237,7 +7249,7 @@ function renderSettings() {
 
     '<div class="section"><div class="section-title">关于</div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="showManualMenu()"><div><div class="setting-label">📖 使用说明</div><div class="setting-desc">查看使用指南</div></div><div style="display:flex;align-items:center">→</div></div>' +
-      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">手机刷题工具 · 纯前端离线可用 · <span id="appVersion">v193</span></div></div></div>' +
+      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">手机刷题工具 · 纯前端离线可用 · <span id="appVersion">v194</span></div></div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="clearAllData()"><div><div class="setting-label" style="color:var(--danger)">🗑️ 删除所有数据</div><div class="setting-desc">清空全部题库和设置，不可恢复</div></div><div style="display:flex;align-items:center;color:var(--danger)">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="checkUpdate()"><div><div class="setting-label">🔄 检查更新</div><div class="setting-desc">点击清除缓存并刷新，获取最新版本</div></div><div style="display:flex;align-items:center">→</div></div>' +
     '</div>';
