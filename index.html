@@ -1938,30 +1938,65 @@ function editBankContent(name) {
 
 function renderEditBankModal(ov, name, bank) {
   window._editBankActiveName = name;
-  // 分页参数
+  // 初始化状态
+  if (!window._editBankMultiMode) window._editBankMultiMode = false;
+  if (!window._editBankSelected) window._editBankSelected = {};
+  if (!window._editBankFilter) window._editBankFilter = {};
+  if (!window._editBankTags) window._editBankTags = {};
+  if (!window._editBankPendingUndo) window._editBankPendingUndo = null;
+  var multiMode = window._editBankMultiMode;
+  var selected = window._editBankSelected;
+  var filter = window._editBankFilter[name] || '';
+  var tags = window._editBankTags;
+
+  // 过滤
+  var filteredIndices = [];
+  for (var i = 0; i < bank.length; i++) {
+    var q = bank[i];
+    if (!filter) { filteredIndices.push(i); }
+    else {
+      var haystack = (q.question||'') + '|' + (q.answer||'') + '|' + (q.explanation||'') + '|' + (q.A||'') + '|' + (q.B||'') + '|' + (q.C||'') + '|' + (q.D||'');
+      if (haystack.indexOf(filter) !== -1) filteredIndices.push(i);
+    }
+  }
+
+  // 分页
   var PAGE_SIZE = 100;
-  var totalPages = Math.ceil(bank.length / PAGE_SIZE);
+  var totalPages = Math.ceil(filteredIndices.length / PAGE_SIZE);
   window._editBankPage = window._editBankPage || {};
   var currentPage = window._editBankPage[name] || 1;
   if (currentPage > totalPages) currentPage = 1;
   window._editBankPage[name] = currentPage;
   var start = (currentPage - 1) * PAGE_SIZE;
-  var end = Math.min(start + PAGE_SIZE, bank.length);
+  var end = Math.min(start + PAGE_SIZE, filteredIndices.length);
 
-  // 只渲染当前页的题目（用 data 属性代替 onclick 拼接，避免转义问题）
+  // 条目
   var itemsHtml = '';
   for (var i = start; i < end; i++) {
-    var q = bank[i];
-    itemsHtml += '<div class="edit-bank-item" id="editBankItem_' + i + '" data-idx="' + i + '">' +
-      '<button style="flex:1;min-width:0;border:none;background:none;text-align:left;font:inherit;color:inherit;padding:0;cursor:pointer;display:block;-webkit-appearance:none;appearance:none" data-idx="' + i + '">' +
-        '<div style="font-size:13px;font-weight:600;color:var(--primary);margin-bottom:2px">#' + (i + 1) + '</div>' +
-        '<div style="font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(q.question || '') + '</div>' +
-        '<div style="font-size:11px;color:var(--text-tertiary);margin-top:2px">答案：' + escHtml(q.answer || '') + '</div>' +
+    var idx = filteredIndices[i];
+    var q2 = bank[idx];
+    var tagKey = name + '|' + idx;
+    var tag = tags[tagKey] || '';
+    var tagHtml = '';
+    if (tag === 'important') tagHtml = ' <span style="color:#e67e22;font-size:13px" title="重点">⭐</span>';
+    else if (tag === 'tricky') tagHtml = ' <span style="color:#e74c3c;font-size:13px" title="易错">⚠️</span>';
+    else if (tag === 'doubt') tagHtml = ' <span style="color:#8e44ad;font-size:13px" title="存疑">❓</span>';
+
+    var cbHtml = multiMode ? '<input type="checkbox" class="edit-select-cb" data-idx="' + idx + '" style="margin-right:8px;min-width:18px;min-height:18px;flex-shrink:0"' + (selected[idx] ? ' checked' : '') + '>' : '';
+    var delBtnHtml = !multiMode ? '<button class="btn btn-ghost btn-sm edit-quick-delete-btn" data-idx="' + idx + '" style="flex-shrink:0;min-width:32px;min-height:32px;padding:2px 6px;font-size:14px;color:var(--text-tertiary);line-height:1" title="快速删除">🗑️</button>' : '';
+
+    itemsHtml += '<div class="edit-bank-item" id="editBankItem_' + idx + '" data-idx="' + idx + '" style="align-items:center">' +
+      cbHtml +
+      '<button style="flex:1;min-width:0;border:none;background:none;text-align:left;font:inherit;color:inherit;padding:0;cursor:pointer;display:block;-webkit-appearance:none;appearance:none" data-idx="' + idx + '">' +
+        '<div style="font-size:13px;font-weight:600;color:var(--primary);margin-bottom:2px">#' + (idx + 1) + tagHtml + '</div>' +
+        '<div style="font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(q2.question || '') + '</div>' +
+        '<div style="font-size:11px;color:var(--text-tertiary);margin-top:2px">答案：' + escHtml(q2.answer || '') + '</div>' +
       '</button>' +
+      delBtnHtml +
     '</div>';
   }
 
-  // 分页控件（用 data-page 代替 onclick 拼接，放在顶部跳转区）
+  // 分页控件
   var paginationHtml = '';
   if (totalPages > 1) {
     paginationHtml = '<span style="display:inline-flex;gap:4px;align-items:center">' +
@@ -1971,40 +2006,72 @@ function renderEditBankModal(ov, name, bank) {
     '</span>';
   }
 
+  // 多选工具栏
+  var selectedCount = 0;
+  for (var key in selected) { if (selected[key]) selectedCount++; }
+  var multiBarHtml = multiMode ?
+    '<div style="margin-bottom:6px;padding:6px 10px;background:var(--bg);border-radius:8px;display:flex;justify-content:space-between;align-items:center;font-size:12px;flex-wrap:wrap;gap:6px">' +
+      '<span>已选 <b style="color:var(--primary)">' + selectedCount + '</b> 题</span>' +
+      '<div style="display:flex;gap:6px">' +
+        '<button class="btn btn-ghost btn-sm edit-select-all-btn" style="font-size:11px;padding:4px 10px;min-height:30px">' + (selectedCount === filteredIndices.length && filteredIndices.length > 0 ? '取消全选' : '全选') + '</button>' +
+        '<button class="btn btn-ghost btn-sm edit-batch-delete-btn" style="font-size:11px;padding:4px 10px;min-height:30px;color:var(--danger)" ' + (selectedCount === 0 ? 'disabled' : '') + '>🗑️ 删除选中</button>' +
+      '</div>' +
+    '</div>' : '';
+
   ov.innerHTML = '<div class="modal" style="animation:none;max-width:500px;width:100%;padding:0;border-radius:var(--radius);max-height:80dvh;overflow-y:auto;-webkit-overflow-scrolling:auto;touch-action:manipulation;position:relative" data-bank-name="' + escHtml(name) + '" data-bank-total="' + bank.length + '">' +
-    '<div style="padding:16px 18px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--card);z-index:1">' +
+    '<div style="padding:14px 16px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--card);z-index:1">' +
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">' +
-        '<h3 style="font-size:17px;margin:0">✏️ 编辑「' + escHtml(name) + '」（' + bank.length + '题）</h3>' +
-        '<button class="btn btn-ghost btn-sm" onclick="this.closest(\'.modal-overlay\').remove()" style="font-size:20px;padding:4px 8px">✕</button>' +
+        '<h3 style="font-size:17px;margin:0">✏️ 编辑「' + escHtml(name) + '」（' + bank.length + '题）' + (filter ? ' <span style="font-size:11px;color:var(--primary)">匹配' + filteredIndices.length + '题</span>' : '') + '</h3>' +
+        '<button class="btn btn-ghost btn-sm" onclick="this.closest(\'.modal-overlay\').remove()" style="font-size:20px;padding:4px 8px;min-width:44px;min-height:44px">✕</button>' +
+      '</div>' +
+      '<div style="display:flex;gap:6px;margin-bottom:8px">' +
+        '<input type="text" id="editBankSearch" placeholder="🔍 搜索题目…" value="' + escHtml(filter) + '" style="flex:1;padding:6px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--bg-input);color:var(--text)">' +
+        (filter ? '<button class="btn btn-ghost btn-sm" id="editBankClearSearch" style="font-size:13px;padding:4px 10px;min-height:36px">✕</button>' : '') +
       '</div>' +
       '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">' +
-        '<span style="font-size:12px;color:var(--text-secondary);white-space:nowrap">🔍 跳到第</span>' +
-        '<input type="number" id="editBankJumpInput" min="1" max="' + bank.length + '" placeholder="题号" style="width:60px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;text-align:center;background:var(--bg-input);color:var(--text)" onkeydown="if(event.key===\'Enter\')document.querySelector(\'#editBankJumpGo\').click()">' +
+        '<button class="btn btn-sm" id="editBankAddBtn" style="background:var(--success);color:#fff;border:none;font-size:12px;padding:5px 12px;border-radius:6px;min-height:36px">+ 添加</button>' +
+        '<button class="btn btn-sm" id="editBankMultiToggle" style="font-size:12px;padding:5px 12px;border-radius:6px;min-height:36px;' + (multiMode ? 'background:var(--primary);color:#fff;border:none' : 'background:var(--bg-input);border:1px solid var(--border);color:var(--text)') + '">☐ 多选</button>' +
+        '<span style="font-size:12px;color:var(--text-secondary);white-space:nowrap">跳到第</span>' +
+        '<input type="number" id="editBankJumpInput" min="1" max="' + bank.length + '" placeholder="题号" style="width:50px;padding:5px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;text-align:center;background:var(--bg-input);color:var(--text)">' +
         '<span style="font-size:12px;color:var(--text-secondary);white-space:nowrap">题</span>' +
-        '<button class="btn btn-sm" id="editBankJumpGo" style="background:var(--primary);color:#fff;border:none;font-size:12px;padding:5px 12px;border-radius:6px">GO</button>' +
+        '<button class="btn btn-sm" id="editBankJumpGo" style="background:var(--primary);color:#fff;border:none;font-size:11px;padding:5px 10px;border-radius:6px">GO</button>' +
         paginationHtml +
       '</div>' +
+      multiBarHtml +
     '</div>' +
     '<div id="editBankList">' + itemsHtml + '</div>' +
   '</div>';
 
-  // 事件代理：点击题目行展开/收起编辑
+  // 事件代理
   var listEl = ov.querySelector('#editBankList');
   if (listEl) {
     listEl.addEventListener('click', function(e) {
-      // 不拦截表单元素（输入框、文本域）的点击
       var tag = e.target.tagName;
       if (tag === 'TEXTAREA' || tag === 'INPUT' || tag === 'SELECT' || tag === 'LABEL') return;
-      // 不拦截保存/取消按钮
       if (e.target.closest('.edit-save-btn') || e.target.closest('.edit-cancel-btn') || e.target.closest('.edit-delete-btn')) return;
-      // 找最近的题目行
+      // 快速删除
+      var qdBtn = e.target.closest('.edit-quick-delete-btn');
+      if (qdBtn) {
+        var qdIdx = parseInt(qdBtn.getAttribute('data-idx'));
+        if (!isNaN(qdIdx)) { quickDeleteQuestion(name, qdIdx); }
+        return;
+      }
+      // 复选框
+      if (e.target.classList.contains('edit-select-cb')) {
+        if (multiMode) {
+          var cbIdx = parseInt(e.target.getAttribute('data-idx'));
+          if (!isNaN(cbIdx)) { selected[cbIdx] = e.target.checked; renderEditBankModal(ov, name, bank); }
+        }
+        return;
+      }
+      // 展开/收起
       var row = e.target.closest('[data-idx]');
       if (!row) return;
       var idx = parseInt(row.getAttribute('data-idx'));
       if (!isNaN(idx)) toggleEditBankQuestion(name, idx);
     });
   }
-  // 事件代理：翻页按钮
+  // 翻页
   var pgBtns = ov.querySelectorAll('.edit-pg-btn');
   for (var bi = 0; bi < pgBtns.length; bi++) {
     pgBtns[bi].addEventListener('click', function() {
@@ -2012,11 +2079,58 @@ function renderEditBankModal(ov, name, bank) {
       if (!isNaN(page)) editBankGoPage(name, page);
     });
   }
-  // GO 按钮
+  // GO
   var goBtn = ov.querySelector('#editBankJumpGo');
-  if (goBtn) {
-    goBtn.addEventListener('click', function() {
-      editBankJumpTo(name, bank.length);
+  if (goBtn) { goBtn.addEventListener('click', function() { editBankJumpTo(name, bank.length); }); }
+  // 搜索
+  var searchInput = ov.querySelector('#editBankSearch');
+  if (searchInput) {
+    searchInput.addEventListener('input', function() {
+      window._editBankFilter[name] = this.value;
+      window._editBankPage[name] = 1;
+      renderEditBankModal(ov, name, bank);
+    });
+    // 保持焦点
+    setTimeout(function() { var si = document.getElementById('editBankSearch'); if (si) { si.focus(); si.setSelectionRange(si.value.length, si.value.length); } }, 50);
+  }
+  var clearSearch = ov.querySelector('#editBankClearSearch');
+  if (clearSearch) {
+    clearSearch.addEventListener('click', function() {
+      window._editBankFilter[name] = '';
+      window._editBankPage[name] = 1;
+      renderEditBankModal(ov, name, bank);
+    });
+  }
+  // 添加题目
+  var addBtn = ov.querySelector('#editBankAddBtn');
+  if (addBtn) { addBtn.addEventListener('click', function() { addNewQuestion(name); }); }
+  // 多选切换
+  var multiToggle = ov.querySelector('#editBankMultiToggle');
+  if (multiToggle) {
+    multiToggle.addEventListener('click', function() {
+      window._editBankMultiMode = !window._editBankMultiMode;
+      if (!window._editBankMultiMode) window._editBankSelected = {};
+      renderEditBankModal(ov, name, bank);
+    });
+  }
+  // 全选
+  var selectAllBtn = ov.querySelector('.edit-select-all-btn');
+  if (selectAllBtn) {
+    selectAllBtn.addEventListener('click', function() {
+      var allSelected = true;
+      for (var fi = 0; fi < filteredIndices.length; fi++) { if (!selected[filteredIndices[fi]]) { allSelected = false; break; } }
+      for (var fj = 0; fj < filteredIndices.length; fj++) { selected[filteredIndices[fj]] = !allSelected; }
+      renderEditBankModal(ov, name, bank);
+    });
+  }
+  // 批量删除
+  var batchDelBtn = ov.querySelector('.edit-batch-delete-btn');
+  if (batchDelBtn) {
+    batchDelBtn.addEventListener('click', function() {
+      if (selectedCount === 0) return;
+      if (!confirm('确认删除选中的 ' + selectedCount + ' 道题？')) return;
+      batchDeleteQuestions(name, bank);
+      toast('已删除 ' + selectedCount + ' 题。' + (window._editBankPendingUndo ? '<a href="javascript:void(0)" onclick="undoDeleteQuestions()" style="color:#fff;font-weight:700;text-decoration:underline">↩ 撤销</a>' : ''));
     });
   }
 }
@@ -2090,26 +2204,44 @@ function toggleEditBankQuestion(name, idx) {
   var stateKey = name + '|' + idx;
   var itemEl = document.getElementById('editBankItem_' + idx);
   if (!itemEl) return;
+  var tags = window._editBankTags || {};
+  var tagKey = name + '|' + idx;
+  var tag = tags[tagKey] || '';
 
   if (window._editBankStates[stateKey]) {
     // 退出编辑模式 - 保存
     window._editBankStates[stateKey] = false;
     saveEditBankQuestion(name, idx);
-    // 刷新列表中的这一项（保留 data-idx）
     var newQ = bank[idx];
     itemEl.classList.remove('editing');
+    var tagHtml = '';
+    if (tag === 'important') tagHtml = ' <span style="color:#e67e22;font-size:13px" title="重点">⭐</span>';
+    else if (tag === 'tricky') tagHtml = ' <span style="color:#e74c3c;font-size:13px" title="易错">⚠️</span>';
+    else if (tag === 'doubt') tagHtml = ' <span style="color:#8e44ad;font-size:13px" title="存疑">❓</span>';
     itemEl.innerHTML = '<button style="flex:1;min-width:0;border:none;background:none;text-align:left;font:inherit;color:inherit;padding:0;cursor:pointer;display:block;-webkit-appearance:none;appearance:none" data-idx="' + idx + '">' +
-      '<div style="font-size:13px;font-weight:600;color:var(--primary);margin-bottom:2px">#' + (idx + 1) + '</div>' +
+      '<div style="font-size:13px;font-weight:600;color:var(--primary);margin-bottom:2px">#' + (idx + 1) + tagHtml + '</div>' +
       '<div style="font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(newQ.question || '') + '</div>' +
       '<div style="font-size:11px;color:var(--text-tertiary);margin-top:2px">答案：' + escHtml(newQ.answer || '') + '</div>' +
-    '</button>';
+    '</button>' +
+    (!window._editBankMultiMode ? '<button class="btn btn-ghost btn-sm edit-quick-delete-btn" data-idx="' + idx + '" style="flex-shrink:0;min-width:32px;min-height:32px;padding:2px 6px;font-size:14px;color:var(--text-tertiary);line-height:1" title="快速删除">🗑️</button>' : '');
   } else {
     // 进入编辑模式
     window._editBankStates[stateKey] = true;
     var letters = ['A','B','C','D'];
     if (q.E && String(q.E).trim()) letters.push('E');
     if (q.F && String(q.F).trim()) letters.push('F');
-    var formHtml = '<div style="font-size:13px;font-weight:600;color:var(--primary);margin-bottom:8px">#' + (idx + 1) + ' 编辑</div>' +
+    var isFirst = idx === 0;
+    var isLast = idx === bank.length - 1;
+    var formHtml =
+      '<div style="font-size:13px;font-weight:600;color:var(--primary);margin-bottom:4px">#' + (idx + 1) + ' 编辑</div>' +
+      // 标记切换
+      '<div style="margin-bottom:8px;display:flex;gap:6px;flex-wrap:wrap">' +
+        '<span style="font-size:11px;color:var(--text-secondary);line-height:28px">标记：</span>' +
+        '<button class="btn btn-ghost btn-sm edit-tag-btn" data-tag="important" style="font-size:12px;padding:4px 10px;min-height:30px;' + (tag === 'important' ? 'background:var(--primary);color:#fff;border-color:var(--primary)' : '') + '">⭐ 重点</button>' +
+        '<button class="btn btn-ghost btn-sm edit-tag-btn" data-tag="tricky" style="font-size:12px;padding:4px 10px;min-height:30px;' + (tag === 'tricky' ? 'background:var(--primary);color:#fff;border-color:var(--primary)' : '') + '">⚠️ 易错</button>' +
+        '<button class="btn btn-ghost btn-sm edit-tag-btn" data-tag="doubt" style="font-size:12px;padding:4px 10px;min-height:30px;' + (tag === 'doubt' ? 'background:var(--primary);color:#fff;border-color:var(--primary)' : '') + '">❓ 存疑</button>' +
+        (tag ? '<button class="btn btn-ghost btn-sm edit-tag-btn" data-tag="" style="font-size:12px;padding:4px 8px;min-height:30px;color:var(--text-tertiary)">清除</button>' : '') +
+      '</div>' +
       '<div style="margin-bottom:8px"><label style="font-size:11px;color:var(--text-secondary);display:block;margin-bottom:2px">题目</label><textarea id="ebQ_' + idx + '" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--bg-input);color:var(--text);resize:vertical;min-height:50px;font-family:inherit">' + escHtml(q.question || '') + '</textarea></div>' +
       letters.map(function(l) {
         return '<div style="margin-bottom:6px"><label style="font-size:11px;color:var(--text-secondary);display:block;margin-bottom:2px">选项 ' + l + '</label><input id="eb' + l + '_' + idx + '" value="' + escHtml(q[l] || '') + '" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--bg-input);color:var(--text);font-family:inherit"></div>';
@@ -2117,9 +2249,32 @@ function toggleEditBankQuestion(name, idx) {
       '<div style="margin-bottom:8px"><label style="font-size:11px;color:var(--text-secondary);display:block;margin-bottom:2px">答案</label><input id="ebAns_' + idx + '" value="' + escHtml(q.answer || '') + '" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--bg-input);color:var(--text);font-family:inherit"></div>' +
       '<div style="margin-bottom:8px"><label style="font-size:11px;color:var(--text-secondary);display:block;margin-bottom:2px">解析（可选）</label><textarea id="ebExp_' + idx + '" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--bg-input);color:var(--text);resize:vertical;min-height:40px;font-family:inherit">' + escHtml(q.explanation || '') + '</textarea></div>' +
       '<div style="display:flex;gap:8px"><button class="btn btn-primary btn-sm edit-save-btn" style="flex:1;text-align:center" onclick="saveEditBankInlineFromBtn(this)">💾 保存</button><button class="btn btn-ghost btn-sm edit-cancel-btn" style="flex:1;text-align:center" onclick="cancelEditBankInlineFromBtn(this)">取消</button></div>' +
-      '<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border)"><button class="btn btn-ghost btn-sm edit-delete-btn" style="width:100%;text-align:center;color:var(--danger);min-height:36px" onclick="deleteBankQuestion(\'' + escQ(name) + '\',' + idx + ')">🗑️ 删除此题</button></div>';
+      '<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);display:flex;gap:6px;flex-wrap:wrap">' +
+        '<button class="btn btn-ghost btn-sm edit-move-up-btn" style="font-size:12px;padding:4px 10px;min-height:30px" ' + (isFirst ? 'disabled' : '') + '>↑ 上移</button>' +
+        '<button class="btn btn-ghost btn-sm edit-move-down-btn" style="font-size:12px;padding:4px 10px;min-height:30px" ' + (isLast ? 'disabled' : '') + '>↓ 下移</button>' +
+        '<button class="btn btn-ghost btn-sm edit-clone-btn" style="font-size:12px;padding:4px 10px;min-height:30px">📋 克隆</button>' +
+        '<button class="btn btn-ghost btn-sm edit-delete-btn" style="font-size:12px;padding:4px 10px;min-height:30px;color:var(--danger)" onclick="deleteBankQuestion(\'' + escQ(name) + '\',' + idx + ')">🗑️ 删除</button>' +
+      '</div>';
     itemEl.innerHTML = formHtml;
     itemEl.classList.add('editing');
+    // 标记按钮事件
+    var tagBtns = itemEl.querySelectorAll('.edit-tag-btn');
+    for (var ti = 0; ti < tagBtns.length; ti++) {
+      tagBtns[ti].addEventListener('click', function() {
+        var t = this.getAttribute('data-tag');
+        if (t) { tags[tagKey] = t; } else { delete tags[tagKey]; }
+        toggleEditBankQuestion(name, idx);
+      });
+    }
+    // 上移按钮
+    var muBtn = itemEl.querySelector('.edit-move-up-btn');
+    if (muBtn && !isFirst) { muBtn.addEventListener('click', function() { moveQuestion(name, idx, -1); }); }
+    // 下移按钮
+    var mdBtn = itemEl.querySelector('.edit-move-down-btn');
+    if (mdBtn && !isLast) { mdBtn.addEventListener('click', function() { moveQuestion(name, idx, 1); }); }
+    // 克隆按钮
+    var clBtn = itemEl.querySelector('.edit-clone-btn');
+    if (clBtn) { clBtn.addEventListener('click', function() { cloneQuestion(name, idx); }); }
   }
 }
 
@@ -2211,17 +2366,159 @@ function deleteBankQuestion(name, idx) {
   if (!bank || !bank[idx]) return;
   var q = bank[idx];
   var preview = q.question ? (q.question.length > 30 ? q.question.substring(0, 30) + '…' : q.question) : '';
-  if (!confirm('确认删除第 ' + (idx+1) + ' 题？\n\n' + preview + '\n\n此操作不可撤销！')) return;
+  if (!confirm('确认删除第 ' + (idx+1) + ' 题？\n\n' + preview + '\n\n此操作可撤销（当前编辑弹窗内有效）。')) return;
+  // 存入撤销栈
+  window._editBankPendingUndo = { name: name, items: [{ idx: idx, q: q }] };
   bank.splice(idx, 1);
   if (appData.stats && appData.stats[name]) {
     var st = appData.stats[name];
     if (st.answered > 0) st.answered = Math.max(0, st.answered - 1);
   }
   saveData(appData);
-  toast('✅ 已删除第 ' + (idx+1) + ' 题');
-  // 刷新编辑弹窗
+  // 题库空了则关闭弹窗
+  if (bank.length === 0) {
+    var ovDel = document.querySelector('.modal-overlay');
+    if (ovDel) ovDel.remove();
+    toast('题库已清空');
+    return;
+  }
+  toast('✅ 已删除第 ' + (idx+1) + ' 题 <a href="javascript:void(0)" onclick="undoDeleteQuestions()" style="color:#fff;font-weight:700;text-decoration:underline">↩ 撤销</a>');
   var modalContent = document.querySelector('.modal-overlay [data-bank-name]');
   if (modalContent) { renderEditBankModal(modalContent.closest('.modal-overlay'), name, bank); }
+}
+
+function quickDeleteQuestion(name, idx) {
+  var bank = appData.banks[name];
+  if (!bank || !bank[idx]) return;
+  var q = bank[idx];
+  window._editBankPendingUndo = { name: name, items: [{ idx: idx, q: q }] };
+  bank.splice(idx, 1);
+  if (appData.stats && appData.stats[name]) {
+    var st2 = appData.stats[name];
+    if (st2.answered > 0) st2.answered = Math.max(0, st2.answered - 1);
+  }
+  saveData(appData);
+  if (bank.length === 0) {
+    var ov2 = document.querySelector('.modal-overlay');
+    if (ov2) ov2.remove();
+    toast('题库已清空');
+    return;
+  }
+  toast('🗑️ 已删除第 ' + (idx+1) + ' 题 <a href="javascript:void(0)" onclick="undoDeleteQuestions()" style="color:#fff;font-weight:700;text-decoration:underline">↩ 撤销</a>');
+  var mc2 = document.querySelector('.modal-overlay [data-bank-name]');
+  if (mc2) { renderEditBankModal(mc2.closest('.modal-overlay'), name, bank); }
+}
+
+function batchDeleteQuestions(name, bank) {
+  var selected = window._editBankSelected || {};
+  var toDelete = [];
+  for (var key in selected) { if (selected[key]) toDelete.push(parseInt(key)); }
+  toDelete.sort(function(a, b) { return b - a; }); // 从大到小排，splice不会影响前面的索引
+  var deleted = [];
+  for (var di = 0; di < toDelete.length; di++) {
+    var didx = toDelete[di];
+    if (bank[didx]) { deleted.push({ idx: didx, q: bank[didx] }); bank.splice(didx, 1); }
+  }
+  if (deleted.length > 0) {
+    window._editBankPendingUndo = { name: name, items: deleted };
+    saveData(appData);
+    window._editBankMultiMode = false;
+    window._editBankSelected = {};
+    if (bank.length === 0) {
+      var ov3 = document.querySelector('.modal-overlay');
+      if (ov3) ov3.remove();
+      toast('题库已清空');
+      return;
+    }
+    var mc3 = document.querySelector('.modal-overlay [data-bank-name]');
+    if (mc3) { renderEditBankModal(mc3.closest('.modal-overlay'), name, bank); }
+  }
+}
+
+function undoDeleteQuestions() {
+  var undo = window._editBankPendingUndo;
+  if (!undo || !undo.items || !undo.items.length) { toast('没有可撤销的操作'); return; }
+  var bank = appData.banks[undo.name];
+  if (!bank) return;
+  // 按原始索引从小到大插入
+  var items = undo.items.slice().sort(function(a, b) { return a.idx - b.idx; });
+  for (var ui = 0; ui < items.length; ui++) {
+    var item = items[ui];
+    var insertAt = Math.min(item.idx, bank.length);
+    bank.splice(insertAt, 0, item.q);
+  }
+  window._editBankPendingUndo = null;
+  saveData(appData);
+  toast('✅ 已恢复 ' + items.length + ' 题');
+  var mc4 = document.querySelector('.modal-overlay [data-bank-name]');
+  if (!mc4) {
+    // 弹窗已关闭，重新打开
+    editBankContent(undo.name);
+    return;
+  }
+  renderEditBankModal(mc4.closest('.modal-overlay'), undo.name, bank);
+}
+
+function addNewQuestion(name) {
+  var bank = appData.banks[name];
+  if (!bank) return;
+  var newQ = { id: Date.now(), question: '新题目', A: '', B: '', C: '', D: '', answer: '', type: 'single', explanation: '' };
+  bank.push(newQ);
+  if (!appData.stats) appData.stats = {};
+  if (!appData.stats[name]) appData.stats[name] = { answered: 0, correct: 0, rounds: 0 };
+  saveData(appData);
+  toast('✅ 已添加新题目到末尾');
+  var mc5 = document.querySelector('.modal-overlay [data-bank-name]');
+  if (mc5) {
+    // 跳到最后一页
+    window._editBankPage[name] = Math.ceil(bank.length / 100);
+    renderEditBankModal(mc5.closest('.modal-overlay'), name, bank);
+    // 滚动到底部并展开新题
+    setTimeout(function() {
+      var newItem = document.getElementById('editBankItem_' + (bank.length - 1));
+      if (newItem) { newItem.scrollIntoView({ behavior: 'smooth', block: 'center' }); toggleEditBankQuestion(name, bank.length - 1); }
+    }, 200);
+  }
+}
+
+function moveQuestion(name, idx, dir) {
+  var bank = appData.banks[name];
+  if (!bank) return;
+  var target = idx + dir;
+  if (target < 0 || target >= bank.length) return;
+  var tmp = bank[idx];
+  bank[idx] = bank[target];
+  bank[target] = tmp;
+  // 清除编辑状态避免混乱
+  var stateKey1 = name + '|' + idx;
+  var stateKey2 = name + '|' + target;
+  var states = window._editBankStates || {};
+  states[stateKey1] = false; states[stateKey2] = false;
+  saveData(appData);
+  var mc6 = document.querySelector('.modal-overlay [data-bank-name]');
+  if (mc6) { renderEditBankModal(mc6.closest('.modal-overlay'), name, bank); }
+}
+
+function cloneQuestion(name, idx) {
+  var bank = appData.banks[name];
+  if (!bank || !bank[idx]) return;
+  var src = bank[idx];
+  var newQ = {};
+  for (var k in src) { newQ[k] = src[k]; }
+  newQ.id = Date.now();
+  if (src.id) newQ.id = src.id + '_copy';
+  bank.push(newQ);
+  saveData(appData);
+  toast('✅ 已克隆第 ' + (idx+1) + ' 题到末尾');
+  var mc7 = document.querySelector('.modal-overlay [data-bank-name]');
+  if (mc7) {
+    window._editBankPage[name] = Math.ceil(bank.length / 100);
+    renderEditBankModal(mc7.closest('.modal-overlay'), name, bank);
+    setTimeout(function() {
+      var cloneItem = document.getElementById('editBankItem_' + (bank.length - 1));
+      if (cloneItem) cloneItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 200);
+  }
 }
 
 
@@ -7311,7 +7608,7 @@ function renderSettings() {
 
     '<div class="section"><div class="section-title" id="aboutSectionTitle" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;min-height:44px" onclick="var c=document.getElementById(\'aboutSectionContent\');var a=document.getElementById(\'aboutSectionArrow\');if(c.style.display===\'none\'){c.style.display=\'\';a.textContent=\'▼\'}else{c.style.display=\'none\';a.textContent=\'▶\'}">ℹ️ 关于 <span id="aboutSectionArrow" style="font-size:11px">▼</span></div>' +
       '<div id="aboutSectionContent"><div class="setting-item" style="cursor:pointer" onclick="showManualMenu()"><div><div class="setting-label">📖 使用说明</div><div class="setting-desc">查看使用指南</div></div><div style="display:flex;align-items:center">→</div></div>' +
-      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">手机刷题工具 · 纯前端离线可用 · <span id="appVersion">v204</span></div></div></div>' +
+      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">手机刷题工具 · 纯前端离线可用 · <span id="appVersion">v205</span></div></div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="showDataOffsetTool()"><div><div class="setting-label">🔧 数据批量偏移</div><div class="setting-desc">修复答案/解析的错位问题（支持前移后移）</div></div><div style="display:flex;align-items:center">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="clearAllData()"><div><div class="setting-label" style="color:var(--danger)">🗑️ 删除所有数据</div><div class="setting-desc">清空全部题库和设置，不可恢复</div></div><div style="display:flex;align-items:center;color:var(--danger)">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="checkUpdate()"><div><div class="setting-label">🔄 检查更新</div><div class="setting-desc">点击清除缓存并刷新，获取最新版本</div></div><div style="display:flex;align-items:center">→</div></div>' +
