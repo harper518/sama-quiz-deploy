@@ -381,6 +381,7 @@ body {
 .option-btn.wrong { border-color: var(--danger); background: var(--danger-light); color: #991B1B; }
 .option-btn.reveal { border-color: var(--success); background: var(--success-light); }
 .option-btn.disabled { pointer-events: none; opacity: 0.7; }
+.option-btn.striked { opacity: 0.35; text-decoration: line-through; background: rgba(128,128,128,0.08); }
 /* 多选题选项 */
 .option-btn.option-multi { cursor: pointer; user-select: none; }
 .option-btn.option-multi.multi-on { border-color: var(--primary); background: var(--primary-light); color: var(--primary); font-weight: 600; box-shadow: 0 0 0 1px var(--primary); }
@@ -4757,6 +4758,26 @@ function renderQuestion() {
         '</button>';
     }).join('');
 
+    // 长按划掉选项（仅单选题，未答状态生效）
+    if (!allDisabled) {
+      (function() {
+        var longPressTimer = null;
+        var btns = optsContainer.querySelectorAll('.option-btn');
+        btns.forEach(function(btn) {
+          btn.addEventListener('pointerdown', function(e) {
+            longPressTimer = setTimeout(function() {
+              btn.classList.toggle('striked');
+              if (navigator.vibrate) { navigator.vibrate(15); }
+              longPressTimer = null;
+            }, 500);
+          });
+          btn.addEventListener('pointerup', function(e) { if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; } });
+          btn.addEventListener('pointerleave', function(e) { if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; } });
+          btn.addEventListener('pointercancel', function(e) { if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; } });
+        });
+      })();
+    }
+
     if (!isInstant && effectiveAnswer) {
       var selBtn = optsContainer.querySelector('[data-letter="' + prevAnswer + '"]');
       if (selBtn) { selBtn.style.borderColor = 'var(--primary)'; selBtn.style.background = 'var(--primary-light)'; }
@@ -7216,7 +7237,7 @@ function renderSettings() {
 
     '<div class="section"><div class="section-title">关于</div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="showManualMenu()"><div><div class="setting-label">📖 使用说明</div><div class="setting-desc">查看使用指南</div></div><div style="display:flex;align-items:center">→</div></div>' +
-      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">手机刷题工具 · 纯前端离线可用 · <span id="appVersion">v192</span></div></div></div>' +
+      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">手机刷题工具 · 纯前端离线可用 · <span id="appVersion">v193</span></div></div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="clearAllData()"><div><div class="setting-label" style="color:var(--danger)">🗑️ 删除所有数据</div><div class="setting-desc">清空全部题库和设置，不可恢复</div></div><div style="display:flex;align-items:center;color:var(--danger)">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="checkUpdate()"><div><div class="setting-label">🔄 检查更新</div><div class="setting-desc">点击清除缓存并刷新，获取最新版本</div></div><div style="display:flex;align-items:center">→</div></div>' +
     '</div>';
