@@ -3375,9 +3375,12 @@ function showImportPreview(name, questions, stats, rawText) {
   var borderColor = allFailed ? 'var(--danger,#ef4444)' : 'var(--primary)';
   var titleText = allFailed ? '⚠️ 解析失败' : '📋 导入预览';
   ov.innerHTML = '<div class="modal" style="border-radius:18px;max-width:520px;width:100%;margin:0 auto;padding:20px;animation:none;border-top:3px solid ' + borderColor + '">' +
-    '<div class="flex-between mb-12">' +
+    '<div class="flex-between mb-12" style="position:sticky;top:0;z-index:10;background:var(--card);padding:12px 0;margin-top:-12px">' +
       '<div><h2 style="font-size:18px;margin:0;color:var(--text)">' + titleText + '</h2><p style="font-size:12px;color:var(--text-secondary);margin:4px 0 0">' + escHtml(name) + ' · ' + questions.length + ' 题' + (stats && stats.totalBlocks ? '（共扫描 ' + stats.totalBlocks + ' 条）' : '') + ' · 点击 ✏️ 编辑，确认后导入</p></div>' +
-      '<button class="btn btn-sm" style="background:var(--border);border:none;color:var(--text)" onclick="closeImportPreview()">✕</button>' +
+      '<div style="display:flex;gap:6px;align-items:center">' +
+        '<button class="btn btn-sm" style="background:var(--primary);color:#fff;border:none;min-width:44px;min-height:44px;font-size:16px" onclick="document.getElementById(\'importPreviewOverlay\').scrollTop=0">🔝</button>' +
+        '<button class="btn btn-sm" style="background:var(--border);border:none;color:var(--text);min-width:44px;min-height:44px;font-size:18px" onclick="closeImportPreview()">✕</button>' +
+      '</div>' +
     '</div>' +
     statsHtml +
     rawTextHtml +
@@ -3390,12 +3393,6 @@ function showImportPreview(name, questions, stats, rawText) {
     '</div>' +
   '</div>';
   document.body.appendChild(ov);
-  // 在 overlay 内容顶部插入 sticky 回到顶部按钮
-  var topBtn = document.createElement('div');
-  topBtn.id = 'previewScrollTopBtn';
-  topBtn.innerHTML = '<button style="width:44px;height:44px;border-radius:50%;background:#fff;border:2px solid var(--primary);font-size:18px;cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,.2);display:flex;align-items:center;justify-content:center;margin-left:auto;pointer-events:auto" onclick="document.getElementById(\'importPreviewOverlay\').scrollTop=0">🔝</button>';
-  topBtn.style.cssText = 'position:sticky;top:8px;z-index:10;text-align:right;margin-bottom:-44px;pointer-events:none';
-  ov.querySelector('.modal').insertBefore(topBtn, ov.querySelector('.modal').firstChild);
   renderImportPreviewCards();
   if (skipped.length > 0) renderSkippedItems();
 }
@@ -3878,8 +3875,6 @@ function savePreviewEdit(idx) {
 function closeImportPreview() {
   var ov = document.getElementById('importPreviewOverlay');
   if (ov) ov.remove();
-  var topBtn = document.getElementById('previewScrollTopBtn');
-  if (topBtn) topBtn.remove();
   previewImportData = null;
   _dismissedStack = [];
 }
@@ -8299,7 +8294,7 @@ function renderSettings() {
 
     '<div class="section"><div class="section-title" id="aboutSectionTitle" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;min-height:44px" onclick="var c=document.getElementById(\'aboutSectionContent\');var a=document.getElementById(\'aboutSectionArrow\');if(c.style.display===\'none\'){c.style.display=\'\';a.textContent=\'▼\'}else{c.style.display=\'none\';a.textContent=\'▶\'}">ℹ️ 关于 <span id="aboutSectionArrow" style="font-size:11px">▼</span></div>' +
       '<div id="aboutSectionContent"><div class="setting-item" style="cursor:pointer" onclick="showManualMenu()"><div><div class="setting-label">📖 使用说明</div><div class="setting-desc">查看使用指南</div></div><div style="display:flex;align-items:center">→</div></div>' +
-      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">手机刷题工具 · 纯前端离线可用 · <span id="appVersion">v226</span></div></div></div>' +
+      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">手机刷题工具 · 纯前端离线可用 · <span id="appVersion">v227</span></div></div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="showDataOffsetTool()"><div><div class="setting-label">🔧 数据批量偏移</div><div class="setting-desc">修复答案/解析的错位问题（支持前移后移）</div></div><div style="display:flex;align-items:center">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="clearAllData()"><div><div class="setting-label" style="color:var(--danger)">🗑️ 删除所有数据</div><div class="setting-desc">清空全部题库和设置，不可恢复</div></div><div style="display:flex;align-items:center;color:var(--danger)">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="checkUpdate()"><div><div class="setting-label">🔄 检查更新</div><div class="setting-desc">点击清除缓存并刷新，获取最新版本</div></div><div style="display:flex;align-items:center">→</div></div>' +
