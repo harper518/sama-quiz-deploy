@@ -1306,9 +1306,10 @@ function loadData() {
     if (!data.settings) data.settings = { color: 'pastel', darkMode: false, fontSize: 16 };
     if (!data.totalStudySeconds) data.totalStudySeconds = 0;
     if (!data.achievements) data.achievements = {};
+    if (!data.activation) data.activation = { tier: 'free', codeHash: '', activatedAt: null, expires: null };
     return data;
   }
-  catch(e) { return { banks: {}, stats: {}, wrongBooks: {}, quizHistory: {}, bankMeta: {}, settings: { color: 'pastel', darkMode: false, fontSize: 16 }, totalStudySeconds: 0, achievements: {} }; }
+  catch(e) { return { banks: {}, stats: {}, wrongBooks: {}, quizHistory: {}, bankMeta: {}, settings: { color: 'pastel', darkMode: false, fontSize: 16 }, totalStudySeconds: 0, achievements: {}, activation: { tier: 'free', codeHash: '', activatedAt: null, expires: null } }; }
 }
 function saveData(data) {
   try {
@@ -1492,6 +1493,7 @@ function getTotalAnswered() {
   return total;
 }
 function checkAchievements() {
+  if (isTierLocked('achievements')) return;
   if (!appData.achievements) appData.achievements = {};
   var newlyUnlocked = [];
   ACHIEVEMENTS.forEach(function(a) {
@@ -1549,6 +1551,178 @@ let timerInterval = null;
 let timerRemaining = 0;
 let _quizMixedMode = false;
 let _mixTypeFilter = 'all';
+// ====== 版本激活系统 ======
+var TIER_FEATURES = {
+  basic: ['allImport', 'unlimitedBanks', 'unlimitedQuestions', 'unlimitedBatch',
+          'randomNorepeat', 'perQuestionTimer', 'wrongRedo', 'dailyGoal',
+          'weeklySummary', 'srEnabled', 'mixedTheme', 'backupRestore',
+          'clearWrongBook', 'pwaOffline', 'editBank', 'searchQuestion'],
+  pro:   ['memorize', 'totalTimer', 'mixedBank', 'bankMerge', 'quickWrongReview',
+          'superFav', 'pomodoro', 'difficultyRating', 'achievements',
+          'allThemes', 'focusMode', 'heatmap', 'weakLabels']
+};
+var TIER_NAMES = { free: '基础版', basic: '科学备考版', pro: '智能全能版' };
+var TIER_EMOJI = { free: '🆓', basic: '💰', pro: '👑' };
+// 管理码 SHA-256 哈希（000→free, 333→basic, 999→pro）
+var ADMIN_HASHES = {
+  '2ac9a6746aca543af8dff39894cfe8173afba21eb01c6fae33d52947222855ef': 'free',
+  '556d7dc3a115356350f1f9910b1af1ab0e312d4b3e4fc788d2da63668f36d017': 'basic',
+  '83cf8b609de60036a8277bd0e96135751bbc07eb234256d4b65b893360651bf2': 'pro'
+};
+function getTier() {
+  return (appData.activation && appData.activation.tier) || 'free';
+}
+function hasFeature(name) {
+  var tier = getTier();
+  if (tier === 'pro') return true;
+  if (tier === 'basic') return TIER_FEATURES.basic.indexOf(name) >= 0;
+  return false;
+}
+function isTierLocked(name) {
+  return !hasFeature(name);
+}
+function getEffectiveSetting(key, defVal) {
+  var val = getSetting(key, defVal);
+  var tier = getTier();
+  if (tier === 'free') {
+    if (['srEnabled','focusMode','pomodoroEnabled','difficultyRating'].indexOf(key) >= 0) return false;
+  }
+  if (tier === 'basic') {
+    if (key === 'focusMode') return false;
+  }
+  return val;
+}
+function sha256(s) {
+  return crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)).then(function(h) {
+    return Array.from(new Uint8Array(h)).map(function(b) { return b.toString(16).padStart(2,'0'); }).join('');
+  });
+}
+function formatActivationCode(input) {
+  var cleaned = input.toUpperCase().replace(/[^A-Z2-9\-]/g, '');
+  cleaned = cleaned.replace(/-/g, '');
+  var parts = [];
+  for (var i = 0; i < cleaned.length && i < 12; i += 4) {
+    parts.push(cleaned.substring(i, i + 4));
+  }
+  return parts.join('-');
+}
+function showTierCompare() {
+  var ov = document.createElement('div');
+  ov.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:99999;background:rgba(15,23,42,0.5);display:flex;align-items:center;justify-content:center;padding:16px';
+  ov.addEventListener('click', function(e) { if (e.target === ov) ov.remove(); });
+  ov.innerHTML = '<div style="background:var(--card);border-radius:16px;padding:20px;max-width:720px;width:100%;max-height:90vh;overflow-y:auto;font-size:13px;line-height:1.6">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><h3 style="margin:0;font-size:17px">📊 版本功能对比</h3><button style="background:var(--border);border:none;border-radius:8px;padding:6px 12px;font-size:14px;cursor:pointer;min-height:36px" onclick="this.closest(\'div\').parentElement.parentElement.remove()">✕</button></div>' +
+    '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;text-align:center">' +
+    '<tr style="border-bottom:2px solid var(--border)"><th style="text-align:left;padding:8px">功能</th><th style="padding:8px">🆓 免费</th><th style="padding:8px">💰 ¥3/年</th><th style="padding:8px">👑 ¥9.9/年</th></tr>' +
+    '<tr><td style="text-align:left;padding:6px">粘贴/TXT/DOCX导入</td><td>✅</td><td>✅</td><td>✅</td></tr>' +
+    '<tr><td style="text-align:left;padding:6px">所有格式导入</td><td>❌</td><td>✅</td><td>✅</td></tr>' +
+    '<tr><td style="text-align:left;padding:6px">题库数/题数上限</td><td>3库×300题</td><td>无限制</td><td>无限制</td></tr>' +
+    '<tr><td style="text-align:left;padding:6px">每轮30题上限</td><td>✅</td><td>无限制</td><td>无限制</td></tr>' +
+    '<tr><td style="text-align:left;padding:6px">即时反馈+做完总结</td><td>✅</td><td>✅</td><td>✅</td></tr>' +
+    '<tr><td style="text-align:left;padding:6px">背题模式</td><td>❌</td><td>❌</td><td>✅</td></tr>' +
+    '<tr><td style="text-align:left;padding:6px">随机不重复</td><td>❌</td><td>✅</td><td>✅</td></tr>' +
+    '<tr><td style="text-align:left;padding:6px">混合刷题（多题库）</td><td>❌</td><td>❌</td><td>✅</td></tr>' +
+    '<tr><td style="text-align:left;padding:6px">每题限时 / 总时间</td><td>❌</td><td>✅ / ❌</td><td>✅</td></tr>' +
+    '<tr><td style="text-align:left;padding:6px">错题重做</td><td>❌</td><td>✅</td><td>✅</td></tr>' +
+    '<tr><td style="text-align:left;padding:6px">错题速览+重点标记</td><td>❌</td><td>❌</td><td>✅</td></tr>' +
+    '<tr><td style="text-align:left;padding:6px">间隔复习（遗忘曲线）</td><td>❌</td><td>✅</td><td>✅</td></tr>' +
+    '<tr><td style="text-align:left;padding:6px">番茄钟+专注模式</td><td>❌</td><td>❌</td><td>✅</td></tr>' +
+    '<tr><td style="text-align:left;padding:6px">成就系统</td><td>❌</td><td>❌</td><td>✅</td></tr>' +
+    '<tr><td style="text-align:left;padding:6px">学习热力图+弱项标签</td><td>❌</td><td>❌</td><td>✅</td></tr>' +
+    '<tr><td style="text-align:left;padding:6px">保底模式+考试倒计时</td><td>✅</td><td>✅</td><td>✅</td></tr>' +
+    '<tr><td style="text-align:left;padding:6px">题库合并+搜索</td><td>❌</td><td>✅</td><td>✅</td></tr>' +
+    '<tr><td style="text-align:left;padding:6px">日日标+本周小结</td><td>❌</td><td>✅</td><td>✅</td></tr>' +
+    '<tr><td style="text-align:left;padding:6px">PWA离线安装</td><td>❌</td><td>✅</td><td>✅</td></tr>' +
+    '<tr><td style="text-align:left;padding:6px">主题颜色</td><td>纯色5种</td><td>+1混色</td><td>全部14种</td></tr>' +
+    '</table></div></div>';
+  document.body.appendChild(ov);
+}
+// 激活码验证
+function activateCode(input) {
+  var raw = input.trim();
+  // 管理码优先检测（不经过格式化）
+  if (raw === '000' || raw === '333' || raw === '999') {
+    sha256(raw).then(function(hash) {
+      var adminTier = ADMIN_HASHES[hash];
+      if (adminTier) {
+        appData.activation = { tier: adminTier, codeHash: hash, activatedAt: null, expires: null };
+        saveData(appData);
+        showActivationSuccess(TIER_NAMES[adminTier], null);
+      }
+    });
+    return;
+  }
+  var code = formatActivationCode(input);
+  if (code.length < 14) { return toast('❌ 激活码格式不正确'); }
+  sha256(code).then(function(hash) {
+    // 检查管理码
+    if (ADMIN_HASHES[hash]) {
+      var adminTier = ADMIN_HASHES[hash];
+      appData.activation = { tier: adminTier, codeHash: hash, activatedAt: null, expires: null };
+      saveData(appData);
+      showActivationSuccess(TIER_NAMES[adminTier], null);
+      return;
+    }
+    // 检查 codes.json
+    fetch('./codes.json?t=' + Date.now())
+      .then(function(r) { if (!r.ok) throw new Error('network'); return r.json(); })
+      .then(function(codes) {
+        var entry = codes[hash];
+        if (!entry) { return toast('❌ 无效的激活码'); }
+        if (entry.status === 'revoked') { return toast('❌ 此激活码已被撤销'); }
+        var now = Date.now();
+        var expires = now + 370 * 86400000;
+        appData.activation = { tier: entry.tier, codeHash: hash, activatedAt: now, expires: expires };
+        saveData(appData);
+        showActivationSuccess(TIER_NAMES[entry.tier], expires);
+      })
+      .catch(function() { toast('❌ 验证服务暂时不可用，请确保网络连接正常'); });
+  });
+}
+function showActivationSuccess(tierName, expires) {
+  var expiresStr = expires ? '到期：' + new Date(expires).toLocaleDateString('zh-CN') : '永久有效';
+  var ov = document.createElement('div');
+  ov.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:99999;background:rgba(15,23,42,0.5);display:flex;align-items:center;justify-content:center;padding:16px';
+  ov.addEventListener('click', function(e) { if (e.target === ov) { ov.remove(); switchPage('settings', document.querySelector('[data-page="settings"]')); } });
+  ov.innerHTML = '<div style="background:var(--card);border-radius:16px;padding:30px;text-align:center;max-width:360px;width:100%">' +
+    '<div style="font-size:60px;margin-bottom:16px">🎉</div>' +
+    '<div style="font-size:20px;font-weight:800;margin-bottom:8px;color:var(--text)">升级成功！</div>' +
+    '<div style="font-size:15px;color:var(--text-secondary);margin-bottom:4px">当前版本：<b>' + tierName + '</b></div>' +
+    '<div style="font-size:13px;color:var(--text-tertiary);margin-bottom:20px">' + expiresStr + '</div>' +
+    '<button style="width:100%;padding:12px;background:var(--primary);color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer;min-height:44px" onclick="var ov=this.closest(\'div\').parentElement;ov.remove();switchPage(\'settings\',document.querySelector(\'[data-page=settings]\'))">开始使用</button>' +
+    '</div>';
+  document.body.appendChild(ov);
+}
+// 初始化时检查到期
+function checkActivationExpiry() {
+  var act = appData.activation;
+  if (!act || act.tier === 'free') return;
+  if (act.expires && Date.now() > act.expires) {
+    // 3天宽限期
+    if (Date.now() - act.expires < 3 * 86400000) {
+      var remaining = Math.ceil((act.expires + 3*86400000 - Date.now()) / 86400000);
+      // 不锁定，只提醒
+    } else {
+      appData.activation = { tier: 'free', codeHash: '', activatedAt: null, expires: null };
+      saveData(appData);
+      toast('⏰ 你的版本已到期，已退回免费版。数据保留，重新激活即可恢复');
+    }
+  }
+}
+function checkExpiryWarning() {
+  var act = appData.activation;
+  if (!act || act.tier === 'free' || !act.expires) return '';
+  var remaining = Math.ceil((act.expires - Date.now()) / 86400000);
+  if (remaining <= 7 && remaining > 0) {
+    return '<div style="margin-top:8px;padding:8px 12px;background:#fff3cd;border:1px solid #ffc107;border-radius:8px;font-size:12px;color:#856404">⏰ 你的版本将在 <b>' + remaining + '</b> 天后到期，到期后功能将退回免费版。<a href="#" onclick="event.preventDefault();document.getElementById(\'activateInput\').focus()" style="color:var(--primary);font-weight:600">续费 →</a></div>';
+  }
+  if (remaining <= 0 && remaining > -3) {
+    return '<div style="margin-top:8px;padding:8px 12px;background:#ffe0e0;border:1px solid #e74c3c;border-radius:8px;font-size:12px;color:#a33">🔴 宽限期还剩 <b>' + (3 + remaining) + '</b> 天，请尽快续费！</div>';
+  }
+  return '';
+}
+// ====== 版本激活系统 END ======
+
 function selectMixType(type, el) {
   _mixTypeFilter = type;
   document.querySelectorAll('#mixTypeChips .chip').forEach(function(c) { c.classList.remove('active'); });
@@ -1556,6 +1730,7 @@ function selectMixType(type, el) {
 }
 
 function switchQuizMode(isMixed, el) {
+  if (isMixed && isTierLocked('mixedBank')) return;
   _quizMixedMode = isMixed;
   document.querySelectorAll('#quizSetup .chip[data-mix]').forEach(function(c) { c.classList.toggle('active', c.dataset.mix === (isMixed ? '1' : '0')); });
   document.getElementById('singleBankGroup').style.display = isMixed ? 'none' : '';
@@ -1578,6 +1753,8 @@ function renderMixedBankChecklist() {
 }
 
 function selectTimerMode(mode, el) {
+  if (mode === 'perQuestion' && isTierLocked('perQuestionTimer')) return;
+  if (mode === 'total' && isTierLocked('totalTimer')) return;
   timerMode = mode;
   document.querySelectorAll('#timerModeGroup .chip').forEach(c => c.classList.remove('active'));
   if (el) el.classList.add('active');
@@ -1615,6 +1792,7 @@ function saveTimerSeconds() {
 }
 
 function selectMode(mode, el) {
+  if (mode === 'memorize' && isTierLocked('memorize')) return;
   quizMode = mode;
   document.querySelectorAll('#quizSetup .chip[data-mode]').forEach(c => c.classList.remove('active'));
   if (el) el.classList.add('active');
@@ -1630,6 +1808,7 @@ function selectMode(mode, el) {
 }
 
 function selectDrawMode(mode, el) {
+  if (mode === 'random-norepeat' && isTierLocked('randomNorepeat')) return;
   drawMode = mode;
   document.querySelectorAll('#drawModeGroup .chip').forEach(c => c.classList.remove('active'));
   if (el) el.classList.add('active');
@@ -1717,6 +1896,7 @@ function toggleFav() {
 }
 
 function toggleSuperFav() {
+  if (isTierLocked('superFav')) return;
   if (!quizState) return;
   var q = quizState.questions[quizState.currentIndex];
   var realBank = (quizState.quickBankNames && quizState.quickBankNames[quizState.currentIndex]) || quizState.bankName;
@@ -2779,6 +2959,7 @@ function cloneQuestion(name, idx) {
 var _searchResultsData = []; // { bank, idx, q, selected }
 
 function showSearchModal() {
+  if (isTierLocked('searchQuestion')) return;
   _searchResultsData = [];
   var ov = document.createElement('div');
   ov.className = 'modal-overlay';
@@ -2927,6 +3108,7 @@ function showSearchModal() {
 
 // ====== Merge Banks ======
 function showMergeModal() {
+  if (isTierLocked('bankMerge')) return;
   var names = getSortedBankNames();
   if (names.length < 2) { toast('至少需要两个题库才能合并'); return; }
   var ov = document.createElement('div'); ov.className = 'modal-overlay';
@@ -4134,6 +4316,21 @@ function confirmImportFromPreview() {
   if (!previewImportData) return;
   var name = previewImportData.name;
   var questions = previewImportData.questions;
+  // 免费版题库数限制
+  if (!hasFeature('unlimitedBanks') && !appData.banks[name]) {
+    var bankCount = Object.keys(appData.banks || {}).length;
+    if (bankCount >= 3) { toast('🆓 免费版最多3个题库，升级¥3解锁无限制'); return; }
+  }
+  // 免费版单库题数限制
+  if (!hasFeature('unlimitedQuestions')) {
+    var existingCount = (appData.banks[name] && appData.banks[name].length) || 0;
+    var effectiveCount = Math.min(questions.length + existingCount, 300); // 覆写场景
+    if (questions.length > 300 || effectiveCount > 300) {
+      questions = questions.slice(0, Math.max(0, 300 - existingCount));
+      toast('🆓 免费版每库最多300题，已截断到300题。升级¥3解锁无限制');
+      if (questions.length === 0) return;
+    }
+  }
   // 同名题库覆盖确认
   if (appData.banks[name] && appData.banks[name].length > 0) {
     if (!confirm('题库「' + name + '」已存在（' + appData.banks[name].length + '题），导入将覆盖为 ' + questions.length + ' 题。确定继续吗？')) return;
@@ -5463,6 +5660,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function selectCount(n, el) {
+  if (!hasFeature('unlimitedBatch') && n > 30) return;
   batchSize = n;
   document.getElementById('customCount').value = '';
   document.querySelectorAll('#quizSetup .chip[data-n]').forEach(c => c.classList.remove('active'));
@@ -5472,7 +5670,8 @@ function selectCount(n, el) {
 function selectCustom() {
   const val = parseInt(document.getElementById('customCount').value);
   if (val > 0) {
-    batchSize = val;
+    if (!hasFeature('unlimitedBatch') && val > 30) { batchSize = 30; toast('🆓 免费版每轮最多30题'); }
+    else batchSize = val;
     document.querySelectorAll('#quizSetup .chip[data-n]').forEach(c => c.classList.remove('active'));
   }
 }
@@ -6808,6 +7007,7 @@ function showRandomSurprise(correct, total, qState) {
 }
 
 function quickReviewWrongs() {
+  if (isTierLocked('quickWrongReview')) return;
   var wrongQs = [];
   if (!quizState) return;
   quizState.questions.forEach(function(q, i) {
@@ -6938,6 +7138,7 @@ function _doBackToSetup() {
 }
 
 function reviewWrongFromResult() {
+  if (isTierLocked('wrongRedo')) return;
   const bn = quizState.bankName;
   const wrongs = appData.wrongBooks[bn] || [];
   if (wrongs.length === 0) { toast('没有错题'); return; }
@@ -8359,7 +8560,9 @@ function restoreFromJsonFile(input) {
       var backup = JSON.parse(e.target.result);
       if (!backup.banks) { toast('❌ 无效的备份文件（缺少题库数据）'); return; }
       if (!confirm('将用此备份<b>完全替换</b>当前所有数据（题库、进度、设置），确定继续吗？')) return;
+      var savedActivation = appData.activation;
       appData = backup;
+      if (savedActivation) appData.activation = savedActivation;
       if (!appData.settings) appData.settings = { color: 'pastel', darkMode: false, fontSize: 16 };
       if (!appData.stats) appData.stats = {};
       if (!appData.wrongBooks) appData.wrongBooks = {};
@@ -8401,7 +8604,13 @@ function renderSettings() {
   if (s.difficultyRating === undefined) s.difficultyRating = false;
 
   var colorNames = { teal: '青绿', purple: '浅紫', blue: '浅蓝', rose: '玫红', pink: '粉色', yellow: '浅黄', bw: '黑白', cream: '护眼·米黄', sage: '护眼·豆沙绿', stone: '岩灰', iris: '鸢尾', seasalt: '海盐', candy: '彩虹糖', lavlemon: '薰衣草柠檬' };
-  var colors = ['teal', 'purple', 'blue', 'rose', 'pink', 'yellow', 'bw', 'cream', 'sage', 'stone', 'iris', 'seasalt', 'candy', 'lavlemon'];
+  var allColors = ['teal', 'purple', 'blue', 'rose', 'pink', 'yellow', 'bw', 'cream', 'sage', 'stone', 'iris', 'seasalt', 'candy', 'lavlemon'];
+  // 按版本筛选主题色
+  var colors = allColors;
+  if (!hasFeature('allThemes')) {
+    if (hasFeature('mixedTheme')) { colors = ['teal','purple','blue','rose','pink','yellow','bw','cream']; } // ¥3: 纯色 + 1混色
+    else { colors = ['teal','purple','blue','rose','pink','yellow','bw']; } // 免费: 纯色
+  }
   var colorBgs = { teal: '#0891b2', purple: '#9333ea', blue: '#3b82f6', rose: '#e11d48', pink: '#ec4899', yellow: '#eab308', bw: '#555', cream: '#c8965c', sage: '#6b9e6b', stone: '#504647', iris: '#818cf8', seasalt: '#6b8ca8', candy: '#f472b6', lavlemon: '#a78bfa' };
 
   c.innerHTML = '<div class="section"><div class="section-title" id="dataSectionTitle" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;min-height:44px" onclick="var c=document.getElementById(\'dataSectionContent\');var a=document.getElementById(\'dataSectionArrow\');if(c.style.display===\'none\'){c.style.display=\'\';a.textContent=\'▼\'}else{c.style.display=\'none\';a.textContent=\'▶\'}">📦 数据管理 <span id="dataSectionArrow" style="font-size:11px">▼</span></div>' +
@@ -8413,7 +8622,7 @@ function renderSettings() {
         '<div style="width:1px;background:var(--border);flex-shrink:0"></div>' +
         '<button class="btn btn-ghost" style="flex:1;border-radius:0;min-height:44px;font-size:14px" onclick="shareBackupCode()">📤 分享备份码</button>' +
       '</div>' +
-      '<button class="btn btn-outline btn-block" id="restoreToggleBtn" onclick="toggleRestoreSection()">📥 粘贴备份码恢复</button>' +
+      '<button class="btn btn-outline btn-block" id="restoreToggleBtn" onclick="toggleRestoreSection()"' + (isTierLocked('backupRestore') ? ' disabled style="opacity:0.4;pointer-events:none"' : '') + '>📥 粘贴备份码恢复' + (isTierLocked('backupRestore') ? ' 🔒' : '') + '</button>' +
       '<div id="restoreSection" style="display:none;margin-top:12px;padding:14px;background:var(--bg);border-radius:10px">' +
         '<textarea id="restoreTextarea" placeholder="在此粘贴备份码或完整JSON..." style="width:100%;min-height:100px;font-size:13px;padding:10px;border:2px solid var(--border);border-radius:8px;background:var(--card);color:var(--text)"></textarea>' +
         '<div style="display:flex;gap:8px;margin-top:12px">' +
@@ -8425,7 +8634,7 @@ function renderSettings() {
           '<label class="btn btn-outline btn-block" style="margin-top:6px;cursor:pointer;display:block;text-align:center;min-height:38px;line-height:38px;padding:0">📂 上传 JSON 备份文件<input type="file" accept=".json" onchange="restoreFromJsonFile(this)" style="display:none"></label>' +
         '</div>' +
       '</div>' +
-      '<button class="btn btn-ghost btn-block" onclick="clearWrongBook()">🗑 清空错题本</button>' +
+      '<button class="btn btn-ghost btn-block" onclick="clearWrongBook()"' + (isTierLocked('clearWrongBook') ? ' disabled style="opacity:0.4;pointer-events:none"' : '') + '>🗑 清空错题本' + (isTierLocked('clearWrongBook') ? ' 🔒' : '') + '</button>' +
     '</div></div></div>' +
 
     // 📊 存储状态
@@ -8506,29 +8715,53 @@ function renderSettings() {
     '<div class="section"><div class="section-title" id="learnSectionTitle" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;min-height:44px" onclick="var c=document.getElementById(\'learnSectionContent\');var a=document.getElementById(\'learnSectionArrow\');if(c.style.display===\'none\'){c.style.display=\'\';a.textContent=\'▼\'}else{c.style.display=\'none\';a.textContent=\'▶\'}">🧠 学习 <span id="learnSectionArrow" style="font-size:11px">▼</span></div>' +
       '<div id="learnSectionContent">' +
       '<div class="setting-item"><div><div class="setting-label">📅 间隔复习</div><div class="setting-desc">基于遗忘曲线，答对后自动安排复习（1天→3天→7天→15天→30天→毕业）</div></div>' +
-        '<label class="toggle"><input type="checkbox" id="srToggle"' + (s.srEnabled ? ' checked' : '') + ' onchange="saveSetting(\'srEnabled\', this.checked)"><span class="slider"></span></label></div>' +
+        '<label class="toggle"><input type="checkbox" id="srToggle"' + (getEffectiveSetting('srEnabled', true) ? ' checked' : '') + (isTierLocked('srEnabled') ? ' disabled' : '') + ' onchange="saveSetting(\'srEnabled\', this.checked)"><span class="slider"></span></label>' + (isTierLocked('srEnabled') ? ' <span style="font-size:11px;color:var(--text-tertiary)">🔒</span>' : '') + '</div>' +
       '<div class="setting-item"><div><div class="setting-label">📅 明天待复习</div><div class="setting-desc" id="tomorrowReviewCount">' + getTomorrowReviewCount() + '</div></div></div>' +
       '<div class="setting-item"><div><div class="setting-label">🎯 每日目标</div><div class="setting-desc">每天做多少题算达标（0=不启用）</div></div>' +
-        '<div style="display:flex;align-items:center;gap:4px"><input type="number" min="0" max="500" value="' + s.dailyGoal + '" style="width:70px;text-align:center;padding:8px;border:2px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:14px" onchange="saveSetting(\'dailyGoal\', parseInt(this.value)||0)"><span style="font-size:12px;color:var(--text-secondary)">题/天</span></div></div>' +
+        '<div style="display:flex;align-items:center;gap:4px"><input type="number" min="0" max="500" value="' + s.dailyGoal + '" style="width:70px;text-align:center;padding:8px;border:2px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:14px" onchange="saveSetting(\'dailyGoal\', parseInt(this.value)||0)"' + (isTierLocked('dailyGoal') ? ' disabled' : '') + '><span style="font-size:12px;color:var(--text-secondary)">题/天</span></div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="showWeeklySummary()"><div><div class="setting-label">📊 本周小结</div><div class="setting-desc" id="weeklySummaryInline">' + getWeeklySummaryText() + '</div></div><div style="display:flex;align-items:center">→</div></div>' +
       '<div class="setting-item"><div><div class="setting-label">🧘 专注模式</div><div class="setting-desc">刷题时隐藏所有干扰元素</div></div>' +
-        '<label class="toggle"><input type="checkbox" id="focusToggle"' + (s.focusMode ? ' checked' : '') + ' onchange="saveSetting(\'focusMode\', this.checked)"><span class="slider"></span></label></div>' +
+        '<label class="toggle"><input type="checkbox" id="focusToggle"' + (getEffectiveSetting('focusMode', false) ? ' checked' : '') + (isTierLocked('focusMode') ? ' disabled' : '') + ' onchange="saveSetting(\'focusMode\', this.checked)"><span class="slider"></span></label>' + (isTierLocked('focusMode') ? ' <span style="font-size:11px;color:var(--text-tertiary)">🔒</span>' : '') + '</div>' +
       '<div class="setting-item"><div><div class="setting-label">🍅 番茄钟</div><div class="setting-desc">刷题时自动倒计时，到时休息提醒</div></div>' +
         '<div style="display:flex;align-items:center;gap:6px">' +
           '<select id="pomodoroSelect" style="width:82px;padding:5px 6px;border:2px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);font-size:13px;display:' + (s.pomodoroEnabled ? '' : 'none') + '" onchange="saveSetting(\'pomodoroMinutes\', parseInt(this.value))">' +
             ['20','25','30','45'].map(function(m){return '<option value="'+m+'"'+(s.pomodoroMinutes==m?' selected':'')+'>'+m+'分钟</option>';}).join('') +
           '</select>' +
-          '<label class="toggle"><input type="checkbox" id="pomodoroToggle"' + (s.pomodoroEnabled ? ' checked' : '') + ' onchange="saveSetting(\'pomodoroEnabled\', this.checked);var sel=document.getElementById(\'pomodoroSelect\');if(sel)sel.style.display=this.checked?\'\':\'none\'"><span class="slider"></span></label>' +
+          '<label class="toggle"><input type="checkbox" id="pomodoroToggle"' + (getEffectiveSetting('pomodoroEnabled', false) ? ' checked' : '') + (isTierLocked('pomodoro') ? ' disabled' : '') + ' onchange="saveSetting(\'pomodoroEnabled\', this.checked);var sel=document.getElementById(\'pomodoroSelect\');if(sel)sel.style.display=this.checked?\'\':\'none\'"><span class="slider"></span></label>' + (isTierLocked('pomodoro') ? ' <span style="font-size:11px;color:var(--text-tertiary)">🔒</span>' : '') +
         '</div></div>' +
       '<div class="setting-item"><div><div class="setting-label">🛡 保底模式</div><div class="setting-desc">打开后，哪怕只做1题也算打卡成功，保护连续记录不断</div></div>' +
         '<label class="toggle"><input type="checkbox" id="safetyToggle"' + (s.safetyMode ? ' checked' : '') + ' onchange="saveSetting(\'safetyMode\', this.checked)"><span class="slider"></span></label></div>' +
       '<div class="setting-item"><div><div class="setting-label">📅 考试日期</div><div class="setting-desc">设置后将显示倒计时（不设则不显示）</div></div>' +
         '<input type="date" id="examDateInput" value="' + s.examDate + '" style="padding:8px 12px;border:2px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:14px" onchange="saveSetting(\'examDate\', this.value)"></div>' +
       '<div class="setting-item"><div><div><div class="setting-label">⭐ 题目难度自评</div><div class="setting-desc">开启后每题做完可标记"简单/适中/困难"</div></div></div>' +
-        '<label class="toggle"><input type="checkbox" id="diffRatingToggle"' + (s.difficultyRating ? ' checked' : '') + ' onchange="saveSetting(\'difficultyRating\', this.checked)"><span class="slider"></span></label></div>' +
-      '<div class="setting-item" style="cursor:pointer" onclick="showAchievementsPage()"><div><div class="setting-label">🏆 成就徽章</div><div class="setting-desc" id="achievementSummary">' + getAchievementSummary() + '</div></div><div style="display:flex;align-items:center">→</div></div>' +
+        '<label class="toggle"><input type="checkbox" id="diffRatingToggle"' + (getEffectiveSetting('difficultyRating', false) ? ' checked' : '') + (isTierLocked('difficultyRating') ? ' disabled' : '') + ' onchange="saveSetting(\'difficultyRating\', this.checked)"><span class="slider"></span></label>' + (isTierLocked('difficultyRating') ? ' <span style="font-size:11px;color:var(--text-tertiary)">🔒</span>' : '') + '</div>' +
+      '<div class="setting-item"' + (isTierLocked('achievements') ? '' : ' style="cursor:pointer" onclick="showAchievementsPage()"') + '><div><div class="setting-label">🏆 成就徽章' + (isTierLocked('achievements') ? ' <span style="font-size:11px;color:var(--text-tertiary)">🔒</span>' : '') + '</div><div class="setting-desc" id="achievementSummary">' + (isTierLocked('achievements') ? '升级解锁' : getAchievementSummary()) + '</div></div><div style="display:flex;align-items:center">→</div></div>' +
       '</div>' +
     '</div>' +
+
+    // 激活与版本 section
+    (function() {
+      var tier = getTier();
+      var act = appData.activation || {};
+      var tierEmoji = TIER_EMOJI[tier] || '🆓';
+      var tierName = TIER_NAMES[tier] || '基础版';
+      var expWarn = checkExpiryWarning();
+      var daysLeft = act.expires ? Math.ceil((act.expires - Date.now()) / 86400000) : 0;
+      var statusLine = tier === 'free'
+        ? '免费版：3题库×300题 · 每轮30题 · 纯色主题'
+        : '有效期至 ' + (act.expires ? new Date(act.expires).toLocaleDateString('zh-CN') : '永久') + (daysLeft > 0 ? '（剩余 ' + daysLeft + ' 天）' : '');
+
+      return '<div class="section"><div class="section-title" id="activationSectionTitle" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;min-height:44px" onclick="var c=document.getElementById(\'activationSectionContent\');var a=document.getElementById(\'activationSectionArrow\');if(c.style.display===\'none\'){c.style.display=\'\';a.textContent=\'▼\'}else{c.style.display=\'none\';a.textContent=\'▶\'}">🔑 版本激活 <span style="font-size:13px;color:var(--primary);font-weight:600">' + tierEmoji + ' ' + tierName + '</span> <span id="activationSectionArrow" style="font-size:11px">▼</span></div>' +
+        '<div id="activationSectionContent">' +
+          expWarn +
+          '<div class="setting-item" style="flex-direction:column;align-items:stretch;gap:10px">' +
+            '<div style="font-size:14px;font-weight:600;color:var(--text)">' + tierEmoji + ' ' + tierName + '</div>' +
+            '<div style="font-size:13px;color:var(--text-secondary)">' + statusLine + '</div>' +
+            (tier !== 'pro' ? '<div style="display:flex;gap:8px"><input type="text" id="activateInput" placeholder="SAMA-XXXX-XXXX-XXXX" autocomplete="off" autocorrect="off" autocapitalize="characters" style="flex:1;padding:10px 12px;border:2px solid var(--border);border-radius:8px;font-size:14px;background:var(--card);color:var(--text);text-transform:uppercase;font-family:monospace;letter-spacing:1px" oninput="this.value=formatActivationCode(this.value)"><button class="btn btn-primary" id="activateBtn" style="white-space:nowrap;min-width:72px;min-height:44px" onclick="var input=document.getElementById(\'activateInput\');var btn=document.getElementById(\'activateBtn\');if(!input.value.trim())return;btn.disabled=true;btn.textContent=\'...\';activateCode(input.value);setTimeout(function(){btn.disabled=false;btn.textContent=\'激活\'},2000)">激活</button></div>' : '<div style="font-size:13px;color:#10B981;font-weight:600">✨ 已解锁全部功能</div>') +
+            '<div style="font-size:11px;color:var(--text-tertiary)">激活码请联系开发者获取 · <a href="javascript:void(0)" onclick="showTierCompare()" style="color:var(--primary);text-decoration:underline">查看版本对比 →</a></div>' +
+          '</div>' +
+        '</div></div>';
+    })() +
 
     '<div class="section"><div class="section-title" id="appearanceSectionTitle" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;min-height:44px" onclick="var c=document.getElementById(\'appearanceSectionContent\');var a=document.getElementById(\'appearanceSectionArrow\');if(c.style.display===\'none\'){c.style.display=\'\';a.textContent=\'▼\'}else{c.style.display=\'none\';a.textContent=\'▶\'}">🎨 外观 <span id="appearanceSectionArrow" style="font-size:11px">▼</span></div>' +
       '<div id="appearanceSectionContent"><div class="setting-item"><div><div class="setting-label">夜间模式</div><div class="setting-desc">暗色主题，夜间刷题更护眼</div></div>' +
@@ -8545,7 +8778,7 @@ function renderSettings() {
 
     '<div class="section"><div class="section-title" id="aboutSectionTitle" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;min-height:44px" onclick="var c=document.getElementById(\'aboutSectionContent\');var a=document.getElementById(\'aboutSectionArrow\');if(c.style.display===\'none\'){c.style.display=\'\';a.textContent=\'▼\'}else{c.style.display=\'none\';a.textContent=\'▶\'}">ℹ️ 关于 <span id="aboutSectionArrow" style="font-size:11px">▼</span></div>' +
       '<div id="aboutSectionContent"><div class="setting-item" style="cursor:pointer" onclick="showManualMenu()"><div><div class="setting-label">📖 使用说明</div><div class="setting-desc">查看使用指南</div></div><div style="display:flex;align-items:center">→</div></div>' +
-      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">手机刷题工具 · 纯前端离线可用 · <span id="appVersion">v229</span></div></div></div>' +
+      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">' + TIER_EMOJI[getTier()] + ' ' + TIER_NAMES[getTier()] + ' · 纯前端离线可用 · <span id="appVersion">v0</span></div></div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="showDataOffsetTool()"><div><div class="setting-label">🔧 数据批量偏移</div><div class="setting-desc">修复答案/解析的错位问题（支持前移后移）</div></div><div style="display:flex;align-items:center">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="clearAllData()"><div><div class="setting-label" style="color:var(--danger)">🗑️ 删除所有数据</div><div class="setting-desc">清空全部题库和设置，不可恢复</div></div><div style="display:flex;align-items:center;color:var(--danger)">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="checkUpdate()"><div><div class="setting-label">🔄 检查更新</div><div class="setting-desc">点击清除缓存并刷新，获取最新版本</div></div><div style="display:flex;align-items:center">→</div></div>' +
@@ -8903,7 +9136,7 @@ function showDataOffsetTool() {
 
 function clearAllData() {
   if (!confirm('此操作不可撤销！将删除所有题库、设置和进度。确定继续吗？')) return;
-  appData = { banks: {}, stats: {}, wrongBooks: {}, quizHistory: {}, settings: { color: 'pastel', darkMode: false, fontSize: 16 } };
+  appData = { banks: {}, stats: {}, wrongBooks: {}, quizHistory: {}, settings: { color: 'pastel', darkMode: false, fontSize: 16 }, activation: { tier: 'free', codeHash: '', activatedAt: null, expires: null } };
   saveData(appData);
   toast('已全部删除');
   switchPage('banks', document.querySelector('[data-page="banks"]'));
@@ -9278,6 +9511,15 @@ function showManualMenu() {
 
 // ====== Init ======
 try { applySettings(); } catch(e) { console.error('Init applySettings error:', e); }
+// 检查激活到期
+try { checkActivationExpiry(); } catch(e) { console.error('Init activation check error:', e); }
+// 锁定搜索和合并按钮
+(function() {
+  var searchBtn = document.querySelector('[onclick="showSearchModal()"]');
+  if (searchBtn && isTierLocked('searchQuestion')) { searchBtn.style.opacity = '0.3'; searchBtn.style.pointerEvents = 'none'; }
+  var mergeBtn = document.querySelector('[onclick="showMergeModal()"]');
+  if (mergeBtn && isTierLocked('bankMerge')) { mergeBtn.style.opacity = '0.3'; mergeBtn.style.pointerEvents = 'none'; }
+})();
 // 恢复计时设置
 try {
   (function() {

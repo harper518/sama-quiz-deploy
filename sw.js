@@ -1,5 +1,5 @@
 /* ====== 刷题助手 Service Worker ====== */
-var CACHE_NAME = 'sama-quiz-v2';
+var CACHE_NAME = 'sama-quiz-v3';
 
 // 仅缓存 CDN 静态资源（不缓存自己的 HTML，确保用户总是拿到最新版）
 var CDN_URLS = [
