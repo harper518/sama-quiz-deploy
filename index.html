@@ -1189,6 +1189,7 @@ textarea { min-height: 180px; resize: vertical; line-height: 1.8; }
         <div class="chip-group">
           <span class="chip active" data-mix="0" onclick="switchQuizMode(false, this)">📚 单选题库</span>
           <span class="chip" data-mix="1" onclick="switchQuizMode(true, this)">🔀 混合刷题</span>
+          <span class="chip" data-mix="mock" id="mockExamChip" onclick="selectMockExamChip(this)">🏫 模拟考试</span>
         </div>
         <p style="font-size:12px;color:var(--text-secondary);margin-top:4px" id="mixModeDesc">从一个题库中选题</p>
       </div>
@@ -1263,7 +1264,6 @@ textarea { min-height: 180px; resize: vertical; line-height: 1.8; }
       </div>
       <div id="categoryFilter" style="margin-top:10px"></div>
       <button class="btn btn-primary btn-block mt-12" onclick="startQuiz()">🚀 开始刷题</button>
-      <button class="btn btn-outline btn-block mt-8" id="mockExamBtn" onclick="startMockExam()" style="min-height:44px;border-color:var(--danger);color:var(--danger)">🏫 模拟考试</button>
     </div>
   </div>
   <div id="quizActive" style="display:none">
@@ -2028,6 +2028,15 @@ function switchQuizMode(isMixed, el) {
   document.getElementById('mixedBankGroup').style.display = isMixed ? '' : 'none';
   document.getElementById('mixModeDesc').textContent = isMixed ? '从多个题库随机抽题混着做，更接近真实考试' : '从一个题库中选题';
   if (isMixed) renderMixedBankChecklist();
+}
+function selectMockExamChip(el) {
+  if (isTierLocked('focusMode')) return;
+  document.querySelectorAll('#quizSetup .chip[data-mix]').forEach(function(c) { c.classList.remove('active'); });
+  el.classList.add('active');
+  _quizMixedMode = false;
+  document.getElementById('singleBankGroup').style.display = '';
+  document.getElementById('mixedBankGroup').style.display = 'none';
+  startMockExam(el);
 }
 function renderMixedBankChecklist() {
   var container = document.getElementById('mixedBankChecklist');
@@ -5919,12 +5928,12 @@ function escHtmlWithMath(text) {
 
 // ====== Quiz Setup ======
 function renderQuizSetup() {
-  var examBtn = document.getElementById('mockExamBtn');
-  if (examBtn) {
+  var mockChip = document.getElementById('mockExamChip');
+  if (mockChip) {
     if (isTierLocked('focusMode')) {
-      examBtn.style.opacity = '0.3'; examBtn.style.pointerEvents = 'none'; examBtn.style.borderColor = 'var(--border)'; examBtn.style.color = 'var(--text-tertiary)';
+      mockChip.style.opacity = '0.3'; mockChip.style.pointerEvents = 'none';
     } else {
-      examBtn.style.opacity = ''; examBtn.style.pointerEvents = ''; examBtn.style.borderColor = 'var(--danger)'; examBtn.style.color = 'var(--danger)';
+      mockChip.style.opacity = ''; mockChip.style.pointerEvents = '';
     }
   }
   const select = document.getElementById('bankSelect');
@@ -6307,9 +6316,21 @@ var _examSecondsRemaining = 0;
 var _examTripleClickCount = 0;
 var _examTripleClickTimer = null;
 
-function startMockExam() {
-  if (isTierLocked('focusMode')) { return; }
-  if (!confirm('🏫 模拟考试模式\n\n⚠️ 规则说明：\n· 计时开始后不可退出\n· 无即时反馈，做完统一出成绩\n· 紧急退出需快速点击3次标题\n· 建议设置50-100题模拟真实考试\n\n确定开始吗？')) return;
+function revertExamChip(chipEl) {
+  if (chipEl) {
+    chipEl.classList.remove('active');
+    var defChip = document.querySelector('#quizSetup .chip[data-mix="0"]');
+    if (defChip) defChip.classList.add('active');
+    _quizMixedMode = false;
+    var sgb = document.getElementById('singleBankGroup');
+    var mgb = document.getElementById('mixedBankGroup');
+    if (sgb) sgb.style.display = '';
+    if (mgb) mgb.style.display = 'none';
+  }
+}
+function startMockExam(chipEl) {
+  if (isTierLocked('focusMode')) { revertExamChip(chipEl); return; }
+  if (!confirm('🏫 模拟考试模式\n\n⚠️ 规则说明：\n· 计时开始后不可退出\n· 无即时反馈，做完统一出成绩\n· 紧急退出需快速点击3次标题\n· 建议设置50-100题模拟真实考试\n\n确定开始吗？')) { revertExamChip(chipEl); return; }
 
   var bankName = document.getElementById('bankSelect').value;
   var bank = bankName ? (appData.banks[bankName] || []) : [];
@@ -10636,8 +10657,6 @@ try { checkActivationExpiry(); } catch(e) { console.error('Init activation check
   if (searchBtn && isTierLocked('searchQuestion')) { searchBtn.style.opacity = '0.3'; searchBtn.style.pointerEvents = 'none'; }
   var mergeBtn = document.querySelector('[onclick="showMergeModal()"]');
   if (mergeBtn && isTierLocked('bankMerge')) { mergeBtn.style.opacity = '0.3'; mergeBtn.style.pointerEvents = 'none'; }
-  var examBtn = document.getElementById('mockExamBtn');
-  if (examBtn && isTierLocked('focusMode')) { examBtn.style.opacity = '0.3'; examBtn.style.pointerEvents = 'none'; examBtn.style.borderColor = 'var(--border)'; examBtn.style.color = 'var(--text-tertiary)'; }
 })();
 // 恢复计时设置
 try {
