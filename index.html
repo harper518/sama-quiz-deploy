@@ -6210,7 +6210,7 @@ function renderExamQuestion() {
   html += '<div style="height:100%;width:' + pct + '%;background:var(--primary);border-radius:2px;transition:width 0.3s"></div></div>';
 
   // Question
-  html += '<div style="font-size:var(--font-size-lg);line-height:1.7;margin-bottom:16px;font-weight:600">' + renderQuestionText(q.question) + '</div>';
+  html += '<div style="font-size:var(--font-size-lg);line-height:1.7;margin-bottom:16px;font-weight:600">' + escHtml(q.question) + '</div>';
 
   // Options
   if (q.type === 'multi') {
@@ -6224,8 +6224,8 @@ function renderExamQuestion() {
   html += '<div style="display:flex;flex-direction:column;gap:8px" id="examOptions">';
   for (var i = 0; i < q.options.length; i++) {
     var optLabel = labels[i];
-    var optKey = String(q.options[i]).substring(0,1).trim().replace('.','');
-    var optionText = q.options[i].replace(/^[A-G][.、\s]+/, '');
+    var optKey = q.type === 'tf' ? keys[i] : String(q.options[i]).substring(0,1).trim().replace('.','');
+    var optionText = q.type === 'tf' ? q.options[i] : q.options[i].replace(/^[A-G][.、\s]+/, '');
     var isSelected = selectedAnswers.indexOf(optKey) >= 0 || selectedAnswers.indexOf(optLabel) >= 0;
     var bg = isSelected ? 'background:var(--primary);color:#fff;border-color:var(--primary)' : 'background:var(--card);border:2px solid var(--border)';
     html += '<div onclick="selectExamOption(' + idx + ',' + i + ')" style="' + bg + ';padding:12px 14px;border-radius:10px;cursor:pointer;font-size:var(--font-size);line-height:1.6;min-height:44px;transition:all var(--transition)" data-exam-opt="' + idx + '-' + i + '">';
@@ -6248,7 +6248,7 @@ function renderExamQuestion() {
 function selectExamOption(qIdx, optIdx) {
   if (!_examState) return;
   var q = _examState.questions[qIdx];
-  var labels = ['A','B','C','D','E','F','G'];
+  var labels = q.type === 'tf' ? ['正确','错误'] : ['A','B','C','D','E','F','G'];
   var optKey = labels[optIdx];
   var cur = _examState.userAnswers[qIdx] || [];
 
@@ -6282,9 +6282,20 @@ function finishMockExam(timeUp) {
   var totalTimeSec = Math.round((Date.now() - _examState.startTime) / 1000);
 
   _examState.questions.forEach(function(q, i) {
-    var userAns = _examState.userAnswers[i] || [];
-    var correctAns = parseAnswer(q.answer);
-    var isCorrect = arraysEqual(userAns.sort(), correctAns.sort());
+    var userAns = (_examState.userAnswers[i] || []).slice().sort().join('');
+    var answer = (q.answer || '').replace(/\s/g, '');
+    var isMulti = q.type === 'multi';
+    var isTf = q.type === 'tf';
+    var isCorrect;
+    if (isMulti) {
+      // Match: user's selected letters should exactly match answer letters (both sorted)
+      var sortedAnswer = answer.split('').sort().join('');
+      isCorrect = userAns === sortedAnswer;
+    } else if (isTf) {
+      isCorrect = (userAns === '正确' && answer === '正确') || (userAns === '错误' && answer === '错误');
+    } else {
+      isCorrect = userAns === answer;
+    }
     if (isCorrect) { correct++; } else { wrong++; wrongIds.push(i); }
   });
 
