@@ -1565,9 +1565,9 @@ var TIER_NAMES = { free: '基础版', basic: '科学备考版', pro: '智能全�
 var TIER_EMOJI = { free: '🆓', basic: '💰', pro: '👑' };
 // 管理码 SHA-256 哈希（000→free, 333→basic, 999→pro）
 var ADMIN_HASHES = {
-  '2ac9a6746aca543af8dff39894cfe8173afba21eb01c6fae33d52947222855ef': 'free',
-  '556d7dc3a115356350f1f9910b1af1ab0e312d4b3e4fc788d2da63668f36d017': 'basic',
-  '83cf8b609de60036a8277bd0e96135751bbc07eb234256d4b65b893360651bf2': 'pro'
+  'f78944892a55284755e3e7d43e92f2e79bd3354394ea499a6c75fc736d6cbb88': 'free',
+  'e09d198a569365aaf59fe764178ee952121d03b70ce5c9a11399f8aed5baef01': 'basic',
+  '83556e90e17447fef326155dbd0097cdd22fb48ebf940436ec4d276568d67cdf': 'pro'
 };
 function getTier() {
   return (appData.activation && appData.activation.tier) || 'free';
@@ -1598,13 +1598,16 @@ function sha256(s) {
   });
 }
 function formatActivationCode(input) {
-  var cleaned = input.toUpperCase().replace(/[^A-Z2-9\-]/g, '');
-  cleaned = cleaned.replace(/-/g, '');
+  var cleaned = input.toUpperCase().replace(/[^A-Z2-9]/g, '');
+  // 去掉 SAMA 前缀（如果用户输入了完整码）
+  if (cleaned.indexOf('SAMA') === 0) cleaned = cleaned.substring(4);
+  // 取前12位
+  cleaned = cleaned.substring(0, 12);
   var parts = [];
-  for (var i = 0; i < cleaned.length && i < 12; i += 4) {
+  for (var i = 0; i < cleaned.length; i += 4) {
     parts.push(cleaned.substring(i, i + 4));
   }
-  return parts.join('-');
+  return parts.length >= 3 ? 'SAMA-' + parts.join('-') : parts.join('-');
 }
 function showTierCompare() {
   var ov = document.createElement('div');
@@ -1639,23 +1642,10 @@ function showTierCompare() {
 }
 // 激活码验证
 function activateCode(input) {
-  var raw = input.trim();
-  // 管理码优先检测（不经过格式化）
-  if (raw === '000' || raw === '333' || raw === '999') {
-    sha256(raw).then(function(hash) {
-      var adminTier = ADMIN_HASHES[hash];
-      if (adminTier) {
-        appData.activation = { tier: adminTier, codeHash: hash, activatedAt: null, expires: null };
-        saveData(appData);
-        showActivationSuccess(TIER_NAMES[adminTier], null);
-      }
-    });
-    return;
-  }
   var code = formatActivationCode(input);
   if (code.length < 14) { return toast('❌ 激活码格式不正确'); }
   sha256(code).then(function(hash) {
-    // 检查管理码
+    // 检查管理码（硬编码，不走网络）
     if (ADMIN_HASHES[hash]) {
       var adminTier = ADMIN_HASHES[hash];
       appData.activation = { tier: adminTier, codeHash: hash, activatedAt: null, expires: null };
