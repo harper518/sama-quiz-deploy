@@ -9459,6 +9459,11 @@ function renderSettings() {
   }
   var colorBgs = { teal: '#0891b2', purple: '#9333ea', blue: '#3b82f6', pink: '#ec4899', yellow: '#eab308', bw: '#555', cream: '#c8965c', sage: '#6b9e6b', stone: '#504647', iris: '#818cf8', seasalt: '#6b8ca8', candy: '#f472b6', lavlemon: '#a78bfa', twilightpurple: '#9b8ec4', glaze: '#6bb5a8', lightdream: '#c8a0b8', autumnwater: '#7b9eb8', aurora: '#5e9e88', amber: '#c88840', mistblue: '#8a9eb0', moonwhite: '#98b0c0', beanpaste: '#b08888', cloudwhite: '#b8a898', sakuramist: '#c89898', clearsky: '#90b0d0', mintdew: '#80b098', lilac: '#b098c8', peachbloom: '#c89880', frostcyan: '#90b8c0', sandalwood: '#a07858', inkblue: '#5878a8', inkgreen: '#5c8858', sodaorange: '#f09848', neonberry: '#e86888' };
 
+  var _collapsed = {};
+  ['dataSectionContent','storageSectionContent','learnSectionContent','activationSectionContent','printSectionContent','statsSectionContent','appearanceSectionContent','aboutSectionContent'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) { _collapsed[id] = el.style.display === 'none'; }
+  });
   c.innerHTML = '<div class="section"><div class="section-title" id="dataSectionTitle" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;min-height:44px" onclick="var c=document.getElementById(\'dataSectionContent\');var a=document.getElementById(\'dataSectionArrow\');if(c.style.display===\'none\'){c.style.display=\'\';a.textContent=\'▼\'}else{c.style.display=\'none\';a.textContent=\'▶\'}">📦 数据管理 <span id="dataSectionArrow" style="font-size:11px">▼</span></div>' +
     '<div id="dataSectionContent"><div class="setting-item" style="flex-direction:column;align-items:stretch;gap:10px">' +
       '<button class="btn btn-primary btn-block" onclick="shareBackupFile()" style="font-size:15px">📤 分享/导出备份文件</button>' +
@@ -9603,7 +9608,7 @@ function renderSettings() {
           '<div class="setting-item" style="flex-direction:column;align-items:stretch;gap:10px">' +
             '<div style="font-size:14px;font-weight:600;color:var(--text)">' + tierEmoji + ' ' + tierName + '</div>' +
             '<div style="font-size:13px;color:var(--text-secondary)">' + statusLine + '</div>' +
-            (tier !== 'pro' ? '<div style="display:flex;gap:8px"><input type="text" id="activateInput" placeholder="SAMA-XXXX-XXXX-XXXX" autocomplete="off" autocorrect="off" autocapitalize="characters" style="flex:1;padding:10px 12px;border:2px solid var(--border);border-radius:8px;font-size:14px;background:var(--card);color:var(--text);text-transform:uppercase;font-family:monospace;letter-spacing:1px" oninput="this.value=formatActivationCode(this.value)"><button class="btn btn-primary" id="activateBtn" style="white-space:nowrap;min-width:72px;min-height:44px" onclick="var input=document.getElementById(\'activateInput\');var btn=document.getElementById(\'activateBtn\');if(!input.value.trim())return;btn.disabled=true;btn.textContent=\'...\';activateCode(input.value);setTimeout(function(){btn.disabled=false;btn.textContent=\'激活\'},2000)">激活</button></div>' : '<div style="font-size:13px;color:#10B981;font-weight:600">✨ 已解锁全部功能</div>') +
+            (tier === 'pro' ? '<div style="font-size:13px;color:#10B981;font-weight:600;margin-bottom:6px">✨ 已解锁全部功能</div>' : '') + '<div style="display:flex;gap:8px"><input type="text" id="activateInput" placeholder="' + (tier === 'pro' ? '输入管理码（000/333/999）' : 'SAMA-XXXX-XXXX-XXXX') + '" autocomplete="off" autocorrect="off" autocapitalize="characters" style="flex:1;padding:10px 12px;border:2px solid var(--border);border-radius:8px;font-size:14px;background:var(--card);color:var(--text);text-transform:uppercase;font-family:monospace;letter-spacing:1px" oninput="this.value=formatActivationCode(this.value)"><button class="btn btn-primary" id="activateBtn" style="white-space:nowrap;min-width:72px;min-height:44px" onclick="var input=document.getElementById(\'activateInput\');var btn=document.getElementById(\'activateBtn\');if(!input.value.trim())return;btn.disabled=true;btn.textContent=\'...\';activateCode(input.value);setTimeout(function(){btn.disabled=false;btn.textContent=\'验证\'},2000)">验证</button></div>' +
             '<div style="font-size:11px;color:var(--text-tertiary)">激活码请联系开发者获取 · <a href="javascript:void(0)" onclick="showTierCompare()" style="color:var(--primary);text-decoration:underline">查看版本对比 →</a></div>' +
           '</div>' +
         '</div></div>';
@@ -9722,6 +9727,14 @@ function renderSettings() {
       '<div class="setting-item" style="cursor:pointer" onclick="clearAllData()"><div><div class="setting-label" style="color:var(--danger)">🗑️ 删除所有数据</div><div class="setting-desc">清空全部题库和设置，不可恢复</div></div><div style="display:flex;align-items:center;color:var(--danger)">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="checkUpdate()"><div><div class="setting-label">🔄 检查更新</div><div class="setting-desc">点击清除缓存并刷新，获取最新版本</div></div><div style="display:flex;align-items:center">→</div></div>' +
     '</div></div>';
+  Object.keys(_collapsed).forEach(function(id) {
+    if (_collapsed[id]) {
+      var el = document.getElementById(id);
+      if (el) { el.style.display = 'none'; }
+      var arrow = document.getElementById(id.replace('Content','Arrow'));
+      if (arrow) { arrow.textContent = '▶'; }
+    }
+  });
 }
 
 function getTomorrowReviewCount() {
