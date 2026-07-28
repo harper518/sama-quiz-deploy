@@ -9654,12 +9654,8 @@ function renderSettings() {
               Object.keys(appData.banks || {}).map(function(n) { return '<option value="' + escHtml(n) + '">' + escHtml(n) + '</option>'; }).join('') +
             '</select>' +
           '</div>' +
-          '<div style="display:flex;gap:8px">' +
-            '<label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-secondary);cursor:pointer"><input type="checkbox" id="printHideAnswer"> 隐藏答案（纯题目版）</label>' +
-            '<label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-secondary);cursor:pointer"><input type="checkbox" id="printShowExp"> 显示解析</label>' +
-          '</div>' +
           '<div style="text-align:center;padding:8px 0;color:var(--text-secondary);font-size:13px" id="printCountInfo">共 0 题待打印</div>' +
-          '<button class="btn btn-primary btn-block" onclick="doPrint()" style="min-height:44px">🖨 生成打印预览</button>' +
+          '<button class="btn btn-primary btn-block" onclick="doPrint()" style="min-height:44px">🖨 打印预览</button>' +
         '</div>';
       }
       return '<div class="section"><div class="section-title" id="printSectionTitle" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;min-height:44px" onclick="' + toggleFn + '">' + printTitle + ' ' + printArrow + '</div>' +
@@ -9733,7 +9729,7 @@ function renderSettings() {
 
     '<div class="section"><div class="section-title" id="aboutSectionTitle" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;min-height:44px" onclick="var c=document.getElementById(\'aboutSectionContent\');var a=document.getElementById(\'aboutSectionArrow\');if(c.style.display===\'none\'){c.style.display=\'\';a.textContent=\'▼\'}else{c.style.display=\'none\';a.textContent=\'▶\'}">ℹ️ 关于 <span id="aboutSectionArrow" style="font-size:11px">▼</span></div>' +
       '<div id="aboutSectionContent"><div class="setting-item" style="cursor:pointer" onclick="showManualMenu()"><div><div class="setting-label">📖 使用说明</div><div class="setting-desc">查看使用指南</div></div><div style="display:flex;align-items:center">→</div></div>' +
-      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">' + TIER_EMOJI[getTier()] + ' ' + TIER_NAMES[getTier()] + ' · 纯前端离线可用 · <span id="appVersion">v223</span></div></div></div>' +
+      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">' + TIER_EMOJI[getTier()] + ' ' + TIER_NAMES[getTier()] + ' · 纯前端离线可用 · <span id="appVersion">v224</span></div></div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="showDataOffsetTool()"><div><div class="setting-label">🔧 数据批量偏移</div><div class="setting-desc">修复答案/解析的错位问题（支持前移后移）</div></div><div style="display:flex;align-items:center">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="clearAllData()"><div><div class="setting-label" style="color:var(--danger)">🗑️ 删除所有数据</div><div class="setting-desc">清空全部题库和设置，不可恢复</div></div><div style="display:flex;align-items:center;color:var(--danger)">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="checkUpdate()"><div><div class="setting-label">🔄 检查更新</div><div class="setting-desc">点击清除缓存并刷新，获取最新版本</div></div><div style="display:flex;align-items:center">→</div></div>' +
@@ -10516,12 +10512,8 @@ function doPrint() {
   var printWrong = document.getElementById('printWrong');
   var printFav = document.getElementById('printFav');
   var printSuperFav = document.getElementById('printSuperFav');
-  var printHideAnswer = document.getElementById('printHideAnswer');
-  var printShowExp = document.getElementById('printShowExp');
   var bankFilter = document.getElementById('printBankSelect');
   var filterBank = bankFilter ? bankFilter.value : '';
-  var hideAnswer = printHideAnswer && printHideAnswer.checked;
-  var showExp = printShowExp && printShowExp.checked;
 
   // Collect questions
   var questions = []; // { bank, q, type }
@@ -10568,63 +10560,218 @@ function doPrint() {
   if (questions.length === 0) { toast('没有符合条件的题目'); return; }
   if (questions.length > 500) { if (!confirm('题目较多（' + questions.length + '题），打印可能很慢，确定继续？')) return; }
 
-  // Build print HTML
-  var labels = ['A','B','C','D','E','F','G'];
-  var html = '<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><title>刷题助手 · 打印</title>';
-  html += '<style>';
-  html += '*{box-sizing:border-box;margin:0;padding:0}';
-  html += 'body{font-family:"PingFang SC","Microsoft YaHei","Helvetica Neue",sans-serif;font-size:14px;line-height:2;color:#1a1a1a;padding:20px;max-width:800px;margin:0 auto}';
-  html += 'h1{text-align:center;font-size:20px;margin-bottom:6px}';
-  html += '.subtitle{text-align:center;font-size:12px;color:#888;margin-bottom:20px;border-bottom:1px solid #ddd;padding-bottom:10px}';
-  html += '.q-block{margin-bottom:20px;padding-bottom:16px;border-bottom:1px dashed #ddd;page-break-inside:avoid}';
-  html += '.q-num{font-weight:700;font-size:15px;margin-bottom:4px}';
-  html += '.q-text{font-size:15px;margin-bottom:8px;font-weight:600}';
-  html += '.q-opt{margin-left:16px;font-size:14px;margin-bottom:2px}';
-  html += '.q-answer{font-size:13px;color:#e11d48;font-weight:700;margin-top:6px;padding:4px 8px;background:#fff5f5;border-radius:4px;display:inline-block}';
-  html += '.q-exp{font-size:12px;color:#666;margin-top:4px;font-style:italic}';
-  html += '.q-type{font-size:10px;color:#aaa;margin-left:6px;background:#f0f0f0;padding:1px 6px;border-radius:3px}';
-  html += '.q-bank{font-size:11px;color:#999}';
-  html += '.footer{text-align:center;font-size:11px;color:#aaa;margin-top:30px;padding-top:12px;border-top:1px solid #eee}';
-  html += '.blank-line{height:30px}';
-  html += '@media print{body{padding:10px}@page{margin:15mm}.q-block{page-break-inside:avoid}}';
-  html += '</style></head><body>';
-  html += '<h1>📝 教资刷题助手 · 打印版</h1>';
-  html += '<div class="subtitle">共 ' + questions.length + ' 题 · 生成于 ' + new Date().toLocaleDateString('zh-CN') + '</div>';
+  // Load saved print settings
+  var ps = appData.printSettings || {};
+  if (ps.hideAnswer === undefined) ps.hideAnswer = false;
+  if (ps.showExp === undefined) ps.showExp = false;
+  if (ps.blankLines === undefined) ps.blankLines = false;
+  if (ps.sealLine === undefined) ps.sealLine = false;
+  if (ps.fontSize === undefined) ps.fontSize = 'medium';
+  appData.printSettings = ps;
+  var savePs = function() { appData.printSettings = ps; saveData(appData); };
 
-  questions.forEach(function(item, idx) {
-    var q = item.q;
-    html += '<div class="q-block">';
-    html += '<div class="q-num">' + (idx + 1) + '. <span class="q-type">' + item.type + '</span> <span class="q-bank">[' + escHtml(item.bank) + ']</span></div>';
-    html += '<div class="q-text">' + escHtml(q.question.replace(/【.+?】/g, '').trim()) + '</div>';
-    if (q.type === 'multi') { html += '<div style="font-size:12px;color:#8B5CF6;margin-bottom:4px">【多选题】</div>'; }
-    if (q.type === 'tf') { html += '<div style="font-size:12px;color:#888;margin-bottom:4px">【判断题】</div>'; }
-    for (var i = 0; i < q.options.length; i++) {
-      var optText = q.options[i].replace(/^[A-G][.、\s]+/, '');
-      html += '<div class="q-opt">' + labels[i] + '. ' + escHtml(optText) + '</div>';
-    }
-    if (!hideAnswer) {
-      html += '<div class="q-answer">✅ 答案：' + escHtml(q.answer) + '</div>';
-    } else {
-      html += '<div class="q-answer" style="background:#fff;color:#fff;border:1px dashed #ccc;min-width:80px">&nbsp;</div>';
-    }
-    if (showExp && q.explanation) {
-      html += '<div class="q-exp">💡 解析：' + escHtml(q.explanation) + '</div>';
-    }
-    // Add blank lines for writing space between questions
-    html += '<div class="blank-line"></div>';
-    html += '</div>';
+  // Count types
+  var typeMap = {};
+  questions.forEach(function(item) { typeMap[item.type] = (typeMap[item.type] || 0) + 1; });
+  var typeStr = Object.keys(typeMap).map(function(k) { return k + ' ' + typeMap[k] + '题'; }).join(' · ');
+
+  var labels = ['A','B','C','D','E','F','G'];
+  var fontSizes = { small: '12px', medium: '14px', large: '16px' };
+
+  function buildPrintHTML() {
+    var h = '';
+    questions.forEach(function(item, idx) {
+      var q = item.q;
+      h += '<div class="pq-block">';
+      h += '<div class="pq-num">' + (idx + 1) + '. <span class="pq-tag">' + item.type + '</span> <span class="pq-src">[' + escHtml(item.bank) + ']</span></div>';
+      h += '<div class="pq-qtext">' + escHtml((q.question || '').replace(/【.+?】/g, '').trim()) + '</div>';
+      if (q.type === 'multi') h += '<div style="font-size:11px;color:#8B5CF6;margin-bottom:4px">【多选题】</div>';
+      if (q.type === 'tf') h += '<div style="font-size:11px;color:#888;margin-bottom:4px">【判断题】</div>';
+      for (var i = 0; i < (q.options || []).length; i++) {
+        h += '<div class="pq-opt">' + labels[i] + '. ' + escHtml(q.options[i].replace(/^[A-G][.、\s]+/, '')) + '</div>';
+      }
+      if (!ps.hideAnswer) h += '<div class="pq-ans">✅ ' + escHtml(q.answer || '') + '</div>';
+      if (ps.showExp && q.explanation) h += '<div class="pq-exp">💡 ' + escHtml(q.explanation) + '</div>';
+      if (ps.blankLines) { h += '<div class="pq-blank"></div><div class="pq-blank"></div>'; }
+      h += '</div>';
+    });
+    return h;
+  }
+
+  function buildFullHTML() {
+    var fz = fontSizes[ps.fontSize] || '14px';
+    var h = '<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><title>刷题助手 · 打印</title><style>';
+    h += '*{box-sizing:border-box;margin:0;padding:0}';
+    h += 'body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;font-size:' + fz + ';line-height:2;color:#1a1a1a;padding:20px;max-width:800px;margin:0 auto}';
+    h += 'h1{text-align:center;font-size:20px;margin-bottom:4px}';
+    h += '.sub{text-align:center;font-size:12px;color:#888;margin-bottom:20px;border-bottom:1px solid #ddd;padding-bottom:10px}';
+    h += '.pq-block{margin-bottom:20px;padding-bottom:16px;border-bottom:1px dashed #ddd;page-break-inside:avoid}';
+    h += '.pq-num{font-weight:700;font-size:15px;margin-bottom:4px}';
+    h += '.pq-qtext{font-size:15px;margin-bottom:8px;font-weight:600}';
+    h += '.pq-opt{margin-left:16px;font-size:14px;margin-bottom:2px}';
+    h += '.pq-ans{font-size:13px;color:#e11d48;font-weight:700;margin-top:6px;padding:4px 8px;background:#fff5f5;border-radius:4px;display:inline-block}';
+    h += '.pq-exp{font-size:12px;color:#666;margin-top:4px;font-style:italic}';
+    h += '.pq-tag{font-size:10px;color:#aaa;margin-left:6px;background:#f0f0f0;padding:1px 6px;border-radius:3px}';
+    h += '.pq-src{font-size:11px;color:#999}';
+    h += '.pq-blank{border-bottom:1px solid #ddd;height:28px;margin:4px 0}';
+    h += '.footer{text-align:center;font-size:11px;color:#aaa;margin-top:30px;padding-top:12px;border-top:1px solid #eee}';
+    h += '.seal{border:2px dashed #999;padding:10px 14px;margin-bottom:18px;font-size:13px;color:#666;text-align:center}';
+    h += '@media print{body{padding:10px}@page{margin:15mm}.pq-block{page-break-inside:avoid}}';
+    h += '</style></head><body>';
+    h += '<h1>📝 教资刷题助手 · 打印版</h1>';
+    h += '<div class="sub">共 ' + questions.length + ' 题 · ' + typeStr + ' · ' + new Date().toLocaleDateString('zh-CN') + '</div>';
+    if (ps.sealLine) h += '<div class="seal">密封线内不要答题 &nbsp;|&nbsp; 姓名______ &nbsp; 得分______</div>';
+    h += buildPrintHTML();
+    h += '<div class="footer">由教资刷题助手生成 · 仅供个人学习使用</div>';
+    h += '<script>window.onload=function(){window.print();}<' + '/script></body></html>';
+    return h;
+  }
+
+  // Build overlay
+  var existingOv = document.getElementById('printPreviewOverlay');
+  if (existingOv) existingOv.remove();
+
+  var ov = document.createElement('div');
+  ov.id = 'printPreviewOverlay';
+  ov.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:99999;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;padding:8px;overflow:hidden';
+  ov.addEventListener('click', function(e) { if (e.target === ov) ov.remove(); });
+
+  var cardStyle = 'background:#fff;border-radius:14px;width:100%;max-width:860px;max-height:96vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.3)';
+  var barStyle = 'display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid #e5e5e5;flex-shrink:0;flex-wrap:wrap';
+  var btnSm = 'padding:5px 10px;border:1px solid #ddd;border-radius:6px;background:#f9f9f9;font-size:12px;cursor:pointer;white-space:nowrap;min-height:36px';
+  var btnSmOn = btnSm + ';background:#1a1a1a;color:#fff;border-color:#1a1a1a';
+  var ckStyle = 'display:flex;align-items:center;gap:4px;font-size:12px;color:#555;cursor:pointer;white-space:nowrap;min-height:36px;padding:4px 6px';
+  var actBtn = 'flex:1;padding:10px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;min-height:44px;text-align:center;color:#fff';
+
+  ov.innerHTML = '<div style="' + cardStyle + '">' +
+    // Header
+    '<div style="' + barStyle + '">' +
+      '<span style="font-size:15px;font-weight:700">📝 打印预览</span>' +
+      '<span style="font-size:12px;color:#888;margin-left:4px">共 ' + questions.length + ' 题 · ' + typeStr + '</span>' +
+      '<span style="flex:1"></span>' +
+      '<span style="font-size:11px;color:#aaa">字号</span>' +
+      '<button class="ps-fz-btn" data-fz="small" style="' + (ps.fontSize === 'small' ? btnSmOn : btnSm) + '">小</button>' +
+      '<button class="ps-fz-btn" data-fz="medium" style="' + (ps.fontSize === 'medium' ? btnSmOn : btnSm) + '">中</button>' +
+      '<button class="ps-fz-btn" data-fz="large" style="' + (ps.fontSize === 'large' ? btnSmOn : btnSm) + '">大</button>' +
+      '<button style="' + btnSm + ';min-width:36px;font-size:16px;line-height:1" title="关闭">✕</button>' +
+    '</div>' +
+    // Options
+    '<div style="' + barStyle + ';border-bottom:1px solid #eee;gap:4px">' +
+      '<label style="' + ckStyle + '"><input type="checkbox" class="ps-opt" data-key="hideAnswer"' + (ps.hideAnswer ? ' checked' : '') + '> 隐藏答案</label>' +
+      '<label style="' + ckStyle + '"><input type="checkbox" class="ps-opt" data-key="showExp"' + (ps.showExp ? ' checked' : '') + '> 显示解析</label>' +
+      '<label style="' + ckStyle + '"><input type="checkbox" class="ps-opt" data-key="blankLines"' + (ps.blankLines ? ' checked' : '') + '> 空白答题</label>' +
+      '<label style="' + ckStyle + '"><input type="checkbox" class="ps-opt" data-key="sealLine"' + (ps.sealLine ? ' checked' : '') + '> 密封线</label>' +
+    '</div>' +
+    // Preview
+    '<div id="printPreviewContent" style="flex:1;overflow-y:auto;padding:16px 20px;background:#f5f5f5;font-size:' + fontSizes[ps.fontSize] + ';min-height:200px">' +
+      '<div style="max-width:760px;margin:0 auto;background:#fff;padding:24px 28px;border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,0.1);min-height:100%">' +
+        '<div style="text-align:center;font-size:18px;font-weight:700;margin-bottom:4px">📝 教资刷题助手 · 打印版</div>' +
+        '<div style="text-align:center;font-size:11px;color:#888;margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid #eee">共 ' + questions.length + ' 题 · ' + typeStr + ' · ' + new Date().toLocaleDateString('zh-CN') + '</div>' +
+        (ps.sealLine ? '<div style="border:2px dashed #ccc;padding:8px 12px;margin-bottom:16px;font-size:12px;color:#999;text-align:center">密封线内不要答题 &nbsp;|&nbsp; 姓名______ &nbsp; 得分______</div>' : '') +
+        buildPrintHTML() +
+        '<div style="text-align:center;font-size:10px;color:#aaa;margin-top:24px;padding-top:12px;border-top:1px solid #eee">由教资刷题助手生成 · 仅供个人学习使用</div>' +
+      '</div>' +
+    '</div>' +
+    // Actions
+    '<div style="' + barStyle + ';border-top:1px solid #e5e5e5;gap:8px">' +
+      '<button id="psPrintBtn" style="' + actBtn + ';background:#1a1a1a">🖨 打印</button>' +
+      '<button id="psCopyBtn" style="' + actBtn + ';background:#666">📋 复制</button>' +
+      '<button id="psDownBtn" style="' + actBtn + ';background:#2563eb">📥 下载</button>' +
+    '</div>' +
+  '</div>';
+
+  document.body.appendChild(ov);
+
+  // Bind events
+  var previewEl = document.getElementById('printPreviewContent');
+
+  function refreshPreview() {
+    var inner = previewEl.querySelector('div');
+    var sealHTML = ps.sealLine ? '<div style="border:2px dashed #ccc;padding:8px 12px;margin-bottom:16px;font-size:12px;color:#999;text-align:center">密封线内不要答题 &nbsp;|&nbsp; 姓名______ &nbsp; 得分______</div>' : '';
+    inner.innerHTML = '<div style="text-align:center;font-size:18px;font-weight:700;margin-bottom:4px">📝 教资刷题助手 · 打印版</div>' +
+      '<div style="text-align:center;font-size:11px;color:#888;margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid #eee">共 ' + questions.length + ' 题 · ' + typeStr + ' · ' + new Date().toLocaleDateString('zh-CN') + '</div>' +
+      sealHTML + buildPrintHTML() +
+      '<div style="text-align:center;font-size:10px;color:#aaa;margin-top:24px;padding-top:12px;border-top:1px solid #eee">由教资刷题助手生成 · 仅供个人学习使用</div>';
+    previewEl.style.fontSize = fontSizes[ps.fontSize];
+  }
+
+  // Font size buttons
+  ov.querySelectorAll('.ps-fz-btn').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      ps.fontSize = this.dataset.fz;
+      savePs();
+      ov.querySelectorAll('.ps-fz-btn').forEach(function(b) { b.style.cssText = b.dataset.fz === ps.fontSize ? btnSmOn : btnSm; });
+      refreshPreview();
+    });
   });
 
-  html += '<div class="footer">由教资刷题助手生成 · 仅供个人学习使用</div>';
-  html += '<script>window.onload=function(){window.print();}<' + '/script>';
-  html += '</body></html>';
+  // Option checkboxes
+  ov.querySelectorAll('.ps-opt').forEach(function(cb) {
+    cb.addEventListener('change', function() {
+      ps[this.dataset.key] = this.checked;
+      savePs();
+      refreshPreview();
+    });
+  });
 
-  var blob = new Blob([html], {type: 'text/html;charset=UTF-8'});
-  var url = URL.createObjectURL(blob);
-  var win = window.open(url, '_blank');
-  if (!win) {
-    toast('⚠️ 弹窗被拦截，请允许本站弹窗后重试');
-  }
+  // Close button - find by ✕ text
+  ov.querySelectorAll("button").forEach(function(b) { if (b.textContent === "✕") { b.addEventListener("click", function(e) { e.stopPropagation(); ov.remove(); }); } });
+
+  // Print
+  document.getElementById('psPrintBtn').addEventListener('click', function(e) {
+    e.stopPropagation();
+    var html = buildFullHTML();
+    var blob = new Blob([html], {type: 'text/html;charset=UTF-8'});
+    var url = URL.createObjectURL(blob);
+    var iframe = document.createElement('iframe');
+    iframe.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;border:none;z-index:-1';
+    iframe.src = url;
+    iframe.onload = function() {
+      try { iframe.contentWindow.print(); } catch(ex) {}
+      setTimeout(function() { iframe.remove(); URL.revokeObjectURL(url); }, 1000);
+    };
+    document.body.appendChild(iframe);
+  });
+
+  // Copy
+  document.getElementById('psCopyBtn').addEventListener('click', function(e) {
+    e.stopPropagation();
+    var html = buildFullHTML();
+    var plain = questions.map(function(item, idx) {
+      var q = item.q;
+      var txt = (idx + 1) + '. [' + item.type + '] ' + (q.question || '').replace(/【.+?】/g, '').trim() + '\n';
+      for (var i = 0; i < (q.options || []).length; i++) {
+        txt += labels[i] + '. ' + q.options[i].replace(/^[A-G][.、\s]+/, '') + '\n';
+      }
+      if (!ps.hideAnswer) txt += '答案：' + (q.answer || '') + '\n';
+      if (ps.showExp && q.explanation) txt += '解析：' + q.explanation + '\n';
+      return txt;
+    }).join('\n');
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(plain).then(function() { toast('✅ 已复制到剪贴板'); });
+      } else {
+        var ta = document.createElement('textarea');
+        ta.value = plain; ta.style.cssText = 'position:fixed;left:-9999px'; document.body.appendChild(ta);
+        ta.select(); document.execCommand('copy'); ta.remove();
+        toast('✅ 已复制到剪贴板');
+      }
+    } catch(ex) { toast('❌ 复制失败，请手动选择文字复制'); }
+  });
+
+  // Download
+  document.getElementById('psDownBtn').addEventListener('click', function(e) {
+    e.stopPropagation();
+    var html = buildFullHTML();
+    var blob = new Blob([html], {type: 'text/html;charset=UTF-8'});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = '刷题打印_' + new Date().toISOString().slice(0,10) + '.html';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function() { URL.revokeObjectURL(url); }, 2000);
+    toast('✅ 下载完成');
+  });
 }
 
 // Call updatePrintSelection when settings render
