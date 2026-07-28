@@ -1634,7 +1634,7 @@ var TIER_FEATURES = {
           'clearWrongBook', 'pwaOffline', 'editBank', 'searchQuestion'],
   pro:   ['memorize', 'totalTimer', 'mixedBank', 'bankMerge', 'quickWrongReview',
           'superFav', 'pomodoro', 'difficultyRating', 'achievements',
-          'allThemes', 'focusMode', 'heatmap', 'weakLabels']
+          'allThemes', 'focusMode', 'heatmap', 'weakLabels', 'print']
 };
 var TIER_NAMES = { free: '基础版', basic: '科学备考版', pro: '智能全能版' };
 var TIER_EMOJI = { free: '🆓', basic: '💰', pro: '👑' };
@@ -1706,7 +1706,9 @@ function showTierCompare() {
     '<tr><td style="text-align:left;padding:6px">间隔复习（遗忘曲线）</td><td>❌</td><td>✅</td><td>✅</td></tr>' +
     '<tr><td style="text-align:left;padding:6px">番茄钟+专注模式</td><td>❌</td><td>❌</td><td>✅</td></tr>' +
     '<tr><td style="text-align:left;padding:6px">成就系统</td><td>❌</td><td>❌</td><td>✅</td></tr>' +
-    '<tr><td style="text-align:left;padding:6px">学习热力图+弱项标签</td><td>❌</td><td>❌</td><td>✅</td></tr>' +
+    '<tr><td style="text-align:left;padding:6px">学习热力图+学习周报</td><td>❌</td><td>❌</td><td>✅</td></tr>' +
+    '<tr><td style="text-align:left;padding:6px">模拟考试模式</td><td>❌</td><td>❌</td><td>✅</td></tr>' +
+    '<tr><td style="text-align:left;padding:6px">打印（错题/收藏/重点）</td><td>❌</td><td>❌</td><td>✅</td></tr>' +
     '<tr><td style="text-align:left;padding:6px">保底模式+考试倒计时</td><td>✅</td><td>✅</td><td>✅</td></tr>' +
     '<tr><td style="text-align:left;padding:6px">题库合并+搜索</td><td>❌</td><td>✅</td><td>✅</td></tr>' +
     '<tr><td style="text-align:left;padding:6px">日日标+本周小结</td><td>❌</td><td>✅</td><td>✅</td></tr>' +
@@ -9383,10 +9385,21 @@ function renderSettings() {
         '</div></div>';
     })() +
 
-    // 🖨 打印
-    '<div class="section"><div class="section-title" id="printSectionTitle" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;min-height:44px" onclick="var c=document.getElementById(\'printSectionContent\');var a=document.getElementById(\'printSectionArrow\');if(c.style.display===\'none\'){c.style.display=\'\';a.textContent=\'▼\'}else{c.style.display=\'none\';a.textContent=\'▶\'}">🖨 打印 <span id="printSectionArrow" style="font-size:11px">▼</span></div>' +
-      '<div id="printSectionContent">' +
-        '<div class="setting-item" style="flex-direction:column;align-items:stretch;gap:12px">' +
+    // 🖨 打印（¥9.9 专属）
+    (function() {
+      var printLocked = isTierLocked('print');
+      var printTitle = printLocked ? '🖨 打印 🔒' : '🖨 打印';
+      var printArrow = '<span id="printSectionArrow" style="font-size:11px">▼</span>';
+      var toggleFn = 'var c=document.getElementById(\'printSectionContent\');var a=document.getElementById(\'printSectionArrow\');if(c.style.display===\'none\'){c.style.display=\'\';a.textContent=\'▼\'}else{c.style.display=\'none\';a.textContent=\'▶\'}';
+      var printContent = '';
+      if (printLocked) {
+        printContent = '<div class="setting-item" style="flex-direction:column;align-items:center;gap:8px;opacity:0.5">' +
+          '<div style="font-size:14px;color:var(--text-tertiary)">🔒 智能全能版专属功能</div>' +
+          '<div style="font-size:12px;color:var(--text-tertiary)">打印错题、收藏、重点标记为纸质练习卷</div>' +
+          '<button class="btn btn-outline btn-sm" disabled style="opacity:0.4;pointer-events:none;min-height:36px">🖨 生成打印预览 🔒</button>' +
+        '</div>';
+      } else {
+        printContent = '<div class="setting-item" style="flex-direction:column;align-items:stretch;gap:12px">' +
           '<div><div class="setting-label">打印内容选择</div><div class="setting-desc">勾选需要打印的题目类型，可多选</div></div>' +
           '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
             '<label style="display:flex;align-items:center;gap:6px;padding:8px 14px;background:var(--bg-input);border-radius:8px;cursor:pointer;min-height:44px;font-size:14px"><input type="checkbox" id="printWrong" checked onchange="updatePrintSelection()"> 错题本</label>' +
@@ -9406,9 +9419,12 @@ function renderSettings() {
           '</div>' +
           '<div style="text-align:center;padding:8px 0;color:var(--text-secondary);font-size:13px" id="printCountInfo">共 0 题待打印</div>' +
           '<button class="btn btn-primary btn-block" onclick="doPrint()" style="min-height:44px">🖨 生成打印预览</button>' +
-        '</div>' +
-      '</div>' +
-    '</div>' +
+        '</div>';
+      }
+      return '<div class="section"><div class="section-title" id="printSectionTitle" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;min-height:44px" onclick="' + toggleFn + '">' + printTitle + ' ' + printArrow + '</div>' +
+        '<div id="printSectionContent">' + printContent + '</div>' +
+      '</div>';
+    })() +
 
     '<div class="section"><div class="section-title" id="appearanceSectionTitle" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;min-height:44px" onclick="var c=document.getElementById(\'appearanceSectionContent\');var a=document.getElementById(\'appearanceSectionArrow\');if(c.style.display===\'none\'){c.style.display=\'\';a.textContent=\'▼\'}else{c.style.display=\'none\';a.textContent=\'▶\'}">🎨 外观 <span id="appearanceSectionArrow" style="font-size:11px">▼</span></div>' +
       '<div id="appearanceSectionContent"><div class="setting-item"><div><div class="setting-label">夜间模式</div><div class="setting-desc">暗色主题，夜间刷题更护眼</div></div>' +
@@ -10158,9 +10174,10 @@ function showManualMenu() {
 
 // ====== Print ======
 function updatePrintSelection() {
-  var count = countPrintQuestions();
   var el = document.getElementById('printCountInfo');
-  if (el) { el.textContent = '共 ' + count + ' 题待打印'; }
+  if (!el) return; // print section not rendered (locked tier)
+  var count = countPrintQuestions();
+  el.textContent = '共 ' + count + ' 题待打印';
 }
 
 function countPrintQuestions() {
@@ -10195,6 +10212,7 @@ function countPrintQuestions() {
 }
 
 function doPrint() {
+  if (isTierLocked('print')) return;
   var printWrong = document.getElementById('printWrong');
   var printFav = document.getElementById('printFav');
   var printSuperFav = document.getElementById('printSuperFav');
