@@ -1004,6 +1004,12 @@ textarea { min-height: 180px; resize: vertical; line-height: 1.8; }
   70% { transform: scale(1.1); }
   100% { transform: scale(1); opacity: 1; }
 }
+@keyframes revengeFlash {
+  0% { box-shadow: 0 0 0 0 rgba(34,197,94,0.5); }
+  50% { box-shadow: 0 0 0 6px rgba(34,197,94,0.15); }
+  100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); }
+}
+.revenge-flash { animation: revengeFlash 0.6s ease-out; border-color: #22c55e !important; }
 /* ====== PWA 安装引导横幅 ====== */
 .pwa-install-banner {
   display: none;
@@ -1331,6 +1337,8 @@ textarea { min-height: 180px; resize: vertical; line-height: 1.8; }
         <div id="resultBestMoment" style="display:none;margin-top:12px;padding:10px 14px;background:var(--bg-input);border-radius:10px;font-size:13px;color:var(--text-secondary)"></div>
         <!-- vs 昨天 -->
         <div id="resultVsYesterday" style="display:none;margin-top:4px;font-size:12px;color:var(--text-tertiary)"></div>
+        <!-- Peak-End 情绪总结 -->
+        <div id="resultPeakEnd" style="display:none;margin-top:10px;padding:12px 14px;background:linear-gradient(135deg,#f0fdf4,#ecfdf5);border-radius:10px;font-size:14px;color:#166534;line-height:1.6;text-align:center"></div>
       </div>
       <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
         <button class="btn btn-primary" onclick="startQuiz()" style="width:100%;min-height:44px">▶ 相同设置再来一轮</button>
@@ -1338,6 +1346,7 @@ textarea { min-height: 180px; resize: vertical; line-height: 1.8; }
           <button class="btn" style="width:100%;min-height:44px;background:#8B5CF6;color:#fff;border:none" onclick="quickReviewWrongs()">🔍 错题速览（每题10秒）</button>
         </div>
         <button class="btn btn-outline" onclick="reviewWrongFromResult()" id="reviewWrongBtn" style="width:100%;min-height:44px">📌 错题重做</button>
+        <div id="resultLastPush" style="display:none;margin-top:8px;padding:10px 14px;background:linear-gradient(135deg,#fef3c7,#fef9c3);border-radius:10px;font-size:13px;color:#92400e;text-align:center;line-height:1.6"></div>
         <div style="display:flex;gap:8px">
           <button class="btn btn-ghost btn-sm" onclick="backToSetup()" style="flex:1">← 返回</button>
           <a href="javascript:void(0)" onclick="doQuickQuiz(3)" style="flex:1;font-size:12px;color:var(--text-tertiary);text-decoration:none;text-align:center;padding:8px 0">还意犹未尽？再来 <b>3题</b> →</a>
@@ -1853,7 +1862,7 @@ var TIER_FEATURES = {
   basic: ['allImport', 'unlimitedBanks', 'unlimitedQuestions', 'unlimitedBatch',
           'randomNorepeat', 'perQuestionTimer', 'wrongRedo', 'dailyGoal',
           'weeklySummary', 'srEnabled', 'mixedTheme', 'backupRestore',
-          'clearWrongBook', 'pwaOffline', 'editBank', 'searchQuestion', 'startFrom'],
+          'clearWrongBook', 'pwaOffline', 'editBank', 'searchQuestion', 'startFrom', 'smartFeedback'],
   pro:   ['memorize', 'totalTimer', 'mixedBank', 'bankMerge', 'quickWrongReview',
           'superFav', 'pomodoro', 'difficultyRating', 'achievements',
           'allThemes', 'focusMode', 'heatmap', 'weakLabels', 'print']
@@ -7141,7 +7150,20 @@ function selectAnswer(letter) {
     fb.innerHTML = '<strong>' + (correct ? '✅ 回答正确！' : '❌ 回答错误，正确答案是 ' + q.answer) + '</strong>' +
       (q.explanation ? '<div class="explanation-box"><button class="toggle-btn" onclick="toggleExplanation(this)">💡 查看解析</button><div class="content">' + escHtml(q.explanation) + '</div></div>' : '');
 
-    if (correct) quizState.correct++;
+    if (correct) {
+      quizState.correct++;
+      // 复仇成功微动效（¥3+）：做对曾经错过的题，卡片闪绿光
+      if (!isTierLocked('smartFeedback')) {
+        var _revBn = (quizState.quickBankNames && quizState.quickBankNames[idx]) || quizState.bankName;
+        if (_revBn && appData.wrongBooks && appData.wrongBooks[_revBn]) {
+          var _inWb = appData.wrongBooks[_revBn].find(function(w) { return w.id === q.id; });
+          if (_inWb) {
+            var card = document.getElementById('questionCard');
+            if (card) { card.classList.add('revenge-flash'); setTimeout(function() { card.classList.remove('revenge-flash'); }, 600); }
+          }
+        }
+      }
+    }
     else { quizState.wrong++; quizState.wrongIds.push(q.id); }
     applySR(quizState.bankName, q.id, correct);
 
@@ -7391,6 +7413,30 @@ function showResult() {
   else if (rate >= 50) attrLabel.textContent = '每次努力都在积累！';
   else attrLabel.textContent = '发现漏洞就是进步！';
 
+  // Peak-End 情绪化总结（¥3+）
+  var peakEndEl = document.getElementById('resultPeakEnd');
+  if (peakEndEl) {
+    if (!isTierLocked('smartFeedback')) {
+      peakEndEl.style.display = '';
+      var comboPeak = quizState.maxCombo || 0;
+      var last3Correct = 0;
+      for (var li = quizState.questions.length - 1; li >= Math.max(0, quizState.questions.length - 3); li--) {
+        if (quizState.userAnswers[li] === quizState.questions[li].answer) last3Correct++;
+      }
+      if (rate >= 90) {
+        peakEndEl.textContent = last3Correct >= 3 ? '🔥 状态火热！最后几题全对，感觉来了！' : '🔥 接近完美，这种节奏感太棒了！';
+      } else if (rate >= 70) {
+        peakEndEl.textContent = last3Correct >= 3 ? '✨ 收尾很稳，保持节奏就赢了！' : (comboPeak >= 10 ? '⚡ 中间那波连击很漂亮，下次稳住收尾！' : '✊ 稳定发挥，继续积累就好');
+      } else if (rate >= 50) {
+        peakEndEl.textContent = comboPeak >= 8 ? '💡 有连击亮点！错的一半都是未来的送分题' : '📖 别急，每道错题都在帮你定位薄弱点';
+      } else {
+        peakEndEl.textContent = '🌱 低谷是爬坡的开始。每题都在进步，继续刷就对了！';
+      }
+    } else {
+      peakEndEl.style.display = 'none';
+    }
+  }
+
   // Cognitive reappraisal: wrong = discovered knowledge gaps
   document.getElementById('resultWrongLabel').innerHTML = wrong > 0 ? '🔍 发现漏洞' : '✅ 全部正确';
 
@@ -7408,11 +7454,16 @@ function showResult() {
     });
     quizState.maxCombo = calcMaxCombo;
   }
-  if (calcMaxCombo >= 3) bestParts.push('🔥 最长连击 <b>' + calcMaxCombo + '</b> 题');
+  if (calcMaxCombo >= 3) {
+    var comboText = calcMaxCombo >= 15 ? '🥇 最长连击 <b style="color:#d4a017">' + calcMaxCombo + '</b> 题' : '🔥 最长连击 <b>' + calcMaxCombo + '</b> 题';
+    bestParts.push(comboText);
+  }
   if (quizState.fastestMs) bestParts.push('⚡ 最快一题 <b>' + (quizState.fastestMs / 1000).toFixed(1) + '秒</b>');
   if (bestParts.length > 0) {
     bestMomentEl.style.display = '';
     bestMomentEl.innerHTML = '🌟 本次最佳：' + bestParts.join(' · ');
+    if (calcMaxCombo >= 15) bestMomentEl.style.background = '#fffef0';
+    else bestMomentEl.style.background = '';
   } else {
     bestMomentEl.style.display = 'none';
   }
@@ -7435,6 +7486,24 @@ function showResult() {
     else vsEl.innerHTML = '📉 比昨天少 <b style="color:var(--danger)">' + Math.abs(diff) + '</b> 题，明天加油！';
   } else {
     vsEl.style.display = 'none';
+  }
+
+  // 离开前最后一推（¥3+）：未达标时提醒还差X题
+  var pushEl = document.getElementById('resultLastPush');
+  if (pushEl) {
+    if (!isTierLocked('smartFeedback')) {
+      var goalQ = (appData.settings && appData.settings.dailyGoal) || 0;
+      var todayQ = (getDailyData() || {}).count || 0;
+      if (goalQ > 0 && todayQ < goalQ) {
+        var need = goalQ - todayQ;
+        pushEl.style.display = '';
+        pushEl.innerHTML = '🎯 今日目标 ' + goalQ + ' 题，还差 <b>' + need + '</b> 题达标<br><button class="btn btn-sm" style="margin-top:6px;background:#f59e0b;color:#fff;border:none;min-height:36px" onclick="backToSetup();setTimeout(function(){document.getElementById(\'bankSelect\')&&document.getElementById(\'bankSelect\').focus();},300)">🔥 再来一组，冲刺达标</button>';
+      } else {
+        pushEl.style.display = 'none';
+      }
+    } else {
+      pushEl.style.display = 'none';
+    }
   }
 
   // Wrong quick review button
@@ -8966,10 +9035,12 @@ function renderHeatmapHTML(dailyMap) {
   function heatColor(count, future) {
     if (future) return '#f0f0f0';
     if (count === 0) return '#ebedf0';
-    if (count <= 15) return '#c6e48b';
-    if (count <= 40) return '#7bc96f';
-    if (count <= 80) return '#239a3b';
-    return '#196127';
+    if (count <= 5) return '#d6f5d6';
+    if (count <= 15) return '#a8e6a1';
+    if (count <= 30) return '#64c964';
+    if (count <= 50) return '#2ea043';
+    if (count <= 80) return '#1a7a2e';
+    return '#0e581c';
   }
 
   var dayLabels = ['一','二','三','四','五','六','日'];
@@ -9842,7 +9913,7 @@ function renderSettings() {
 
     '<div class="section"><div class="section-title" id="aboutSectionTitle" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;min-height:44px" onclick="var c=document.getElementById(\'aboutSectionContent\');var a=document.getElementById(\'aboutSectionArrow\');if(c.style.display===\'none\'){c.style.display=\'\';a.textContent=\'▼\'}else{c.style.display=\'none\';a.textContent=\'▶\'}">ℹ️ 关于 <span id="aboutSectionArrow" style="font-size:11px">▼</span></div>' +
       '<div id="aboutSectionContent"><div class="setting-item" style="cursor:pointer" onclick="showManualMenu()"><div><div class="setting-label">📖 使用说明</div><div class="setting-desc">查看使用指南</div></div><div style="display:flex;align-items:center">→</div></div>' +
-      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">' + TIER_EMOJI[getTier()] + ' ' + TIER_NAMES[getTier()] + ' · 纯前端离线可用 · <span id="appVersion">v228</span></div></div></div>' +
+      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">' + TIER_EMOJI[getTier()] + ' ' + TIER_NAMES[getTier()] + ' · 纯前端离线可用 · <span id="appVersion">v229</span></div></div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="showDataOffsetTool()"><div><div class="setting-label">🔧 数据批量偏移</div><div class="setting-desc">修复答案/解析的错位问题（支持前移后移）</div></div><div style="display:flex;align-items:center">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="clearAllData()"><div><div class="setting-label" style="color:var(--danger)">🗑️ 删除所有数据</div><div class="setting-desc">清空全部题库和设置，不可恢复</div></div><div style="display:flex;align-items:center;color:var(--danger)">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="checkUpdate()"><div><div class="setting-label">🔄 检查更新</div><div class="setting-desc">点击清除缓存并刷新，获取最新版本</div></div><div style="display:flex;align-items:center">→</div></div>' +
