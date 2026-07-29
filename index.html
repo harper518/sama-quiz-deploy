@@ -7501,8 +7501,8 @@ function showResult() {
           sb.qs.forEach(function(q) {
             if (!sb.wrongIds.includes(q.id)) return;
             var existing = appData.wrongBooks[sbn].find(function(w) { return w.id === q.id; });
-            if (existing) { existing.wrongCount = (existing.wrongCount || 1) + 1; }
-            else { appData.wrongBooks[sbn].push({ id: q.id, question: q.question, A: q.A, B: q.B, C: q.C, D: q.D, answer: q.answer, explanation: q.explanation, wrongCount: 1 }); }
+            if (existing) { existing.wrongCount = (existing.wrongCount || 1) + 1; existing.consecutiveCorrect = 0; }
+            else { appData.wrongBooks[sbn].push({ id: q.id, question: q.question, A: q.A, B: q.B, C: q.C, D: q.D, answer: q.answer, explanation: q.explanation, wrongCount: 1, consecutiveCorrect: 0 }); }
           });
         }
       });
@@ -7521,8 +7521,9 @@ function showResult() {
           const existing = appData.wrongBooks[bn].find(w => w.id === q.id);
           if (existing) {
             existing.wrongCount = (existing.wrongCount || 1) + 1;
+            existing.consecutiveCorrect = 0;
           } else {
-            appData.wrongBooks[bn].push({ ...q, wrongCount: 1 });
+            appData.wrongBooks[bn].push({ ...q, wrongCount: 1, consecutiveCorrect: 0 });
           }
         });
       }
@@ -7540,6 +7541,26 @@ function showResult() {
         quizState.questions.forEach(q => { if (!doneSet.includes(q.id)) doneSet.push(q.id); });
       }
     }
+  }
+
+  // 错题连续正确计数 & 消灭（非临时题库）
+  if (!quizState.isTempQuiz) {
+    quizState.questions.forEach(function(q, i) {
+      var qBankName = (quizState.quickBankNames && quizState.quickBankNames[i]) || quizState.bankName;
+      if (!qBankName || !appData.wrongBooks || !appData.wrongBooks[qBankName]) return;
+      var wbEntry = appData.wrongBooks[qBankName].find(function(w) { return w.id === q.id; });
+      if (!wbEntry) return;
+      var userAns = quizState.userAnswers[i];
+      if (userAns === q.answer) {
+        wbEntry.consecutiveCorrect = (wbEntry.consecutiveCorrect || 0) + 1;
+        if (wbEntry.consecutiveCorrect >= 7) {
+          appData.wrongBooks[qBankName] = appData.wrongBooks[qBankName].filter(function(w) { return w.id !== q.id; });
+          if (appData.wrongBooks[qBankName].length === 0) delete appData.wrongBooks[qBankName];
+        }
+      } else {
+        wbEntry.consecutiveCorrect = 0;
+      }
+    });
   }
 
   saveData(appData);
@@ -8543,13 +8564,27 @@ function selectBrowseAnswer(letter) {
     var existing = wrongs.find(function(w) { return w.id === q.id; });
     if (existing) {
       existing.wrongCount = (existing.wrongCount || 1) + 1;
+      existing.consecutiveCorrect = 0;
     } else {
       var copy = {};
       Object.keys(q).forEach(function(k) { copy[k] = q[k]; });
       copy.wrongCount = 1;
+      copy.consecutiveCorrect = 0;
       wrongs.push(copy);
     }
     saveData(appData);
+  }
+  // 答对了检查连续正确计数
+  if (letter === q.answer && browseState.name && appData.wrongBooks && appData.wrongBooks[browseState.name]) {
+    var wbEntry2 = appData.wrongBooks[browseState.name].find(function(w) { return w.id === q.id; });
+    if (wbEntry2) {
+      wbEntry2.consecutiveCorrect = (wbEntry2.consecutiveCorrect || 0) + 1;
+      if (wbEntry2.consecutiveCorrect >= 7) {
+        appData.wrongBooks[browseState.name] = appData.wrongBooks[browseState.name].filter(function(w) { return w.id !== q.id; });
+        if (appData.wrongBooks[browseState.name].length === 0) delete appData.wrongBooks[browseState.name];
+      }
+      saveData(appData);
+    }
   }
 
   renderBrowseQuestion();
@@ -8570,17 +8605,31 @@ function confirmBrowseAnswer() {
   // 做错了加入错题本
   if (answerStr !== q.answer && browseState.name) {
     if (!appData.wrongBooks[browseState.name]) appData.wrongBooks[browseState.name] = [];
-    var wrongs = appData.wrongBooks[browseState.name];
-    var existing = wrongs.find(function(w) { return w.id === q.id; });
-    if (existing) {
-      existing.wrongCount = (existing.wrongCount || 1) + 1;
+    var wrongs2 = appData.wrongBooks[browseState.name];
+    var existing2 = wrongs2.find(function(w) { return w.id === q.id; });
+    if (existing2) {
+      existing2.wrongCount = (existing2.wrongCount || 1) + 1;
+      existing2.consecutiveCorrect = 0;
     } else {
-      var copy = {};
-      Object.keys(q).forEach(function(k) { copy[k] = q[k]; });
-      copy.wrongCount = 1;
-      wrongs.push(copy);
+      var copy2 = {};
+      Object.keys(q).forEach(function(k) { copy2[k] = q[k]; });
+      copy2.wrongCount = 1;
+      copy2.consecutiveCorrect = 0;
+      wrongs2.push(copy2);
     }
     saveData(appData);
+  }
+  // 答对了检查连续正确计数
+  if (answerStr === q.answer && browseState.name && appData.wrongBooks && appData.wrongBooks[browseState.name]) {
+    var wbEntry3 = appData.wrongBooks[browseState.name].find(function(w) { return w.id === q.id; });
+    if (wbEntry3) {
+      wbEntry3.consecutiveCorrect = (wbEntry3.consecutiveCorrect || 0) + 1;
+      if (wbEntry3.consecutiveCorrect >= 7) {
+        appData.wrongBooks[browseState.name] = appData.wrongBooks[browseState.name].filter(function(w) { return w.id !== q.id; });
+        if (appData.wrongBooks[browseState.name].length === 0) delete appData.wrongBooks[browseState.name];
+      }
+      saveData(appData);
+    }
   }
 
   renderBrowseQuestion();
@@ -9793,7 +9842,7 @@ function renderSettings() {
 
     '<div class="section"><div class="section-title" id="aboutSectionTitle" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;min-height:44px" onclick="var c=document.getElementById(\'aboutSectionContent\');var a=document.getElementById(\'aboutSectionArrow\');if(c.style.display===\'none\'){c.style.display=\'\';a.textContent=\'▼\'}else{c.style.display=\'none\';a.textContent=\'▶\'}">ℹ️ 关于 <span id="aboutSectionArrow" style="font-size:11px">▼</span></div>' +
       '<div id="aboutSectionContent"><div class="setting-item" style="cursor:pointer" onclick="showManualMenu()"><div><div class="setting-label">📖 使用说明</div><div class="setting-desc">查看使用指南</div></div><div style="display:flex;align-items:center">→</div></div>' +
-      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">' + TIER_EMOJI[getTier()] + ' ' + TIER_NAMES[getTier()] + ' · 纯前端离线可用 · <span id="appVersion">v227</span></div></div></div>' +
+      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">' + TIER_EMOJI[getTier()] + ' ' + TIER_NAMES[getTier()] + ' · 纯前端离线可用 · <span id="appVersion">v228</span></div></div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="showDataOffsetTool()"><div><div class="setting-label">🔧 数据批量偏移</div><div class="setting-desc">修复答案/解析的错位问题（支持前移后移）</div></div><div style="display:flex;align-items:center">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="clearAllData()"><div><div class="setting-label" style="color:var(--danger)">🗑️ 删除所有数据</div><div class="setting-desc">清空全部题库和设置，不可恢复</div></div><div style="display:flex;align-items:center;color:var(--danger)">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="checkUpdate()"><div><div class="setting-label">🔄 检查更新</div><div class="setting-desc">点击清除缓存并刷新，获取最新版本</div></div><div style="display:flex;align-items:center">→</div></div>' +
