@@ -1790,6 +1790,9 @@ var ACHIEVEMENTS = [
   { id: 'nightOwl', name: '深夜学习者', desc: '22:00后完成一轮刷题', emoji: '🌙', check: function() { var h = new Date().getHours(); return h >= 22 || h < 5; } },
   { id: 'perfect10', name: '完美十分', desc: '单轮15题以上全对', emoji: '💯', check: function() { return false; } },
   { id: 'comeback', name: '卷土重来', desc: '错题本从有到清零', emoji: '🧹', check: function() { return false; } },
+  { id: 'streak3', name: '3天初成', desc: '首次连续打卡3天', emoji: '🏅', check: function() { var si = getStreakInfo(); return si.streak >= 3; } },
+  { id: 'daily100', name: '百日先锋', desc: '单日刷题突破100道', emoji: '📈', check: function() { var dd = getDailyData(); return (dd && dd.count) ? dd.count >= 100 : false; } },
+  { id: 'elim10', name: '火眼金睛', desc: '累计消灭10道错题', emoji: '👁️', check: function() { return (appData.totalEliminated || 0) >= 10; } },
 ];
 function getTotalAnswered() {
   var total = 0;
@@ -7625,6 +7628,7 @@ function showResult() {
         if (wbEntry.consecutiveCorrect >= 7) {
           appData.wrongBooks[qBankName] = appData.wrongBooks[qBankName].filter(function(w) { return w.id !== q.id; });
           if (appData.wrongBooks[qBankName].length === 0) delete appData.wrongBooks[qBankName];
+          appData.totalEliminated = (appData.totalEliminated || 0) + 1;
         }
       } else {
         wbEntry.consecutiveCorrect = 0;
@@ -7675,6 +7679,26 @@ function dismissExitIntercept(cont) {
   var overlay = document.getElementById('exitInterceptOverlay');
   if (overlay) overlay.remove();
   if (!cont) { _doBackToSetup(); }
+}
+function showHalfwayIntercept(done, total) {
+  var pct = Math.round(done / total * 100);
+  var overlay = document.createElement('div');
+  overlay.id = 'halfwayInterceptOverlay';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px';
+  overlay.innerHTML = '<div style="background:var(--card);border-radius:16px;padding:24px;text-align:center;max-width:320px;width:100%">' +
+    '<div style="font-size:40px;margin-bottom:10px">🧘</div>' +
+    '<h3 style="margin:0 0 8px;font-size:16px">已完成 <b style="color:var(--primary)">' + done + '/' + total + '</b>（' + pct + '%）</h3>' +
+    '<p style="margin:0 0 16px;font-size:13px;color:var(--text-secondary)">只差一点就到一半了，坚持一下？</p>' +
+    '<div style="display:flex;gap:10px">' +
+      '<button class="btn btn-outline" style="flex:1;min-height:44px" onclick="dismissHalfwayIntercept(false)">确认退出</button>' +
+      '<button class="btn btn-primary" style="flex:1;min-height:44px" onclick="dismissHalfwayIntercept(true)">继续答题</button>' +
+    '</div></div>';
+  document.body.appendChild(overlay);
+}
+function dismissHalfwayIntercept(cont) {
+  var overlay = document.getElementById('halfwayInterceptOverlay');
+  if (overlay) overlay.remove();
+  if (!cont) { stopTimer(); stopPomodoro(); quizState = null; _doBackToSetup(); }
 }
 function showCelebration() {
   // Simple confetti with emoji
@@ -7828,6 +7852,15 @@ function showWeeklySummary() {
 }
 
 function backToSetup() {
+  // 温柔挽留：答了不到一半就想退出（免费开放）
+  if (quizState && !quizState.answered && !quizState.isTempQuiz && quizState.userAnswers) {
+    var doneCount = quizState.userAnswers.filter(function(a) { return a !== null && a !== '?'; }).length;
+    var half = Math.ceil(quizState.total / 2);
+    if (doneCount > 0 && doneCount < half && quizState.mode !== 'memorize') {
+      showHalfwayIntercept(doneCount, quizState.total);
+      return;
+    }
+  }
   // Exit intercept: if daily goal set and not met, show data-driven prompt
   if (quizState && !quizState.answered) {
     var si = getStreakInfo();
@@ -8651,6 +8684,7 @@ function selectBrowseAnswer(letter) {
       if (wbEntry2.consecutiveCorrect >= 7) {
         appData.wrongBooks[browseState.name] = appData.wrongBooks[browseState.name].filter(function(w) { return w.id !== q.id; });
         if (appData.wrongBooks[browseState.name].length === 0) delete appData.wrongBooks[browseState.name];
+        appData.totalEliminated = (appData.totalEliminated || 0) + 1;
       }
       saveData(appData);
     }
@@ -8696,6 +8730,7 @@ function confirmBrowseAnswer() {
       if (wbEntry3.consecutiveCorrect >= 7) {
         appData.wrongBooks[browseState.name] = appData.wrongBooks[browseState.name].filter(function(w) { return w.id !== q.id; });
         if (appData.wrongBooks[browseState.name].length === 0) delete appData.wrongBooks[browseState.name];
+        appData.totalEliminated = (appData.totalEliminated || 0) + 1;
       }
       saveData(appData);
     }
@@ -9913,7 +9948,7 @@ function renderSettings() {
 
     '<div class="section"><div class="section-title" id="aboutSectionTitle" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;min-height:44px" onclick="var c=document.getElementById(\'aboutSectionContent\');var a=document.getElementById(\'aboutSectionArrow\');if(c.style.display===\'none\'){c.style.display=\'\';a.textContent=\'▼\'}else{c.style.display=\'none\';a.textContent=\'▶\'}">ℹ️ 关于 <span id="aboutSectionArrow" style="font-size:11px">▼</span></div>' +
       '<div id="aboutSectionContent"><div class="setting-item" style="cursor:pointer" onclick="showManualMenu()"><div><div class="setting-label">📖 使用说明</div><div class="setting-desc">查看使用指南</div></div><div style="display:flex;align-items:center">→</div></div>' +
-      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">' + TIER_EMOJI[getTier()] + ' ' + TIER_NAMES[getTier()] + ' · 纯前端离线可用 · <span id="appVersion">v229</span></div></div></div>' +
+      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">' + TIER_EMOJI[getTier()] + ' ' + TIER_NAMES[getTier()] + ' · 纯前端离线可用 · <span id="appVersion">v230</span></div></div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="showDataOffsetTool()"><div><div class="setting-label">🔧 数据批量偏移</div><div class="setting-desc">修复答案/解析的错位问题（支持前移后移）</div></div><div style="display:flex;align-items:center">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="clearAllData()"><div><div class="setting-label" style="color:var(--danger)">🗑️ 删除所有数据</div><div class="setting-desc">清空全部题库和设置，不可恢复</div></div><div style="display:flex;align-items:center;color:var(--danger)">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="checkUpdate()"><div><div class="setting-label">🔄 检查更新</div><div class="setting-desc">点击清除缓存并刷新，获取最新版本</div></div><div style="display:flex;align-items:center">→</div></div>' +
