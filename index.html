@@ -1602,11 +1602,12 @@ function loadData() {
     if (!data.bankMeta) data.bankMeta = {};
     if (!data.settings) data.settings = { color: 'pastel', darkMode: false, fontSize: 16 };
     if (!data.totalStudySeconds) data.totalStudySeconds = 0;
+    if (data.totalEliminated === undefined) data.totalEliminated = 0;
     if (!data.achievements) data.achievements = {};
     if (!data.activation) data.activation = { tier: 'free', codeHash: '', activatedAt: null, expires: null };
     return data;
   }
-  catch(e) { return { banks: {}, stats: {}, wrongBooks: {}, quizHistory: {}, dailyHistory: {}, bankMeta: {}, settings: { color: 'pastel', darkMode: false, fontSize: 16 }, totalStudySeconds: 0, achievements: {}, activation: { tier: 'free', codeHash: '', activatedAt: null, expires: null } }; }
+  catch(e) { return { banks: {}, stats: {}, wrongBooks: {}, quizHistory: {}, dailyHistory: {}, bankMeta: {}, settings: { color: 'pastel', darkMode: false, fontSize: 16 }, totalStudySeconds: 0, totalEliminated: 0, achievements: {}, activation: { tier: 'free', codeHash: '', activatedAt: null, expires: null } }; }
 }
 function saveData(data) {
   try {
@@ -1784,13 +1785,13 @@ var ACHIEVEMENTS = [
   { id: 'total500', name: '白银学者', desc: '累计刷题500道', emoji: '🥈', check: function() { return getTotalAnswered() >= 500; } },
   { id: 'total1000', name: '黄金学者', desc: '累计刷题1000道', emoji: '🥇', check: function() { return getTotalAnswered() >= 1000; } },
   { id: 'total3000', name: '钻石学者', desc: '累计刷题3000道', emoji: '💎', check: function() { return getTotalAnswered() >= 3000; } },
+  { id: 'streak3', name: '3天初成', desc: '首次连续打卡3天', emoji: '🏅', check: function() { var si = getStreakInfo(); return si.streak >= 3; } },
   { id: 'streak7', name: '7天连胜', desc: '连续打卡7天', emoji: '🔥', check: function() { var si = getStreakInfo(); return si.streak >= 7; } },
   { id: 'streak30', name: '月之星', desc: '连续打卡30天', emoji: '🌟', check: function() { var si = getStreakInfo(); return si.streak >= 30; } },
   { id: 'speedster', name: '闪电手', desc: '单题平均<3秒（10题以上）', emoji: '⚡', check: function() { return false; } },
   { id: 'nightOwl', name: '深夜学习者', desc: '22:00后完成一轮刷题', emoji: '🌙', check: function() { var h = new Date().getHours(); return h >= 22 || h < 5; } },
   { id: 'perfect10', name: '完美十分', desc: '单轮15题以上全对', emoji: '💯', check: function() { return false; } },
   { id: 'comeback', name: '卷土重来', desc: '错题本从有到清零', emoji: '🧹', check: function() { return false; } },
-  { id: 'streak3', name: '3天初成', desc: '首次连续打卡3天', emoji: '🏅', check: function() { var si = getStreakInfo(); return si.streak >= 3; } },
   { id: 'daily100', name: '百日先锋', desc: '单日刷题突破100道', emoji: '📈', check: function() { var dd = getDailyData(); return (dd && dd.count) ? dd.count >= 100 : false; } },
   { id: 'elim10', name: '火眼金睛', desc: '累计消灭10道错题', emoji: '👁️', check: function() { return (appData.totalEliminated || 0) >= 10; } },
 ];
@@ -6054,7 +6055,7 @@ function doQuickQuiz(n) {
   document.getElementById('sideTapRight').classList.add('active');
   var lbl = document.getElementById('bankNameLabel'); if (lbl) lbl.textContent = '⚡ 快速' + n + '题';
   document.getElementById('modeHint').textContent = '⚡ 即时反馈 · 随机';
-  stopTimer(); renderQuestion(); applyFocusMode(); applyPomodoro(); applyPomodoro();
+  stopTimer(); renderQuestion(); applyFocusMode(); applyPomodoro();
 }
 function doDailyWrongChallenge() {
   try {
@@ -6080,7 +6081,7 @@ function doDailyWrongChallenge() {
   document.getElementById('sideTapRight').classList.add('active');
   var lbl = document.getElementById('bankNameLabel'); if (lbl) lbl.textContent = '📋 每日错题挑战';
   document.getElementById('modeHint').textContent = '⚡ 即时反馈 · 随机5题';
-  stopTimer(); renderQuestion(); applyFocusMode(); applyPomodoro(); applyPomodoro();
+  stopTimer(); renderQuestion(); applyFocusMode(); applyPomodoro();
   } catch(e) { console.error('doDailyWrongChallenge error:', e); toast('操作失败，请重试'); }
 }
 function applyFocusMode() {
@@ -7162,7 +7163,7 @@ function selectAnswer(letter) {
           var _inWb = appData.wrongBooks[_revBn].find(function(w) { return w.id === q.id; });
           if (_inWb) {
             var card = document.getElementById('questionCard');
-            if (card) { card.classList.add('revenge-flash'); setTimeout(function() { card.classList.remove('revenge-flash'); }, 600); }
+            if (card) { card.classList.remove('revenge-flash'); void card.offsetWidth; card.classList.add('revenge-flash'); setTimeout(function() { card.classList.remove('revenge-flash'); }, 600); }
           }
         }
       }
@@ -7254,7 +7255,7 @@ function confirmMultiAnswer() {
           var _inWbM = appData.wrongBooks[_revBnM].find(function(w) { return w.id === q.id; });
           if (_inWbM) {
             var cardM = document.getElementById('questionCard');
-            if (cardM) { cardM.classList.add('revenge-flash'); setTimeout(function() { cardM.classList.remove('revenge-flash'); }, 600); }
+            if (cardM) { cardM.classList.remove('revenge-flash'); void cardM.offsetWidth; cardM.classList.add('revenge-flash'); setTimeout(function() { cardM.classList.remove('revenge-flash'); }, 600); }
           }
         }
       }
@@ -7353,6 +7354,7 @@ function showResult() {
     _doBackToSetup();
     return;
   }
+  quizState.answered = true;
   stopTimer();
   document.getElementById('quizActive').style.display = 'none';
   document.getElementById('sideTapLeft').classList.remove('active');
@@ -7385,9 +7387,9 @@ function showResult() {
   }
   // 更新每日历史
   var dd = getDailyData();
-  if (!dd.history) dd.history = {};
   var todayStr = getTodayStr();
-  dd.history[todayStr] = dd.count;
+  if (!appData.dailyHistory) appData.dailyHistory = {};
+  appData.dailyHistory[todayStr] = dd.count;
   saveData(appData);
 
   // 间隔重复：对所有答过的题更新SR
@@ -7487,7 +7489,7 @@ function showResult() {
   // vs Yesterday
   var vsEl = document.getElementById('resultVsYesterday');
   var dd2 = getDailyData();
-  var hist = dd2.history || {};
+  var hist = appData.dailyHistory || {};
   var yesterdayStr = (function() {
     var yd = new Date(Date.now() - 86400000);
     return yd.getFullYear() + '-' + String(yd.getMonth()+1).padStart(2,'0') + '-' + String(yd.getDate()).padStart(2,'0');
@@ -7711,7 +7713,7 @@ function showHalfwayIntercept(done, total) {
 function dismissHalfwayIntercept(cont) {
   var overlay = document.getElementById('halfwayInterceptOverlay');
   if (overlay) overlay.remove();
-  if (!cont) { stopTimer(); stopPomodoro(); quizState = null; _doBackToSetup(); }
+  if (!cont) { quizState = null; _doBackToSetup(); }
 }
 function showCelebration() {
   // Simple confetti with emoji
@@ -7840,7 +7842,7 @@ function quickReviewWrongs() {
 
 function showWeeklySummary() {
   var d = getDailyData();
-  var history = d.history || {};
+  var history = appData.dailyHistory || {};
   // Build summary from recent 7 days
   var totalWeek = 0;
   var daysActive = 0;
@@ -7891,13 +7893,13 @@ function _doBackToSetup() {
   quizState = null; // 清掉旧进度
   _searchTempQuestions = null; // 清除搜索临时题库
   _searchTempName = '';
-  document.getElementById('sideTapLeft').classList.remove('active');
-  document.getElementById('sideTapRight').classList.remove('active');
-  document.getElementById('quizActive').style.display = 'none';
-  document.getElementById('quizResult').style.display = 'none';
-  document.getElementById('wrongBrowseActive').style.display = 'none';
-  document.getElementById('quizSetup').style.display = 'block';
-  document.getElementById('seqProgress').style.display = drawMode === 'sequential' ? '' : 'none';
+  var slEl = document.getElementById('sideTapLeft'); if (slEl) slEl.classList.remove('active');
+  var srEl = document.getElementById('sideTapRight'); if (srEl) srEl.classList.remove('active');
+  var qaEl = document.getElementById('quizActive'); if (qaEl) qaEl.style.display = 'none';
+  var qrEl = document.getElementById('quizResult'); if (qrEl) qrEl.style.display = 'none';
+  var wbEl = document.getElementById('wrongBrowseActive'); if (wbEl) wbEl.style.display = 'none';
+  var qsEl = document.getElementById('quizSetup'); if (qsEl) qsEl.style.display = 'block';
+  var spEl = document.getElementById('seqProgress'); if (spEl) spEl.style.display = drawMode === 'sequential' ? '' : 'none';
   updateSeqProgressUI();
   renderQuizSetup();
   // 恢复模式选择状态
@@ -9081,14 +9083,15 @@ function renderHeatmapHTML(dailyMap) {
 
   // Color scale
   function heatColor(count, future) {
-    if (future) return '#f0f0f0';
-    if (count === 0) return '#ebedf0';
-    if (count <= 5) return '#d6f5d6';
-    if (count <= 15) return '#a8e6a1';
-    if (count <= 30) return '#64c964';
-    if (count <= 50) return '#2ea043';
-    if (count <= 80) return '#1a7a2e';
-    return '#0e581c';
+    var isDark = appData.settings && appData.settings.darkMode;
+    if (future) return isDark ? '#0d3333' : '#f0f0f0';
+    if (count === 0) return isDark ? '#1a4545' : '#ebedf0';
+    if (count <= 5) return isDark ? '#3a6e4a' : '#d6f5d6';
+    if (count <= 15) return isDark ? '#4c8c52' : '#a8e6a1';
+    if (count <= 30) return isDark ? '#5ea85e' : '#64c964';
+    if (count <= 50) return isDark ? '#6dc06d' : '#2ea043';
+    if (count <= 80) return isDark ? '#47a04a' : '#1a7a2e';
+    return isDark ? '#3d8c40' : '#0e581c';
   }
 
   var dayLabels = ['一','二','三','四','五','六','日'];
@@ -9156,7 +9159,7 @@ function renderHeatmapHTML(dailyMap) {
   // Legend
   html += '<div style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:10px;color:var(--text-tertiary);justify-content:flex-end">';
   html += '<span>少</span>';
-  ['#ebedf0','#c6e48b','#7bc96f','#239a3b','#196127'].forEach(function(c) {
+  ['#ebedf0','#d6f5d6','#64c964','#2ea043','#0e581c'].forEach(function(c) {
     html += '<span style="width:12px;height:12px;background:' + c + ';border-radius:3px"></span>';
   });
   html += '<span>多</span>';
@@ -9905,7 +9908,7 @@ function renderSettings() {
           '</div></div></div>';
       }
       var d = getDailyData();
-      var dailyMap = d.history || {};
+      var dailyMap = appData.dailyHistory || {};
       var today = new Date();
       var weekTotal = 0, weekDays = 0;
       for (var i = 0; i < 7; i++) {
@@ -9961,7 +9964,7 @@ function renderSettings() {
 
     '<div class="section"><div class="section-title" id="aboutSectionTitle" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;min-height:44px" onclick="var c=document.getElementById(\'aboutSectionContent\');var a=document.getElementById(\'aboutSectionArrow\');if(c.style.display===\'none\'){c.style.display=\'\';a.textContent=\'▼\'}else{c.style.display=\'none\';a.textContent=\'▶\'}">ℹ️ 关于 <span id="aboutSectionArrow" style="font-size:11px">▼</span></div>' +
       '<div id="aboutSectionContent"><div class="setting-item" style="cursor:pointer" onclick="showManualMenu()"><div><div class="setting-label">📖 使用说明</div><div class="setting-desc">查看使用指南</div></div><div style="display:flex;align-items:center">→</div></div>' +
-      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">' + TIER_EMOJI[getTier()] + ' ' + TIER_NAMES[getTier()] + ' · 纯前端离线可用 · <span id="appVersion">v230</span></div></div></div>' +
+      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">' + TIER_EMOJI[getTier()] + ' ' + TIER_NAMES[getTier()] + ' · 纯前端离线可用 · <span id="appVersion">v231</span></div></div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="showDataOffsetTool()"><div><div class="setting-label">🔧 数据批量偏移</div><div class="setting-desc">修复答案/解析的错位问题（支持前移后移）</div></div><div style="display:flex;align-items:center">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="clearAllData()"><div><div class="setting-label" style="color:var(--danger)">🗑️ 删除所有数据</div><div class="setting-desc">清空全部题库和设置，不可恢复</div></div><div style="display:flex;align-items:center;color:var(--danger)">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="checkUpdate()"><div><div class="setting-label">🔄 检查更新</div><div class="setting-desc">点击清除缓存并刷新，获取最新版本</div></div><div style="display:flex;align-items:center">→</div></div>' +
@@ -9992,7 +9995,7 @@ function getTomorrowReviewCount() {
 }
 function getWeeklySummaryText() {
   var d = getDailyData();
-  var history = d.history || {};
+  var history = appData.dailyHistory || {};
   var totalWeek = 0, daysActive = 0;
   for (var i = 0; i < 7; i++) {
     var date = new Date(Date.now() - i*86400000);
@@ -10327,7 +10330,7 @@ function showDataOffsetTool() {
 
 function clearAllData() {
   if (!confirm('此操作不可撤销！将删除所有题库、设置和进度。确定继续吗？')) return;
-  appData = { banks: {}, stats: {}, wrongBooks: {}, quizHistory: {}, dailyHistory: {}, settings: { color: 'pastel', darkMode: false, fontSize: 16 }, activation: { tier: 'free', codeHash: '', activatedAt: null, expires: null } };
+  appData = { banks: {}, stats: {}, wrongBooks: {}, quizHistory: {}, dailyHistory: {}, bankMeta: {}, settings: { color: 'pastel', darkMode: false, fontSize: 16 }, totalStudySeconds: 0, totalEliminated: 0, achievements: {}, activation: { tier: 'free', codeHash: '', activatedAt: null, expires: null } };
   saveData(appData);
   toast('已全部删除');
   switchPage('banks', document.querySelector('[data-page="banks"]'));
