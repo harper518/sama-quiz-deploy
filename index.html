@@ -7245,7 +7245,20 @@ function confirmMultiAnswer() {
     fb.innerHTML = '<strong>' + (correct ? '✅ 回答正确！' : '❌ 回答错误，正确答案是 ' + q.answer) + '</strong>' +
       (q.explanation ? '<div class="explanation-box"><button class="toggle-btn" onclick="toggleExplanation(this)">💡 查看解析</button><div class="content">' + escHtml(q.explanation) + '</div></div>' : '');
 
-    if (correct) quizState.correct++;
+    if (correct) {
+      quizState.correct++;
+      // 复仇成功微动效（¥3+）：做对曾经错过的题，卡片闪绿光
+      if (!isTierLocked('smartFeedback')) {
+        var _revBnM = (quizState.quickBankNames && quizState.quickBankNames[idx]) || quizState.bankName;
+        if (_revBnM && appData.wrongBooks && appData.wrongBooks[_revBnM]) {
+          var _inWbM = appData.wrongBooks[_revBnM].find(function(w) { return w.id === q.id; });
+          if (_inWbM) {
+            var cardM = document.getElementById('questionCard');
+            if (cardM) { cardM.classList.add('revenge-flash'); setTimeout(function() { cardM.classList.remove('revenge-flash'); }, 600); }
+          }
+        }
+      }
+    }
     else { quizState.wrong++; quizState.wrongIds.push(q.id); }
     applySR(quizState.bankName, q.id, correct);
 
