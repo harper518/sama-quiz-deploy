@@ -1930,7 +1930,7 @@ function showTierCompare() {
     '<tr><td style="text-align:left;padding:6px">番茄钟+专注模式</td><td>❌</td><td>❌</td><td>✅</td></tr>' +
     '<tr><td style="text-align:left;padding:6px">成就系统</td><td>❌</td><td>❌</td><td>✅</td></tr>' +
     '<tr><td style="text-align:left;padding:6px">学习热力图+学习周报</td><td>❌</td><td>❌</td><td>✅</td></tr>' +
-    '<tr><td style="text-align:left;padding:6px">模拟考试模式</td><td>❌</td><td>❌</td><td>✅</td></tr>' +
+    '<tr><td style="text-align:left;padding:6px">模拟考试模式</td><td>🚧 即将开放</td><td>🚧 即将开放</td><td>🚧 即将开放</td></tr>' +
     '<tr><td style="text-align:left;padding:6px">打印（错题/收藏/重点）</td><td>❌</td><td>❌</td><td>✅</td></tr>' +
     '<tr><td style="text-align:left;padding:6px">保底模式+考试倒计时</td><td>✅</td><td>✅</td><td>✅</td></tr>' +
     '<tr><td style="text-align:left;padding:6px">题库合并+搜索</td><td>❌</td><td>✅</td><td>✅</td></tr>' +
@@ -5948,14 +5948,9 @@ function escHtmlWithMath(text) {
 
 // ====== Quiz Setup ======
 function renderQuizSetup() {
+  // TODO: 模拟考试暂不开放，全版本锁定
   var mockChip = document.getElementById('mockExamChip');
-  if (mockChip) {
-    if (isTierLocked('focusMode')) {
-      mockChip.style.opacity = '0.3'; mockChip.style.pointerEvents = 'none';
-    } else {
-      mockChip.style.opacity = ''; mockChip.style.pointerEvents = '';
-    }
-  }
+  if (mockChip) { mockChip.style.opacity = '0.3'; mockChip.style.pointerEvents = 'none'; }
   const select = document.getElementById('bankSelect');
   const prevValue = select.value; // 记住之前选中的题库
   const names = getSortedBankNames();
@@ -6290,20 +6285,22 @@ function startQuiz() {
     selected = shuffled.slice(0, count);
   }
 
-  // 间隔重复+错题优先排序
-  var wb = appData.wrongBooks[bankName] || [];
-  var nowSR = Date.now();
-  var srOn = !(appData.settings && appData.settings.srEnabled === false);
-  selected.sort(function(a, b) {
-    if (srOn) {
-      var aDue = a.srNextReview && a.srNextReview <= nowSR ? 1 : 0;
-      var bDue = b.srNextReview && b.srNextReview <= nowSR ? 1 : 0;
-      if (aDue !== bDue) return bDue - aDue;
-    }
-    var aWrong = wb.some(function(w) { return w.id === a.id; }) ? 1 : 0;
-    var bWrong = wb.some(function(w) { return w.id === b.id; }) ? 1 : 0;
-    return bWrong - aWrong;
-  });
+  // 间隔重复+错题优先排序（仅随机模式，顺序模式保持原始题号顺序）
+  if (drawMode !== 'sequential') {
+    var wb = appData.wrongBooks[bankName] || [];
+    var nowSR = Date.now();
+    var srOn = !(appData.settings && appData.settings.srEnabled === false);
+    selected.sort(function(a, b) {
+      if (srOn) {
+        var aDue = a.srNextReview && a.srNextReview <= nowSR ? 1 : 0;
+        var bDue = b.srNextReview && b.srNextReview <= nowSR ? 1 : 0;
+        if (aDue !== bDue) return bDue - aDue;
+      }
+      var aWrong = wb.some(function(w) { return w.id === a.id; }) ? 1 : 0;
+      var bWrong = wb.some(function(w) { return w.id === b.id; }) ? 1 : 0;
+      return bWrong - aWrong;
+    });
+  }
 
   quizState = {
     bankName,
@@ -9796,7 +9793,7 @@ function renderSettings() {
 
     '<div class="section"><div class="section-title" id="aboutSectionTitle" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;min-height:44px" onclick="var c=document.getElementById(\'aboutSectionContent\');var a=document.getElementById(\'aboutSectionArrow\');if(c.style.display===\'none\'){c.style.display=\'\';a.textContent=\'▼\'}else{c.style.display=\'none\';a.textContent=\'▶\'}">ℹ️ 关于 <span id="aboutSectionArrow" style="font-size:11px">▼</span></div>' +
       '<div id="aboutSectionContent"><div class="setting-item" style="cursor:pointer" onclick="showManualMenu()"><div><div class="setting-label">📖 使用说明</div><div class="setting-desc">查看使用指南</div></div><div style="display:flex;align-items:center">→</div></div>' +
-      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">' + TIER_EMOJI[getTier()] + ' ' + TIER_NAMES[getTier()] + ' · 纯前端离线可用 · <span id="appVersion">v226</span></div></div></div>' +
+      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">' + TIER_EMOJI[getTier()] + ' ' + TIER_NAMES[getTier()] + ' · 纯前端离线可用 · <span id="appVersion">v227</span></div></div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="showDataOffsetTool()"><div><div class="setting-label">🔧 数据批量偏移</div><div class="setting-desc">修复答案/解析的错位问题（支持前移后移）</div></div><div style="display:flex;align-items:center">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="clearAllData()"><div><div class="setting-label" style="color:var(--danger)">🗑️ 删除所有数据</div><div class="setting-desc">清空全部题库和设置，不可恢复</div></div><div style="display:flex;align-items:center;color:var(--danger)">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="checkUpdate()"><div><div class="setting-label">🔄 检查更新</div><div class="setting-desc">点击清除缓存并刷新，获取最新版本</div></div><div style="display:flex;align-items:center">→</div></div>' +
