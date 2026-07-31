@@ -1,5 +1,5 @@
 /* ====== 刷题助手 Service Worker ====== */
-var CACHE_NAME = 'sama-quiz-v3';
+var CACHE_NAME = 'sama-quiz-v4';
 
 // 仅缓存 CDN 静态资源（不缓存自己的 HTML，确保用户总是拿到最新版）
 var CDN_URLS = [
@@ -57,11 +57,8 @@ self.addEventListener('fetch', function(e) {
 
   // 自己的文件（HTML/manifest/icon）：网络优先，确保总是最新
   e.respondWith(
-    fetch(e.request).then(function(response) {
-      return response;
-    }).catch(function() {
-      // 离线回退
-      return caches.match(e.request);
+    fetch(e.request).catch(function() {
+      return caches.match(e.request).then(function(r) { return r || Response.error(); });
     })
   );
 });
