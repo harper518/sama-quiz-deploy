@@ -2064,6 +2064,15 @@ let appData = loadData();
       toast('⏰ 试用已结束，已恢复免费版。喜欢请购买激活码～');
     }
   }, 60000);
+  // 每30秒刷新倒计时显示
+  setInterval(function() {
+    if (!appData.activation || !appData.activation._isTrial || !appData.activation._trialExpires) return;
+    var remaining = Math.max(0, Math.floor((appData.activation._trialExpires - Date.now()) / 1000));
+    var min = Math.floor(remaining / 60);
+    var sec = remaining % 60;
+    var cd = document.getElementById('trialCountdown');
+    if (cd) { cd.textContent = '⏱ 试用剩余 ' + min + ' 分 ' + sec + ' 秒 · ' + (TIER_NAMES[appData.activation.tier] || ''); }
+  }, 30000);
 })();
 
 let quizState = null;
