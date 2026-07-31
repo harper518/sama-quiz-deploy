@@ -1616,9 +1616,16 @@ function loadData() {
     if (data.totalEliminated === undefined) data.totalEliminated = 0;
     if (!data.achievements) data.achievements = {};
     if (!data.activation) data.activation = { tier: 'free', codeHash: '', activatedAt: null, expires: null };
+    if (data.activation._trialUsedBasic === undefined) data.activation._trialUsedBasic = false;
+    if (data.activation._trialUsedPro === undefined) data.activation._trialUsedPro = false;
+    // 兼容旧版 _trialUsed
+    if (data.activation._trialUsed === true) { data.activation._trialUsedBasic = true; data.activation._trialUsedPro = true; delete data.activation._trialUsed; }
+    if (data.activation._isTrial === undefined) data.activation._isTrial = false;
+    if (data.activation._trialExpires === undefined) data.activation._trialExpires = null;
+    if (data.activation._trialStarted === undefined) data.activation._trialStarted = null;
     return data;
   }
-  catch(e) { return { banks: {}, stats: {}, wrongBooks: {}, quizHistory: {}, dailyHistory: {}, dailyStudyHistory: {}, dailySwitchHistory: {}, bankMeta: {}, settings: { color: 'pastel', darkMode: false, fontSize: 16, showAvatar: false }, totalStudySeconds: 0, totalEliminated: 0, achievements: {}, activation: { tier: 'free', codeHash: '', activatedAt: null, expires: null } }; }
+  catch(e) { return { banks: {}, stats: {}, wrongBooks: {}, quizHistory: {}, dailyHistory: {}, dailyStudyHistory: {}, dailySwitchHistory: {}, bankMeta: {}, settings: { color: 'pastel', darkMode: false, fontSize: 16, showAvatar: false }, totalStudySeconds: 0, totalEliminated: 0, achievements: {}, activation: { tier: 'free', codeHash: '', activatedAt: null, expires: null, _trialUsedBasic: false, _trialUsedPro: false, _isTrial: false, _trialExpires: null, _trialStarted: null } }; }
 }
 function saveData(data) {
   try {
@@ -2026,6 +2033,39 @@ function updateFontSize(val) {
 }
 
 let appData = loadData();
+
+// ====== 试用到期检测 ======
+(function() {
+  var act = appData.activation;
+  if (!act || !act._isTrial || !act._trialExpires) return;
+  var now = Date.now();
+  // 检测系统时间篡改（时间被拨回到试用开始前）
+  if (act._trialStarted && now < act._trialStarted - 60000) {
+    act.tier = 'free';
+    act._isTrial = false;
+    saveData(appData);
+    setTimeout(function() { toast('⚠️ 检测到系统时间异常，试用已结束'); }, 1000);
+    return;
+  }
+  // 试用到期
+  if (now >= act._trialExpires) {
+    act.tier = 'free';
+    act._isTrial = false;
+    saveData(appData);
+    setTimeout(function() { toast('⏰ 试用已结束，已恢复免费版。喜欢请购买激活码～'); }, 1000);
+    return;
+  }
+  // 运行时每分钟检测一次到期
+  setInterval(function() {
+    if (appData.activation && appData.activation._isTrial && appData.activation._trialExpires && Date.now() >= appData.activation._trialExpires) {
+      appData.activation.tier = 'free';
+      appData.activation._isTrial = false;
+      saveData(appData);
+      toast('⏰ 试用已结束，已恢复免费版。喜欢请购买激活码～');
+    }
+  }, 60000);
+})();
+
 let quizState = null;
 let browseState = null;
 let _searchTempQuestions = null;
@@ -2146,7 +2186,7 @@ function activateCode(input) {
     // 检查管理码（硬编码，不走网络）
     if (ADMIN_HASHES[hash]) {
       var adminTier = ADMIN_HASHES[hash];
-      appData.activation = { tier: adminTier, codeHash: hash, activatedAt: null, expires: null };
+      appData.activation = { tier: adminTier, codeHash: hash, activatedAt: null, expires: null, _trialUsedBasic: appData.activation._trialUsedBasic, _trialUsedPro: appData.activation._trialUsedPro, _isTrial: false, _trialExpires: null, _trialStarted: null };
       saveData(appData);
       showActivationSuccess(TIER_NAMES[adminTier], null);
       return;
@@ -2160,7 +2200,7 @@ function activateCode(input) {
         if (entry.status === 'revoked') { return toast('❌ 此激活码已被撤销'); }
         var now = Date.now();
         var expires = now + 370 * 86400000;
-        appData.activation = { tier: entry.tier, codeHash: hash, activatedAt: now, expires: expires };
+        appData.activation = { tier: entry.tier, codeHash: hash, activatedAt: now, expires: expires, _trialUsedBasic: appData.activation._trialUsedBasic, _trialUsedPro: appData.activation._trialUsedPro, _isTrial: false, _trialExpires: null, _trialStarted: null };
         saveData(appData);
         showActivationSuccess(TIER_NAMES[entry.tier], expires);
       })
@@ -2181,6 +2221,32 @@ function showActivationSuccess(tierName, expires) {
     '</div>';
   document.body.appendChild(ov);
 }
+function startTrial(tier) {
+  var act = appData.activation || {};
+  var usedKey = tier === 'pro' ? '_trialUsedPro' : '_trialUsedBasic';
+  if (act[usedKey]) {
+    toast('该版本已试用过，每版本仅可试用一次');
+    return;
+  }
+  if (act._isTrial) {
+    toast('试用已在进行中');
+    return;
+  }
+  if (act.tier && act.tier !== 'free') {
+    toast('您已是付费用户，无需试用');
+    return;
+  }
+  var now = Date.now();
+  act.tier = tier;
+  act._isTrial = true;
+  act[usedKey] = true;
+  act._trialStarted = now;
+  act._trialExpires = now + 20 * 60 * 1000;
+  saveData(appData);
+  renderSettings();
+  toast('🎁 试用已开启！' + TIER_NAMES[tier] + '，20分钟后自动恢复免费版');
+}
+
 // 初始化时检查到期
 function checkActivationExpiry() {
   var act = appData.activation;
@@ -2638,6 +2704,16 @@ function renderBanks() {
   });
   var totalWrongCount = allWrongs.length;
   var todaySw = (appData.daily && appData.daily.switches) || 0;
+
+  // 试用倒计时横幅
+  var trialAct = appData.activation || {};
+  if (trialAct._isTrial && trialAct._trialExpires) {
+    var trialRemain = Math.max(0, Math.floor((trialAct._trialExpires - Date.now()) / 1000));
+    var trialMin2 = Math.floor(trialRemain / 60);
+    var trialSec2 = trialRemain % 60;
+    var trialTierName = TIER_NAMES[trialAct.tier] || '';
+    statusBarHtml += '<div style="margin-bottom:12px;padding:8px 14px;background:#fef3c7;border:1px solid #f59e0b;border-radius:10px;text-align:center;font-size:13px;font-weight:600;color:#b45309">⏱ 试用' + trialTierName + ' · 剩余 ' + trialMin2 + ' 分 ' + trialSec2 + ' 秒 · <a href="javascript:void(0)" onclick="switchPage(\'settings\',document.querySelector(\'[data-page=settings]\'))" style="color:#7C3AED;text-decoration:underline">去激活 →</a></div>';
+  }
 
   if (si.hadGoalSet || examDate || si.streak > 0 || stm.todayMin > 0 || todaySw > 0 || totalWrongCount > 0) {
     statusBarHtml += '<div style="margin-bottom:12px;padding:12px 14px;background:var(--card);border-radius:12px;border:1px solid var(--border)">';
@@ -10296,9 +10372,32 @@ function renderSettings() {
       var tierName = TIER_NAMES[tier] || '基础版';
       var expWarn = checkExpiryWarning();
       var daysLeft = act.expires ? Math.ceil((act.expires - Date.now()) / 86400000) : 0;
+      var isTrial = act._isTrial && act._trialExpires;
+      var trialUsedBasic = act._trialUsedBasic && !isTrial;
+      var trialUsedPro = act._trialUsedPro && !isTrial;
+      var bothTrialsUsed = trialUsedBasic && trialUsedPro;
+      var trialRemaining = isTrial ? Math.max(0, Math.floor((act._trialExpires - Date.now()) / 1000)) : 0;
+      var trialMin = Math.floor(trialRemaining / 60);
+      var trialSec = trialRemaining % 60;
       var statusLine = tier === 'free'
-        ? '免费版：3题库×300题 · 每轮30题 · 纯色主题'
+        ? (isTrial ? '⏱ 试用中 · 剩余 ' + trialMin + '分' + trialSec + '秒 · 到期自动恢复免费版' : (bothTrialsUsed ? '免费版：两个版本均已试用，喜欢请购买激活码' : '免费版：3题库×300题 · 每轮30题 · 纯色主题'))
         : '有效期至 ' + (act.expires ? new Date(act.expires).toLocaleDateString('zh-CN') : '永久') + (daysLeft > 0 ? '（剩余 ' + daysLeft + ' 天）' : '');
+
+      var trialHtml = '';
+      if (tier === 'free' && !isTrial) {
+        var btns = [];
+        if (!trialUsedBasic) btns.push('<button class="btn btn-sm" style="flex:1;min-height:40px;background:#f59e0b;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer" onclick="event.stopPropagation();startTrial(\'basic\')">🎁 试用科学备考版</button>');
+        if (!trialUsedPro) btns.push('<button class="btn btn-sm" style="flex:1;min-height:40px;background:#7C3AED;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer" onclick="event.stopPropagation();startTrial(\'pro\')">👑 试用智能全能版</button>');
+        if (btns.length > 0) {
+          trialHtml = '<div style="display:flex;gap:8px;margin-bottom:10px">' + btns.join('') + '</div><div style="font-size:11px;color:var(--text-tertiary);text-align:center;margin-bottom:6px">20分钟试用 · 每版本可各试用一次 · 无需激活码</div>';
+        }
+      }
+      if (isTrial) {
+        trialHtml = '<div id="trialCountdown" style="margin-bottom:10px;padding:8px 12px;background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;text-align:center;font-size:13px;font-weight:600;color:#b45309">⏱ 试用剩余 ' + trialMin + ' 分 ' + trialSec + ' 秒 · ' + TIER_NAMES[tier] + '</div>';
+      }
+      if (bothTrialsUsed && tier === 'free') {
+        trialHtml = '<div style="margin-bottom:10px;padding:8px 12px;background:var(--bg-input);border-radius:8px;text-align:center;font-size:12px;color:var(--text-secondary)">两个版本均已试用 · 喜欢请购买激活码解锁</div>';
+      }
 
       return '<div class="section"><div class="section-title" id="activationSectionTitle" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;min-height:44px" onclick="var c=document.getElementById(\'activationSectionContent\');var a=document.getElementById(\'activationSectionArrow\');if(c.style.display===\'none\'){c.style.display=\'\';a.textContent=\'▼\'}else{c.style.display=\'none\';a.textContent=\'▶\'}">🔑 版本激活 <span style="font-size:13px;color:var(--primary);font-weight:600">' + tierEmoji + ' ' + tierName + '</span> <span id="activationSectionArrow" style="font-size:11px">▼</span></div>' +
         '<div id="activationSectionContent">' +
@@ -10306,7 +10405,10 @@ function renderSettings() {
           '<div class="setting-item" style="flex-direction:column;align-items:stretch;gap:10px">' +
             '<div style="font-size:14px;font-weight:600;color:var(--text)">' + tierEmoji + ' ' + tierName + '</div>' +
             '<div style="font-size:13px;color:var(--text-secondary)">' + statusLine + '</div>' +
-            (tier === 'pro' ? '<div style="font-size:13px;color:#10B981;font-weight:600;margin-bottom:6px">✨ 已解锁全部功能</div>' : '') + '<div style="display:flex;gap:8px"><input type="text" id="activateInput" placeholder="" autocomplete="off" autocorrect="off" autocapitalize="characters" style="flex:1;padding:10px 12px;border:2px solid var(--border);border-radius:8px;font-size:14px;background:var(--card);color:var(--text);text-transform:uppercase;font-family:monospace;letter-spacing:1px" oninput="this.value=formatActivationCode(this.value)"><button class="btn btn-primary" id="activateBtn" style="white-space:nowrap;min-width:72px;min-height:44px" onclick="var input=document.getElementById(\'activateInput\');var btn=document.getElementById(\'activateBtn\');if(!input.value.trim())return;btn.disabled=true;btn.textContent=\'...\';activateCode(input.value);setTimeout(function(){btn.disabled=false;btn.textContent=\'验证\'},2000)">验证</button></div>' +
+            trialHtml +
+            (tier === 'pro' && !isTrial ? '<div style="font-size:13px;color:#10B981;font-weight:600;margin-bottom:6px">✨ 已解锁全部功能</div>' : '') +
+            (tier === 'basic' && !isTrial ? '<div style="font-size:13px;color:#10B981;font-weight:600;margin-bottom:6px">✨ 已解锁科学备考功能</div>' : '') +
+            '<div style="display:flex;gap:8px"><input type="text" id="activateInput" placeholder="" autocomplete="off" autocorrect="off" autocapitalize="characters" style="flex:1;padding:10px 12px;border:2px solid var(--border);border-radius:8px;font-size:14px;background:var(--card);color:var(--text);text-transform:uppercase;font-family:monospace;letter-spacing:1px" oninput="this.value=formatActivationCode(this.value)"><button class="btn btn-primary" id="activateBtn" style="white-space:nowrap;min-width:72px;min-height:44px" onclick="var input=document.getElementById(\'activateInput\');var btn=document.getElementById(\'activateBtn\');if(!input.value.trim())return;btn.disabled=true;btn.textContent=\'...\';activateCode(input.value);setTimeout(function(){btn.disabled=false;btn.textContent=\'验证\'},2000)">验证</button></div>' +
             '<div style="font-size:11px;color:var(--text-tertiary)">激活码请联系开发者获取 · <a href="javascript:void(0)" onclick="showTierCompare()" style="color:var(--primary);text-decoration:underline">查看版本对比 →</a></div>' +
           '</div>' +
         '</div></div>';
@@ -10425,18 +10527,9 @@ function renderSettings() {
     // 💡 每日洞见（¥9.9 Pro）
     (function() {
       if (isTierLocked('insight')) {
-        return '<div class="section"><div class="section-title" style="display:flex;justify-content:space-between;align-items:center;min-height:44px;opacity:0.5">💡 每日洞见 <span style="font-size:11px;color:var(--text-tertiary)">🔒 智能全能版</span></div>' +
-          '<div class="setting-item" style="flex-direction:column;align-items:center;gap:8px;opacity:0.5">' +
-            '<div style="font-size:14px;color:var(--text-tertiary)">🔒 智能全能版专属功能</div>' +
-            '<div style="font-size:12px;color:var(--text-tertiary)">每日一条认知心理学洞见，理性理解学习</div>' +
-          '</div></div>';
+        return '<div class="section"><div class="section-title" style="display:flex;justify-content:space-between;align-items:center;min-height:44px;opacity:0.5">💡 每日洞见 <span style="font-size:11px;color:var(--text-tertiary)">🔒 智能全能版</span></div></div>';
       }
-      var insightEnabled = s.insightEnabled !== false;
-      return '<div class="section"><div class="section-title" style="' + (insightEnabled ? 'cursor:pointer;' : 'opacity:0.5;') + 'display:flex;justify-content:space-between;align-items:center;min-height:44px"' + (insightEnabled ? ' onclick="showInsightPopup()"' : '') + '>💡 每日洞见 <span style="font-size:11px;color:var(--text-secondary)">' + (insightEnabled ? '📖 查看 →' : '已关闭') + '</span></div>' +
-        '<div id="insightSectionContent">' +
-          '<div class="setting-item"><div><div class="setting-label">启用每日洞见</div><div class="setting-desc">每天阅读一条基于认知科学的学习洞见，点击上方标题查看弹窗</div></div>' +
-            '<label class="toggle"><input type="checkbox" id="insightToggle"' + (insightEnabled ? ' checked' : '') + ' onchange="saveSetting(\'insightEnabled\', this.checked);renderSettings()"><span class="slider"></span></label></div>' +
-        '</div></div>';
+      return '<div class="section"><div class="section-title" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;min-height:44px" onclick="showInsightPopup()">💡 每日洞见</div></div>';
     })() +
 
     // 📊 今日摘要（¥9.9 Pro）
@@ -10455,7 +10548,7 @@ function renderSettings() {
 
     '<div class="section"><div class="section-title" id="aboutSectionTitle" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;min-height:44px" onclick="var c=document.getElementById(\'aboutSectionContent\');var a=document.getElementById(\'aboutSectionArrow\');if(c.style.display===\'none\'){c.style.display=\'\';a.textContent=\'▼\'}else{c.style.display=\'none\';a.textContent=\'▶\'}">ℹ️ 关于 <span id="aboutSectionArrow" style="font-size:11px">▼</span></div>' +
       '<div id="aboutSectionContent"><div class="setting-item" style="cursor:pointer" onclick="showManualMenu()"><div><div class="setting-label">📖 使用说明</div><div class="setting-desc">查看使用指南</div></div><div style="display:flex;align-items:center">→</div></div>' +
-      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">' + TIER_EMOJI[getTier()] + ' ' + TIER_NAMES[getTier()] + ' · 纯前端离线可用 · <span id="appVersion">v237</span></div></div></div>' +
+      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">' + TIER_EMOJI[getTier()] + ' ' + TIER_NAMES[getTier()] + ' · 纯前端离线可用 · <span id="appVersion">v238</span></div></div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="showDataOffsetTool()"><div><div class="setting-label">🔧 数据批量偏移</div><div class="setting-desc">修复答案/解析的错位问题（支持前移后移）</div></div><div style="display:flex;align-items:center">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="clearAllData()"><div><div class="setting-label" style="color:var(--danger)">🗑️ 删除所有数据</div><div class="setting-desc">清空全部题库和设置，不可恢复</div></div><div style="display:flex;align-items:center;color:var(--danger)">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="checkUpdate()"><div><div class="setting-label">🔄 检查更新</div><div class="setting-desc">点击清除缓存并刷新，获取最新版本</div></div><div style="display:flex;align-items:center">→</div></div>' +
@@ -10825,7 +10918,8 @@ function showDataOffsetTool() {
 
 function clearAllData() {
   if (!confirm('此操作不可撤销！将删除所有题库、设置和进度。确定继续吗？')) return;
-  appData = { banks: {}, stats: {}, wrongBooks: {}, quizHistory: {}, dailyHistory: {}, dailyStudyHistory: {}, dailySwitchHistory: {}, bankMeta: {}, settings: { color: 'pastel', darkMode: false, fontSize: 16, showAvatar: false }, totalStudySeconds: 0, totalEliminated: 0, achievements: {}, activation: { tier: 'free', codeHash: '', activatedAt: null, expires: null } };
+  var savedTrial = appData.activation ? { _trialUsedBasic: appData.activation._trialUsedBasic, _trialUsedPro: appData.activation._trialUsedPro, _isTrial: appData.activation._isTrial, _trialExpires: appData.activation._trialExpires, _trialStarted: appData.activation._trialStarted } : {};
+  appData = { banks: {}, stats: {}, wrongBooks: {}, quizHistory: {}, dailyHistory: {}, dailyStudyHistory: {}, dailySwitchHistory: {}, bankMeta: {}, settings: { color: 'pastel', darkMode: false, fontSize: 16, showAvatar: false }, totalStudySeconds: 0, totalEliminated: 0, achievements: {}, activation: { tier: 'free', codeHash: '', activatedAt: null, expires: null, _trialUsedBasic: savedTrial._trialUsedBasic || false, _trialUsedPro: savedTrial._trialUsedPro || false, _isTrial: savedTrial._isTrial || false, _trialExpires: savedTrial._trialExpires || null, _trialStarted: savedTrial._trialStarted || null } };
   saveData(appData);
   toast('已全部删除');
   switchPage('banks', document.querySelector('[data-page="banks"]'));
