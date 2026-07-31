@@ -1910,21 +1910,34 @@ var INSIGHTS = [
 ];
 
 function getDailyInsight() {
-  // 每次会话随机一条，切换后按用户选择
+  // 每天第一次打开随机固定一条，刷新可换一次，跨天自动换新
+  var today = getTodayStr();
   var allowChange = (appData.settings && appData.settings.allowChangeInsight);
-  if (allowChange && appData.settings._insightIndex !== undefined) {
+  // 允许换一条时，优先使用用户手动选择的
+  if (allowChange && appData.settings._insightIndex !== undefined && appData.settings._insightDate === today) {
     return INSIGHTS[appData.settings._insightIndex % INSIGHTS.length];
   }
-  if (!appData._sessionInsightIdx) {
-    appData._sessionInsightIdx = Math.floor(Math.random() * INSIGHTS.length);
+  // 新的一天：随机一条，标记未刷新
+  if (!appData.settings._insightDate || appData.settings._insightDate !== today) {
+    appData.settings._insightDate = today;
+    appData.settings._insightIndex = Math.floor(Math.random() * INSIGHTS.length);
+    appData.settings._insightRefreshes = 0;
+    saveData(appData);
+    return INSIGHTS[appData.settings._insightIndex];
   }
-  return INSIGHTS[appData._sessionInsightIdx];
+  // 同一天：第一次刷新（reload）给新的一条，之后固定
+  var refreshes = appData.settings._insightRefreshes || 0;
+  if (refreshes === 0) {
+    appData.settings._insightIndex = Math.floor(Math.random() * INSIGHTS.length);
+    appData.settings._insightRefreshes = 1;
+    saveData(appData);
+  }
+  return INSIGHTS[appData.settings._insightIndex];
 }
 function nextInsight() {
   if (!(appData.settings && appData.settings.allowChangeInsight)) return;
   var idx = Math.floor(Math.random() * INSIGHTS.length);
   appData.settings._insightIndex = idx;
-  appData._sessionInsightIdx = idx;
   saveData(appData);
   var el = document.getElementById('insightCard');
   if (el) {
