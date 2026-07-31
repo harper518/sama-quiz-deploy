@@ -1610,6 +1610,8 @@ function loadData() {
     if (!data.bankMeta) data.bankMeta = {};
     if (!data.settings) data.settings = { color: 'pastel', darkMode: false, fontSize: 16 };
     if (data.settings.showAvatar === undefined) data.settings.showAvatar = false;
+    if (data.settings.insightEnabled === undefined) data.settings.insightEnabled = true;
+    if (data.settings.allowChangeInsight === undefined) data.settings.allowChangeInsight = false;
     if (!data.totalStudySeconds) data.totalStudySeconds = 0;
     if (data.totalEliminated === undefined) data.totalEliminated = 0;
     if (!data.achievements) data.achievements = {};
@@ -1801,6 +1803,135 @@ function getStreakInfo() {
   };
 }
 
+// ====== 每日洞见（93条，基于认知科学与学习心理学研究） ======
+var INSIGHTS = [
+  // 记忆科学 (13)
+  "测试效应（Testing Effect）：主动从记忆中提取信息，比反复阅读同一段文字更能巩固长期记忆。你每做一道题，都是一次有效的提取练习。",
+  "遗忘曲线的另一面：遗忘不是记忆系统的缺陷，而是高效筛选机制——大脑主动遗忘不重要信息，为重要信息腾出空间。",
+  "间隔重复是记忆研究中最稳健的发现。今天复习昨天学的内容，比考试前一天集中复习的效果高出约2倍。",
+  "生成效应（Generation Effect）：自己生成答案比直接看答案记得更牢。所以先做题再看解析，顺序不能反。",
+  "编码特异性（Encoding Specificity）：在学习环境相似的情境中回忆效果更好。这提醒我们：多样化场景下的练习比单一场景更有效。",
+  "加工水平理论（Levels of Processing）：对信息进行深度语义加工（理解为什么），比表面特征加工（记住长什么样）的记忆效果强3-5倍。",
+  "艾宾浩斯发现：学习后1小时内遗忘最快，24小时后遗忘约70%。但每次复习都能拉平遗忘曲线，让记忆更持久。",
+  "近因效应与首因效应：一段学习材料中，开头和结尾的内容最容易记住。把最重要的内容放在开始和结束时学习。",
+  "分散练习（Distributed Practice）：每天30分钟×6天 远优于 一次性3小时。总时间相同，效果差异可达2倍以上。",
+  "交错练习（Interleaving）：混合不同类型题目比集中刷同一类型题目更有效，虽然做的时候感觉更吃力——这正是学习发生的信号。",
+  "精细复述（Elaborative Rehearsal）：把新知识和已有知识建立联系，比机械重复有效得多。问自己'这和我知道的XX有什么关系？'",
+  "双重编码理论：同时用语言和图像编码信息，记忆效果是单通道的2倍。做题时在脑海中构建知识图谱。",
+  "记忆再固化：每次回忆一段记忆，该记忆就会暂时变得不稳定并需要重新巩固。这意味着每次复习都是在'升级'记忆。",
+  // 注意力与专注 (11)
+  "注意力是有限的认知资源，不是意志力问题。每天的可专注时间大约只有4-5小时，合理分配比硬撑更有效。",
+  "任务切换的隐藏成本：每次切换任务，大脑需要15-25分钟才能恢复深度专注。切屏5次，可能损失1-2小时的有效学习时间。",
+  "蔡加尼克效应（Zeigarnik Effect）：未完成的任务会在后台持续占用认知资源。做完一轮题目再休息，比中途停下更高效。",
+  "注意力残留（Attention Residue）：切换到新任务后，前一个任务的内容仍在脑中残留。这也是为什么频繁切屏让学习效率大幅下降。",
+  "心流状态出现在挑战与能力匹配的区间——太简单会无聊，太难会焦虑。选择适合自己当前水平的题目最有助于进入心流。",
+  "深度工作假说：在无干扰的状态下集中注意力，1小时的产出等于碎片化状态下的3-4小时。专注模式不是限制，是赋能。",
+  "选择性注意：大脑每秒接收约1100万比特信息，但只能有意识处理约40比特。学习的本质是学会'关注什么'和'忽略什么'。",
+  "注意瞬脱（Attentional Blink）：在快速连续的信息流中，注意到第一个目标后约0.5秒内很难注意到第二个。做题节奏不宜过快。",
+  "'多任务'是一个迷思。大脑并非并行处理，而是快速切换。同时做两件事会让每件事的效率降低30-50%。",
+  "休息不是偷懒。默认模式网络（Default Mode Network）在休息时活跃，负责整合信息和形成长期记忆。每25-30分钟休息一次最科学。",
+  "环境线索与注意力：固定的学习环境和时间能训练大脑自动进入专注状态。这是巴甫洛夫原理在学习上的应用。",
+  // 动机与自我决定 (12)
+  "自我决定论（Self-Determination Theory）：内在动机的三要素是自主感、胜任感和归属感。当三者同时满足，坚持率最高。",
+  "过度理由效应（Overjustification Effect）：外在奖励可能削弱内在动机。让学习本身变得有趣和有成就感，比外部奖赏更持久。",
+  "成长型思维（Growth Mindset）：相信能力可以通过努力提升的人，在面对困难时更坚持，最终成绩更好。'我还不会'和'我不会'之间差了整个世界。",
+  "执行意图（Implementation Intention）：'如果遇到X，我就做Y'这种格式的计划，让目标达成率提高2-3倍。例如'如果做错了，我就标记并分析原因'。",
+  "自我效能感（Self-Efficacy）：对自己'能完成某件事'的信念，比实际能力更能预测表现。每一次成功的小目标都在累积自我效能。",
+  "蔡格尼克效应（目标版）：公开承诺的目标更容易坚持。今天设定每日目标并完成它——这本身就是一个正向循环。",
+  "掌握目标 vs. 表现目标：追求'掌握知识'的人比追求'看起来很聪明'的人学得更深入，也更不容易放弃。",
+  "心理解释风格：把失败归因为'不够努力'而非'不够聪明'的人，后续表现显著更好。因为努力可控，天赋不可控。",
+  "延迟满足：能等待更大奖励的人，在学业和事业上都更成功。今天的每一道题，都是对未来的投资。",
+  "自我一致性理论：当行为与个人价值观一致时，坚持不需要消耗意志力。想清楚'我为什么要学这个'比任何激励都有效。",
+  "胜任感阶梯：把大目标分解为可达成的小步骤，每完成一步都获得一次胜任感反馈。这是游戏化设计的核心心理学原理。",
+  "预期价值理论：动机 = 对成功的预期 × 对任务价值的判断。提高任何一个因子都能增强动机。这解释了为什么理解'学这个有什么用'如此重要。",
+  // 元认知与学习策略 (13)
+  "达克效应（Dunning-Kruger Effect）：能力越低的人越容易高估自己，能力越高的人反而容易低估。定期自测是校准自我认知的唯一方法。",
+  "元认知：对自己'知道什么'和'不知道什么'的准确判断，比智力本身更能预测学业成绩。你的错题本就是最诚实的元认知工具。",
+  "知识的诅咒（Curse of Knowledge）：一旦你学会某样东西，就很难想象不会时的状态。这也解释了为什么'讲给别人听'是最好的学习方式之一。",
+  "合意难度（Desirable Difficulty）：学习过程中适度的困难虽然让当下感觉费力，但能显著提升长期记忆。做难题时的挣扎是有价值的。",
+  "流畅性错觉（Fluency Illusion）：读起来顺畅的内容让人误以为已经掌握。只有通过提取练习（做题），才能暴露真正的知识缺口。",
+  "自我解释效应：在学习过程中向自己解释'为什么是这样'，理解深度和记忆效果都显著优于被动阅读。",
+  "元认知监控：定期问自己'我真的理解了吗？'、'我能不看答案做对吗？'——这种自我检测是学习高手的共性习惯。",
+  "前向测试效应：在学习新内容之前先做预测试（哪怕全错），能激活相关已有知识，让后续学习效率提高约30%。",
+  "反馈的时机：即时反馈有助于纠正错误记忆，延迟反馈有助于增强自主提取能力。两种反馈各有价值，交替使用效果最佳。",
+  "过度学习：在达到100%正确后继续练习，能让技能更加自动化、抵抗遗忘。这也是为什么复习已经会做的题同样重要。",
+  "认知负荷理论：工作记忆容量有限（约4±1个信息组块）。把复杂问题分解为小块逐一攻克，优于一次性全部消化。",
+  "类比思维：把新概念类比于已知概念，理解速度显著加快。'这个新知识和哪个旧知识最像？'是一个强大的学习提问。",
+  "反思的复利效应：每天花3分钟回顾'今天做对了什么、做错了什么'，一个月后的学习效率可提升约20%。",
+  // 考试心理 (11)
+  "焦虑重评：把'我很焦虑'重新定义为'我的身体在准备应对挑战'，考试表现可以提升约10-15%。紧张不是敌人，是盟友。",
+  "模拟效应：在接近真实考试的条件下练习（限时、无干扰），考试时的表现显著优于在宽松条件下练习。",
+  "压力接种：适度的压力暴露能增强心理韧性。平时的限时练习就像疫苗——让真正的考试不再那么可怕。",
+  "归因理论：把成功归因于'我用了正确的策略'而非'我运气好'，后续表现更好。因为策略可控，运气不可控。",
+  "峰终定律（Peak-End Rule）：人们对一段经历的评价主要由最强烈时刻和结束时刻决定。每一轮刷题的最后几道题，决定了你对这次学习的整体感受。",
+  "耶克斯-多德森定律：中等程度的唤醒水平最有利于表现。太放松或太紧张都会降低成绩——适度紧张是最佳状态。",
+  "自我实现预言：相信自己会考砸的人，在考试中会无意识地减少努力、更容易分心。这不是玄学，是有实验数据支持的心理机制。",
+  "反刍思维 vs. 反思：反刍是反复纠结'为什么我这么差'，反思是问'下次可以怎么做'。前者消耗，后者建设。",
+  "认知重评策略：把'这次考试决定一切'改成'这次考试是一次反馈机会'，焦虑水平下降约30%。",
+  "考前睡眠：睡眠不足24小时相当于血液酒精浓度0.10%（超过酒驾标准）。考前熬夜复习的代价远超收益。",
+  "提取练习是抗焦虑利器：考试本质上就是提取练习。平时习惯做题的人，在考场上更从容——因为考场和平时的练习场没有本质区别。",
+  // 习惯与行为设计 (10)
+  "习惯回路：提示→行为→奖励。设计一个好的学习习惯，关键是让提示明显、行为简单、奖励即时。",
+  "两分钟法则：把开始的门槛降到最低。告诉自己'只做两道题'——开始之后，继续做下去就容易多了。",
+  "环境设计胜过意志力：减少学习环境中的诱惑线索（如手机通知），比每次靠意志力抵抗诱惑有效得多。",
+  "承诺装置（Commitment Device）：用一个小的'锁定'动作来提高坚持率。例如：打开专注模式、设定番茄钟——这些微小的仪式感能减少中途放弃的概率。",
+  "习惯叠加：把新习惯嫁接在已有习惯上。例如'每次打开微信之前先打开刷题工具'，利用已有行为的惯性带动新行为。",
+  "可变奖励：不确定性的奖励比固定奖励更能驱动行为。随机出现的成就弹窗、每天不一样的洞见卡片——都利用了这条原理。",
+  "身份认同：'我是一个认真备考的人'比'我要考高分'更能驱动持久行动。因为前者定义了你是谁，后者只定义了你想要什么。",
+  "损失厌恶：人们对损失的敏感度约是收益的2倍。连续打卡天数即将中断——这种'即将失去'的感觉比'可能获得'更能驱动行为。",
+  "当下偏差（Present Bias）：大脑天生更重视眼前回报而非长期收益。把长期目标转化为每日可见的进度条，是克服当下偏差的有效手段。",
+  "社会证明（Social Proof）：知道别人也在努力坚持，会增强自己的坚持意愿。学习社群的力量不是鸡汤，是经过验证的行为心理学机制。",
+  // 认知偏差 (8)
+  "确认偏误（Confirmation Bias）：倾向于寻找支持自己已有观点的信息。做题时不要'找理由证明自己选对了'，而要主动寻找自己可能错在哪。",
+  "后见之明偏差（Hindsight Bias）：知道正确答案后，会觉得'这很明显'。这会让人误判自己的真实水平。认真对待每一道错题，而不是看一眼答案就跳过。",
+  "规划谬误（Planning Fallacy）：人们系统性地低估完成任务所需的时间。备考计划应该留出至少30%的缓冲时间。",
+  "锚定效应（Anchoring Effect）：做选择题时，第一个看到的选项会像锚一样影响后续判断。审题后先独立思考再比较选项。",
+  "可得性启发（Availability Heuristic）：容易想到的信息被过度重视。一道考题如果最近在社交媒体上被热议，看起来就更可能考——但这并不等于实际概率更高。",
+  "沉没成本谬误：已经投入的时间不应该影响后续决策。如果当前学习方法效果不好，及时调整比继续硬撑更明智。",
+  "光环效应：对一门学科的总体好感（或反感）会影响对具体学习内容的态度。把每道题当作独立的学习机会，不受学科好恶的影响。",
+  "幸存者偏差：只看到成功者的经验而忽略了失败者的信息。'学霸一天刷500题'不等于你也需要这样做。找到适合自己的节奏才最重要。",
+  // 提取练习 (7)
+  "自由回忆是最强的提取练习：合上书本，凭记忆写出所有能想起的内容——这种方法的记忆效果远超任何形式的被动复习。",
+  "检索强度 vs. 存储强度：存储强度不会减弱（一旦记住就一直在那里），检索强度会减弱（但不代表忘了）。做题就是在增强检索强度。",
+  "答错的提取练习同样有效：即使做错，提取过程本身也增强了记忆痕迹。错的不是白做的，每一次错误都在重塑神经通路。",
+  "间隔提取：每次提取之间留出时间间隔，比连续多次提取更有效。你不需要连续做同一道题10次——隔几天再做效果更好。",
+  "交错提取：交替提取不同主题的知识，比集中提取单一主题更有效。混合不同章节的题目比刷单一章节的题目效果好。",
+  "提取难度与学习效果正相关：提取越费力，成功后记忆越牢固。做难度适中的题比做太简单的题更有学习价值。",
+  "预先提问效应：在阅读教材之前先看相关题目，能让后续的阅读注意力更聚焦，理解深度也更好。",
+  // 神经科学与大脑 (8)
+  "神经可塑性：大脑像肌肉一样，用进废退。每一次学习都在物理层面改变你的大脑结构——新的突触连接正在形成。",
+  "髓鞘化：重复练习会让神经通路包裹更多髓鞘（绝缘层），信号传导速度更快。这就是'熟能生巧'的生物学基础。",
+  "海马体的夜间工作：白天学习的记忆在睡眠期间被海马体重新激活并转移到皮层长期存储。睡眠不是学习的暂停，是学习的继续。",
+  "多巴胺与学习：多巴胺不仅是快乐分子，更是学习信号。当实际结果超出预期时释放的多巴胺，会强化刚才的行为——做对一道难题时的喜悦，正在帮你记牢它。",
+  "蓝斑核与专注：脑干的蓝斑核释放去甲肾上腺素调节注意力。适度的压力激素（皮质醇）能激活蓝斑核，这就是为什么适度的deadline压力能提升效率。",
+  "前额叶皮层：负责计划、决策和冲动控制。25岁前仍在发育。青少年学习时需要更多的外部结构支持（如时间表、提醒）来弥补前额叶功能的不足。",
+  "BDNF（脑源性神经营养因子）：运动能促进BDNF分泌，BDNF被称为'大脑的肥料'。学习间歇的运动不是耽误时间，是在帮大脑更好地学习。",
+  "默认模式网络 vs. 任务正网络：大脑在专注学习和自由发散之间切换，两个网络交替活跃。好的学习节奏是专注一段、休息一段，不是持续紧绷。"
+];
+
+function getDailyInsight() {
+  // 使用日期作为种子，当天固定一条
+  var now = new Date();
+  var seed = now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate();
+  // 允许换一条时用随机
+  var allowChange = (appData.settings && appData.settings.allowChangeInsight);
+  if (allowChange && appData.settings._insightIndex !== undefined) {
+    return INSIGHTS[appData.settings._insightIndex % INSIGHTS.length];
+  }
+  return INSIGHTS[seed % INSIGHTS.length];
+}
+function nextInsight() {
+  if (!(appData.settings && appData.settings.allowChangeInsight)) return;
+  var idx = Math.floor(Math.random() * INSIGHTS.length);
+  appData.settings._insightIndex = idx;
+  saveData(appData);
+  // Refresh the insight display
+  var el = document.getElementById('insightCard');
+  if (el) {
+    el.querySelector('.insight-text').textContent = getDailyInsight();
+  }
+}
+
 // ====== 成就系统 ======
 var ACHIEVEMENTS = [
   { id: 'total100', name: '青铜学者', desc: '累计刷题100道', emoji: '🥉', check: function() { return getTotalAnswered() >= 100; } },
@@ -1891,7 +2022,7 @@ var TIER_FEATURES = {
           'clearWrongBook', 'pwaOffline', 'editBank', 'searchQuestion', 'startFrom', 'smartFeedback'],
   pro:   ['memorize', 'totalTimer', 'mixedBank', 'bankMerge', 'quickWrongReview',
           'superFav', 'pomodoro', 'difficultyRating', 'achievements',
-          'allThemes', 'focusMode', 'heatmap', 'weakLabels', 'print', 'avatar']
+          'allThemes', 'focusMode', 'heatmap', 'weakLabels', 'print', 'avatar', 'insight', 'dailySummary']
 };
 var TIER_NAMES = { free: '基础版', basic: '科学备考版', pro: '智能全能版' };
 var TIER_EMOJI = { free: '🆓', basic: '💰', pro: '👑' };
@@ -1972,6 +2103,11 @@ function showTierCompare() {
     '<tr><td style="text-align:left;padding:6px">日日标+本周小结</td><td>❌</td><td>✅</td><td>✅</td></tr>' +
     '<tr><td style="text-align:left;padding:6px">PWA离线安装</td><td>❌</td><td>✅</td><td>✅</td></tr>' +
     '<tr><td style="text-align:left;padding:6px">主题颜色</td><td>纯色6种</td><td>+1混色</td><td>全部34种</td></tr>' +
+    '<tr><td style="text-align:left;padding:6px">切屏监测</td><td>基础计数</td><td>✅ 提醒+统计</td><td>✅ 提醒+统计</td></tr>' +
+    '<tr><td style="text-align:left;padding:6px">本周小结（做题/时间/切屏）</td><td>✅</td><td>✅</td><td>✅</td></tr>' +
+    '<tr><td style="text-align:left;padding:6px">每日洞见（认知心理学）</td><td>❌</td><td>❌</td><td>✅</td></tr>' +
+    '<tr><td style="text-align:left;padding:6px">今日学习摘要分享</td><td>❌</td><td>❌</td><td>✅</td></tr>' +
+    '<tr><td style="text-align:left;padding:6px">个人头像</td><td>❌</td><td>❌</td><td>✅</td></tr>' +
     '</table></div></div>';
   document.body.appendChild(ov);
 }
@@ -7966,6 +8102,114 @@ function quickReviewWrongs() {
   });
 }
 
+// ====== 今日学习摘要分享卡片（¥9.9 Pro） ======
+function showDailySummaryCard() {
+  var dd = getDailyData();
+  var si = getStreakInfo();
+  var qHistory = appData.dailyHistory || {};
+  var todayStr2 = getTodayStr();
+  var todayQ = qHistory[todayStr2] || dd.count || 0;
+  var todaySec = dd.studySeconds || 0;
+  var todayMin = Math.floor(todaySec / 60);
+  var timeStr = todaySec >= 3600
+    ? Math.floor(todaySec/3600) + ' 小时 ' + Math.floor((todaySec%3600)/60) + ' 分钟'
+    : todayMin + ' 分钟';
+  var todaySw = dd.switches || 0;
+  // Calculate today's accuracy
+  var todayCorrect = 0, todayTotal = 0;
+  Object.keys(appData.stats || {}).forEach(function(bn) {
+    todayTotal += (appData.stats[bn] && appData.stats[bn].answered) ? appData.stats[bn].answered : 0;
+    todayCorrect += (appData.stats[bn] && appData.stats[bn].correct) ? appData.stats[bn].correct : 0;
+  });
+  var todayRate = todayTotal > 0 ? Math.round(todayCorrect / todayTotal * 100) : 0;
+  // Total wrong book entries
+  var totalWrong = 0;
+  Object.values(appData.wrongBooks || {}).forEach(function(w) { totalWrong += w.length; });
+
+  var now = new Date();
+  var weekdays = ['周日','周一','周二','周三','周四','周五','周六'];
+  var dateLabel = now.getFullYear() + '年' + (now.getMonth()+1) + '月' + now.getDate() + '日 ' + weekdays[now.getDay()];
+
+  var cardHTML = '<div style="max-width:360px;width:100%;margin:0 auto">' +
+    // Header
+    '<div style="text-align:center;margin-bottom:20px">' +
+      '<div style="font-size:13px;color:var(--text-tertiary);letter-spacing:1px">📊 今日学习摘要</div>' +
+      '<div style="font-size:15px;font-weight:600;color:var(--text);margin-top:4px">' + dateLabel + '</div>' +
+    '</div>' +
+    // Main stats — 3 big numbers
+    '<div style="display:flex;gap:8px;margin-bottom:12px">' +
+      '<div style="flex:1;background:linear-gradient(135deg,#f0f0ff,#e8e8ff);border-radius:14px;padding:16px 10px;text-align:center">' +
+        '<div style="font-size:36px;font-weight:800;color:#7C3AED;line-height:1.1">' + todayQ + '</div>' +
+        '<div style="font-size:12px;color:#7C3AED;margin-top:4px">今日做题</div>' +
+      '</div>' +
+      '<div style="flex:1;background:linear-gradient(135deg,#f0fdf4,#e6f9ed);border-radius:14px;padding:16px 10px;text-align:center">' +
+        '<div style="font-size:36px;font-weight:800;color:#10B981;line-height:1.1">' + (todayTotal > 0 ? todayRate + '%' : '—') + '</div>' +
+        '<div style="font-size:12px;color:#10B981;margin-top:4px">正确率</div>' +
+      '</div>' +
+      '<div style="flex:1;background:linear-gradient(135deg,#fff7ed,#fef3c7);border-radius:14px;padding:16px 10px;text-align:center">' +
+        '<div style="font-size:36px;font-weight:800;color:#f59e0b;line-height:1.1">' + timeStr + '</div>' +
+        '<div style="font-size:12px;color:#f59e0b;margin-top:4px">专注时长</div>' +
+      '</div>' +
+    '</div>' +
+    // Secondary stats
+    '<div style="display:flex;gap:8px;margin-bottom:12px">' +
+      '<div style="flex:1;background:var(--bg-input);border-radius:10px;padding:12px;text-align:center">' +
+        '<div style="font-size:20px;font-weight:700;color:var(--text)">' + (si.streak||0) + ' 天</div>' +
+        '<div style="font-size:11px;color:var(--text-tertiary)">🔥 连续打卡</div>' +
+      '</div>' +
+      '<div style="flex:1;background:var(--bg-input);border-radius:10px;padding:12px;text-align:center">' +
+        '<div style="font-size:20px;font-weight:700;color:var(--text)">' + todaySw + ' 次</div>' +
+        '<div style="font-size:11px;color:var(--text-tertiary)">📱 今日切屏</div>' +
+      '</div>' +
+      '<div style="flex:1;background:var(--bg-input);border-radius:10px;padding:12px;text-align:center">' +
+        '<div style="font-size:20px;font-weight:700;color:var(--text)">' + totalWrong + ' 题</div>' +
+        '<div style="font-size:11px;color:var(--text-tertiary)">❌ 待消灭</div>' +
+      '</div>' +
+    '</div>' +
+    // Quote
+    '<div style="text-align:center;padding:12px 16px;background:var(--bg-input);border-radius:10px;margin-bottom:16px">' +
+      '<div style="font-size:13px;color:var(--text-secondary);line-height:1.7;font-style:italic">"' + getDailyInsight() + '"</div>' +
+    '</div>' +
+    // Button
+    '<div style="display:flex;gap:10px">' +
+      '<button class="btn btn-outline" style="flex:1;min-height:44px" onclick="copySummaryText(' + todayQ + ',' + todayRate + ',\'' + timeStr + '\',' + todaySw + ',' + (si.streak||0) + ')">📋 复制文字</button>' +
+      '<button class="btn btn-primary" style="flex:1;min-height:44px" onclick="(function(){var o=document.getElementById(\'dailySummaryOverlay\');if(o)o.remove()})()">关闭</button>' +
+    '</div>' +
+  '</div>';
+
+  var overlay = document.createElement('div');
+  overlay.id = 'dailySummaryOverlay';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px';
+  overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+  overlay.innerHTML = '<div style="background:var(--card);border-radius:20px;padding:24px;max-width:400px;width:100%;max-height:90vh;overflow-y:auto">' + cardHTML + '</div>';
+  document.body.appendChild(overlay);
+}
+
+function copySummaryText(q, rate, time, sw, streak) {
+  var now = new Date();
+  var weekdays = ['周日','周一','周二','周三','周四','周五','周六'];
+  var dateLabel = now.getFullYear() + '年' + (now.getMonth()+1) + '月' + now.getDate() + '日 ' + weekdays[now.getDay()];
+  var text = '📊 今日学习摘要 · ' + dateLabel + '\n' +
+    '━━━━━━━━━━\n' +
+    '📝 今日做题：' + q + ' 题\n' +
+    '✅ 正确率：' + rate + '%\n' +
+    '⏱ 专注时长：' + time + '\n' +
+    '📱 切屏次数：' + sw + ' 次\n' +
+    '🔥 连续打卡：' + streak + ' 天\n' +
+    '━━━━━━━━━━\n' +
+    '选择题刷题工具';
+  // Copy to clipboard
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(function() { toast('已复制到剪贴板 ✅'); });
+  } else {
+    var ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.left = '-9999px';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); toast('已复制到剪贴板 ✅'); } catch(e) { toast('复制失败，请手动截图'); }
+    document.body.removeChild(ta);
+  }
+}
+
 function showWeeklySummary() {
   var d = getDailyData();
   var qHistory = appData.dailyHistory || {};
@@ -9833,6 +10077,8 @@ function renderSettings() {
   if (!s.examDate) s.examDate = '';
   if (s.difficultyRating === undefined) s.difficultyRating = false;
   if (s.showAvatar === undefined) s.showAvatar = false;
+  if (s.insightEnabled === undefined) s.insightEnabled = true;
+  if (s.allowChangeInsight === undefined) s.allowChangeInsight = false;
 
   var colorNames = { teal: '青绿', purple: '浅紫', blue: '浅蓝', pink: '粉色', yellow: '浅黄', bw: '黑白', cream: '护眼·米黄', sage: '护眼·豆沙绿', stone: '岩灰', iris: '鸢尾', seasalt: '海盐', candy: '彩虹糖', lavlemon: '薰衣草柠檬', twilightpurple: '暮山紫', glaze: '琉璃', lightdream: '浅梦', autumnwater: '秋水', aurora: '极光', amber: '琥珀', mistblue: '雾蓝', moonwhite: '月白', beanpaste: '豆沙', cloudwhite: '云白', sakuramist: '樱雾', clearsky: '晴蓝', mintdew: '薄荷露', lilac: '丁香', peachbloom: '桃夭', frostcyan: '霜青', sandalwood: '檀色', inkblue: '黛蓝', inkgreen: '墨绿', sodaorange: '汽水橙', neonberry: '霓虹莓' };
   var allColors = ['teal', 'purple', 'blue', 'pink', 'yellow', 'bw', 'cream', 'sage', 'stone', 'iris', 'seasalt', 'candy', 'lavlemon', 'twilightpurple', 'glaze', 'lightdream', 'autumnwater', 'aurora', 'amber', 'mistblue', 'moonwhite', 'beanpaste', 'cloudwhite', 'sakuramist', 'clearsky', 'mintdew', 'lilac', 'peachbloom', 'frostcyan', 'sandalwood', 'inkblue', 'inkgreen', 'sodaorange', 'neonberry'];
@@ -9845,7 +10091,7 @@ function renderSettings() {
   var colorBgs = { teal: '#0891b2', purple: '#9333ea', blue: '#3b82f6', pink: '#ec4899', yellow: '#eab308', bw: '#555', cream: '#c8965c', sage: '#6b9e6b', stone: '#504647', iris: '#818cf8', seasalt: '#6b8ca8', candy: '#f472b6', lavlemon: '#a78bfa', twilightpurple: '#9b8ec4', glaze: '#6bb5a8', lightdream: '#c8a0b8', autumnwater: '#7b9eb8', aurora: '#5e9e88', amber: '#c88840', mistblue: '#8a9eb0', moonwhite: '#98b0c0', beanpaste: '#b08888', cloudwhite: '#b8a898', sakuramist: '#c89898', clearsky: '#90b0d0', mintdew: '#80b098', lilac: '#b098c8', peachbloom: '#c89880', frostcyan: '#90b8c0', sandalwood: '#a07858', inkblue: '#5878a8', inkgreen: '#5c8858', sodaorange: '#f09848', neonberry: '#e86888' };
 
   var _collapsed = {};
-  ['dataSectionContent','storageSectionContent','learnSectionContent','activationSectionContent','printSectionContent','statsSectionContent','appearanceSectionContent','aboutSectionContent'].forEach(function(id) {
+  ['dataSectionContent','storageSectionContent','learnSectionContent','activationSectionContent','printSectionContent','statsSectionContent','appearanceSectionContent','insightSectionContent','aboutSectionContent'].forEach(function(id) {
     var el = document.getElementById(id);
     if (el) { _collapsed[id] = el.style.display === 'none'; }
   });
@@ -10110,9 +10356,49 @@ function renderSettings() {
       })() +
       '</div></div>' +
 
+    // 💡 每日洞见（¥9.9 Pro）
+    (function() {
+      if (isTierLocked('insight')) {
+        return '<div class="section"><div class="section-title" style="display:flex;justify-content:space-between;align-items:center;min-height:44px;opacity:0.5">💡 每日洞见 <span style="font-size:11px;color:var(--text-tertiary)">🔒 智能全能版</span></div>' +
+          '<div class="setting-item" style="flex-direction:column;align-items:center;gap:8px;opacity:0.5">' +
+            '<div style="font-size:14px;color:var(--text-tertiary)">🔒 智能全能版专属功能</div>' +
+            '<div style="font-size:12px;color:var(--text-tertiary)">每日一条认知心理学洞见，理性理解学习</div>' +
+          '</div></div>';
+      }
+      var insight = getDailyInsight();
+      var allowChange = s.allowChangeInsight;
+      return '<div class="section"><div class="section-title" id="insightSectionTitle" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;min-height:44px" onclick="var c=document.getElementById(\'insightSectionContent\');var a=document.getElementById(\'insightSectionArrow\');if(c.style.display===\'none\'){c.style.display=\'\';a.textContent=\'▼\'}else{c.style.display=\'none\';a.textContent=\'▶\'}">💡 每日洞见 <span id="insightSectionArrow" style="font-size:11px">▼</span></div>' +
+        '<div id="insightSectionContent">' +
+          '<div class="setting-item"><div><div class="setting-label">启用每日洞见</div><div class="setting-desc">每天阅读一条基于认知科学的学习洞见</div></div>' +
+            '<label class="toggle"><input type="checkbox" id="insightToggle"' + (s.insightEnabled ? ' checked' : '') + ' onchange="saveSetting(\'insightEnabled\', this.checked);renderSettings()"><span class="slider"></span></label></div>' +
+          (s.insightEnabled ? '<div id="insightCard" style="margin:0 14px 12px;padding:16px;background:var(--bg-input);border-radius:12px;border-left:4px solid var(--primary);position:relative">' +
+            '<div class="insight-text" style="font-size:14px;line-height:1.7;color:var(--text);margin-bottom:6px">' + insight + '</div>' +
+            '<div style="display:flex;justify-content:space-between;align-items:center">' +
+              '<span style="font-size:11px;color:var(--text-tertiary)">—— 基于认知心理学研究</span>' +
+              (allowChange ? '<span style="font-size:20px;cursor:pointer;min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:all .2s" onclick="nextInsight()" title="换一条">⟳</span>' : '') +
+            '</div></div>' : '') +
+          '<div class="setting-item"><div><div class="setting-label">允许换一条</div><div class="setting-desc">开启后可在洞见卡片右上角点击 ⟳ 随机切换</div></div>' +
+            '<label class="toggle"><input type="checkbox" id="changeInsightToggle"' + (allowChange ? ' checked' : '') + ' onchange="saveSetting(\'allowChangeInsight\', this.checked);renderSettings()"><span class="slider"></span></label></div>' +
+        '</div></div>';
+    })() +
+
+    // 📊 今日摘要（¥9.9 Pro）
+    (function() {
+      if (isTierLocked('dailySummary')) return '';
+      var dd5 = getDailyData();
+      var todayCount5 = dd5.count || 0;
+      var todaySec5 = dd5.studySeconds || 0;
+      var todaySw5 = dd5.switches || 0;
+      if (todayCount5 === 0 && todaySec5 === 0) return '';
+      var todayMin5 = Math.floor(todaySec5 / 60);
+      var timeStr5 = todayMin5 >= 60 ? Math.floor(todayMin5/60) + 'h' + (todayMin5%60) + 'm' : todayMin5 + '分钟';
+      var si5 = getStreakInfo();
+      return '<div class="section"><div class="section-title" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;min-height:44px" onclick="showDailySummaryCard()">📊 今日学习摘要 <span style="font-size:11px;color:var(--text-secondary)">' + todayCount5 + '题 · ' + timeStr5 + '</span></div></div>';
+    })() +
+
     '<div class="section"><div class="section-title" id="aboutSectionTitle" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;min-height:44px" onclick="var c=document.getElementById(\'aboutSectionContent\');var a=document.getElementById(\'aboutSectionArrow\');if(c.style.display===\'none\'){c.style.display=\'\';a.textContent=\'▼\'}else{c.style.display=\'none\';a.textContent=\'▶\'}">ℹ️ 关于 <span id="aboutSectionArrow" style="font-size:11px">▼</span></div>' +
       '<div id="aboutSectionContent"><div class="setting-item" style="cursor:pointer" onclick="showManualMenu()"><div><div class="setting-label">📖 使用说明</div><div class="setting-desc">查看使用指南</div></div><div style="display:flex;align-items:center">→</div></div>' +
-      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">' + TIER_EMOJI[getTier()] + ' ' + TIER_NAMES[getTier()] + ' · 纯前端离线可用 · <span id="appVersion">v232</span></div></div></div>' +
+      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">' + TIER_EMOJI[getTier()] + ' ' + TIER_NAMES[getTier()] + ' · 纯前端离线可用 · <span id="appVersion">v233</span></div></div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="showDataOffsetTool()"><div><div class="setting-label">🔧 数据批量偏移</div><div class="setting-desc">修复答案/解析的错位问题（支持前移后移）</div></div><div style="display:flex;align-items:center">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="clearAllData()"><div><div class="setting-label" style="color:var(--danger)">🗑️ 删除所有数据</div><div class="setting-desc">清空全部题库和设置，不可恢复</div></div><div style="display:flex;align-items:center;color:var(--danger)">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="checkUpdate()"><div><div class="setting-label">🔄 检查更新</div><div class="setting-desc">点击清除缓存并刷新，获取最新版本</div></div><div style="display:flex;align-items:center">→</div></div>' +
@@ -10576,6 +10862,19 @@ function showManualMenu() {
           '<p style="margin:0 0 6px"><b>𓈒𓏸𓇼 重点标记</b>——比收藏更高级别，用在错题页"重点标记"标签页单独查看。同样按题库分类管理。</p>' +
           '<p style="margin:0 0 6px"><b>🏷️ 分类筛选</b>——题目文本中括号内容（如【教育学原理】）自动识别为分类标签。刷题设置页可按分类筛选题目，只看某个分类。</p>' +
           '<p style="margin:0"><b>🌙 深色模式</b>——设置页打开，全局切换暗色主题，夜间刷题不刺眼。</p>' +
+        '</div>' +
+      '</div>' +
+
+      // 📊 学习数据 & 心理学
+      '<div style="margin-bottom:16px">' +
+        '<h4 style="font-size:15px;margin:0 0 8px;color:var(--primary)">📊 学习数据 & 每日洞见</h4>' +
+        '<div style="background:var(--bg-input);border-radius:10px;padding:12px 14px">' +
+          '<p style="margin:0 0 6px"><b>📱 切屏监测</b>——自动记录切换应用次数，题库页状态栏实时显示。累计5次后弹出提醒，督促自己专注。结果页显示本次切屏次数。</p>' +
+          '<p style="margin:0 0 6px"><b>📊 本周小结</b>——设置页点"本周小结"查看本周做题数、累计学习时间和切屏次数（周一~周日）。</p>' +
+          '<p style="margin:0 0 6px"><b>📊 今日学习摘要</b>——设置页入口，生成精美卡片展示今日做题数、正确率、专注时长、切屏次数等，可复制文字分享。</p>' +
+          '<p style="margin:0 0 6px"><b>💡 每日洞见</b>——93条基于认知心理学研究的学习洞见，每天随机一条。在设置页可开启"换一条"查看不同的。</p>' +
+          '<p style="margin:0 0 6px"><b>🧑 个人头像</b>——设置页外观区域开启，手机相册选取照片，自动压缩存储。</p>' +
+          '<p style="margin:0"><b>🔒 以上</b>切屏提醒/洞见/摘要/头像需要 ¥9.9 智能全能版。</p>' +
         '</div>' +
       '</div>' +
 
