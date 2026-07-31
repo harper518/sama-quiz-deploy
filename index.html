@@ -1337,6 +1337,8 @@ textarea { min-height: 180px; resize: vertical; line-height: 1.8; }
         <div id="resultBestMoment" style="display:none;margin-top:12px;padding:10px 14px;background:var(--bg-input);border-radius:10px;font-size:13px;color:var(--text-secondary)"></div>
         <!-- vs 昨天 -->
         <div id="resultVsYesterday" style="display:none;margin-top:4px;font-size:12px;color:var(--text-tertiary)"></div>
+        <!-- 本次切屏 -->
+        <div id="resultSessionSwitches" style="display:none;margin-top:4px;font-size:12px;color:var(--text-secondary)"></div>
         <!-- Peak-End 情绪总结 -->
         <div id="resultPeakEnd" style="display:none;margin-top:10px;padding:12px 14px;background:linear-gradient(135deg,#f0fdf4,#ecfdf5);border-radius:10px;font-size:14px;color:#166534;line-height:1.6;text-align:center"></div>
       </div>
@@ -1374,7 +1376,11 @@ textarea { min-height: 180px; resize: vertical; line-height: 1.8; }
 
 <!-- ====== Page 5: 设置 ====== -->
 <div class="page" id="page-settings">
-  <h1 style="font-size:24px;font-weight:800;margin-bottom:20px;letter-spacing:-.02em">⚙️ 设置</h1>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+    <h1 style="font-size:24px;font-weight:800;letter-spacing:-.02em;margin:0">⚙️ 设置</h1>
+    <div id="settingsAvatar" style="width:44px;height:44px;border-radius:50%;background:var(--bg-input);background-size:cover;background-position:center;flex-shrink:0;cursor:pointer;display:none" onclick="document.getElementById('avatarFileInput').click()" title="点击更换头像"></div>
+  </div>
+  <input type="file" id="avatarFileInput" accept="image/*" style="display:none" onchange="uploadAvatar(this)">
   <div id="settingsContainer"></div>
   <textarea id="restoreText" style="display:none"></textarea>
 </div>
@@ -1599,15 +1605,18 @@ function loadData() {
     if (!data.wrongBooks) data.wrongBooks = {};
     if (!data.quizHistory) data.quizHistory = {};
     if (!data.dailyHistory) data.dailyHistory = {};
+    if (!data.dailyStudyHistory) data.dailyStudyHistory = {};
+    if (!data.dailySwitchHistory) data.dailySwitchHistory = {};
     if (!data.bankMeta) data.bankMeta = {};
     if (!data.settings) data.settings = { color: 'pastel', darkMode: false, fontSize: 16 };
+    if (data.settings.showAvatar === undefined) data.settings.showAvatar = false;
     if (!data.totalStudySeconds) data.totalStudySeconds = 0;
     if (data.totalEliminated === undefined) data.totalEliminated = 0;
     if (!data.achievements) data.achievements = {};
     if (!data.activation) data.activation = { tier: 'free', codeHash: '', activatedAt: null, expires: null };
     return data;
   }
-  catch(e) { return { banks: {}, stats: {}, wrongBooks: {}, quizHistory: {}, dailyHistory: {}, bankMeta: {}, settings: { color: 'pastel', darkMode: false, fontSize: 16 }, totalStudySeconds: 0, totalEliminated: 0, achievements: {}, activation: { tier: 'free', codeHash: '', activatedAt: null, expires: null } }; }
+  catch(e) { return { banks: {}, stats: {}, wrongBooks: {}, quizHistory: {}, dailyHistory: {}, dailyStudyHistory: {}, dailySwitchHistory: {}, bankMeta: {}, settings: { color: 'pastel', darkMode: false, fontSize: 16, showAvatar: false }, totalStudySeconds: 0, totalEliminated: 0, achievements: {}, activation: { tier: 'free', codeHash: '', activatedAt: null, expires: null } }; }
 }
 function saveData(data) {
   try {
@@ -1700,9 +1709,20 @@ function getDailyData() {
     if (appData.daily.date) {
       if (!appData.dailyHistory) appData.dailyHistory = {};
       appData.dailyHistory[appData.daily.date] = appData.daily.count || 0;
+      // Save yesterday's study seconds
+      if (!appData.dailyStudyHistory) appData.dailyStudyHistory = {};
+      appData.dailyStudyHistory[appData.daily.date] = appData.daily.studySeconds || 0;
+      // Save yesterday's switches
+      if (!appData.dailySwitchHistory) appData.dailySwitchHistory = {};
+      appData.dailySwitchHistory[appData.daily.date] = appData.daily.switches || 0;
       // Keep only last 365 days
       var keys = Object.keys(appData.dailyHistory).sort();
       while (keys.length > 365) { delete appData.dailyHistory[keys.shift()]; }
+      // Cleanup study/switch history too
+      var ssKeys = Object.keys(appData.dailyStudyHistory).sort();
+      while (ssKeys.length > 365) { delete appData.dailyStudyHistory[ssKeys.shift()]; }
+      var swKeys = Object.keys(appData.dailySwitchHistory).sort();
+      while (swKeys.length > 365) { delete appData.dailySwitchHistory[swKeys.shift()]; }
     }
     // New day: check streak continuity
     var yesterday = new Date(Date.now() - 86400000);
@@ -1717,6 +1737,8 @@ function getDailyData() {
     }
     appData.daily.date = today;
     appData.daily.count = 0;
+    appData.daily.studySeconds = 0;
+    appData.daily.switches = 0;
     saveData(appData);
   }
   return appData.daily;
@@ -1869,7 +1891,7 @@ var TIER_FEATURES = {
           'clearWrongBook', 'pwaOffline', 'editBank', 'searchQuestion', 'startFrom', 'smartFeedback'],
   pro:   ['memorize', 'totalTimer', 'mixedBank', 'bankMerge', 'quickWrongReview',
           'superFav', 'pomodoro', 'difficultyRating', 'achievements',
-          'allThemes', 'focusMode', 'heatmap', 'weakLabels', 'print']
+          'allThemes', 'focusMode', 'heatmap', 'weakLabels', 'print', 'avatar']
 };
 var TIER_NAMES = { free: '基础版', basic: '科学备考版', pro: '智能全能版' };
 var TIER_EMOJI = { free: '🆓', basic: '💰', pro: '👑' };
@@ -2292,6 +2314,56 @@ function toast(msg) {
   setTimeout(function() { if (t.parentNode) t.remove(); }, 2200);
 }
 
+// ====== 头像上传 ======
+function uploadAvatar(input) {
+  if (!input.files || !input.files[0]) return;
+  var file = input.files[0];
+  // Check size and warn if >500KB
+  if (file.size > 500 * 1024) {
+    if (!confirm('图片较大（' + (file.size/1024).toFixed(0) + ' KB），可能占用较多存储空间。确定上传吗？')) {
+      input.value = ''; return;
+    }
+  }
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    // Compress via canvas if > 100KB
+    var img = new Image();
+    img.onload = function() {
+      var canvas = document.createElement('canvas');
+      var size = 200; // max dimension
+      var ratio = Math.min(size / img.width, size / img.height, 1);
+      canvas.width = img.width * ratio;
+      canvas.height = img.height * ratio;
+      var ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      var compressed = canvas.toDataURL('image/jpeg', 0.8);
+      if (!appData.settings) appData.settings = {};
+      appData.settings.avatarData = compressed;
+      if (appData.settings.showAvatar === undefined) appData.settings.showAvatar = true;
+      appData.settings.showAvatar = true;
+      saveData(appData);
+      updateAvatarDisplay();
+      toast('头像已更新 ✅');
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+  input.value = '';
+}
+function updateAvatarDisplay() {
+  var av = document.getElementById('settingsAvatar');
+  if (!av) return;
+  var data = (appData.settings && appData.settings.avatarData) || '';
+  var show = (appData.settings && appData.settings.showAvatar) && data;
+  if (show && data) {
+    av.style.display = '';
+    av.style.backgroundImage = 'url(' + data + ')';
+  } else {
+    av.style.display = 'none';
+    av.style.backgroundImage = '';
+  }
+}
+
 // ====== Tab Switch ======
 function switchPage(page, btn) {
   // 正在浏览错题/收藏时切回错题页 → 自动恢复浏览位置
@@ -2347,7 +2419,7 @@ function switchPage(page, btn) {
     var activeChip = document.querySelector('#page-wrong .chip[data-wtab="' + wrongTab + '"]');
     if (activeChip) activeChip.classList.add('active');
     if (wrongTab === 'fav') renderFavorites(); else renderWrongBooks();
-  }  if (page === 'settings') renderSettings();
+  }  if (page === 'settings') { renderSettings(); updateAvatarDisplay(); }
   updateBadges();
 }
 
@@ -2390,8 +2462,9 @@ function renderBanks() {
     (appData.wrongBooks[bn] || []).forEach(function(w) { allWrongs.push({bank: bn, q: w}); });
   });
   var totalWrongCount = allWrongs.length;
+  var todaySw = (appData.daily && appData.daily.switches) || 0;
 
-  if (si.hadGoalSet || examDate || si.streak > 0 || stm.todayMin > 0 || totalWrongCount > 0) {
+  if (si.hadGoalSet || examDate || si.streak > 0 || stm.todayMin > 0 || todaySw > 0 || totalWrongCount > 0) {
     statusBarHtml += '<div style="margin-bottom:12px;padding:12px 14px;background:var(--card);border-radius:12px;border:1px solid var(--border)">';
 
     // Row 1: Exam countdown + Streak + Study time
@@ -2406,6 +2479,9 @@ function renderBanks() {
     var rightItems = '';
     if (stm.todayMin > 0) {
       rightItems += '<span style="font-size:12px;color:var(--text-secondary)">⏱ 今日' + stm.todayStr + '</span>';
+    }
+    if (todaySw > 0) {
+      rightItems += (rightItems ? ' · ' : '') + '<span style="font-size:12px;color:var(--text-secondary)">📱 切屏' + todaySw + '次</span>';
     }
     if (si.streak > 0) {
       rightItems += (rightItems ? ' · ' : '') + '<span style="font-size:13px;font-weight:600;color:#e67e22">🔥 连续 <b>' + si.streak + '</b> 天' + (si.longest > si.streak ? ' <span style="font-size:11px;color:var(--text-tertiary);font-weight:400">（最长' + si.longest + '天）</span>' : '') + '</span>';
@@ -6014,6 +6090,39 @@ document.addEventListener('DOMContentLoaded', function() {
   loadKaTeX(function() { console.log('KaTeX ready'); });
 });
 
+// ====== 切屏监测 ======
+var _lastHideTime = 0;
+document.addEventListener('visibilitychange', function() {
+  if (document.hidden) {
+    _lastHideTime = Date.now();
+  } else {
+    if (_lastHideTime > 0 && (Date.now() - _lastHideTime) > 2000) {
+      _recordSwitch();
+    }
+    _lastHideTime = 0;
+  }
+});
+window.addEventListener('blur', function() { _lastHideTime = Date.now(); });
+window.addEventListener('focus', function() {
+  if (_lastHideTime > 0 && (Date.now() - _lastHideTime) > 2000) {
+    _recordSwitch();
+  }
+  _lastHideTime = 0;
+});
+function _recordSwitch() {
+  if (!appData.daily) appData.daily = {};
+  if (!appData.daily.switches) appData.daily.switches = 0;
+  appData.daily.switches++;
+  if (quizState && quizState._sessionSwitches !== undefined) {
+    quizState._sessionSwitches++;
+  }
+  saveData(appData);
+  // 累计5次提醒
+  if (appData.daily.switches === 5 && !isTierLocked('smartFeedback')) {
+    toast('⏳ 每次切屏都在偷走复习时间，已经 5 次了', 3000);
+  }
+}
+
 function selectCount(n, el) {
   if (!hasFeature('unlimitedBatch') && n > 30) return;
   batchSize = n;
@@ -6046,7 +6155,7 @@ function doQuickQuiz(n) {
     currentIndex: 0, correct: 0, wrong: 0, wrongIds: [],
     total: count, answered: false, mode: 'instant',
     userAnswers: new Array(count).fill(null), drawMode: 'random-repeat',
-    isQuickQuiz: true, quickBankNames: selected.map(function(s) { return s.bank; })
+    isQuickQuiz: true, _sessionSwitches: 0, quickBankNames: selected.map(function(s) { return s.bank; })
   };
   document.getElementById('quizSetup').style.display = 'none';
   document.getElementById('quizResult').style.display = 'none';
@@ -6072,7 +6181,7 @@ function doDailyWrongChallenge() {
     currentIndex: 0, correct: 0, wrong: 0, wrongIds: [],
     total: count, answered: false, mode: 'instant',
     userAnswers: new Array(count).fill(null), drawMode: 'random-repeat',
-    isDailyChallenge: true, quickBankNames: selected.map(function(s) { return s.bank; })
+    isDailyChallenge: true, _sessionSwitches: 0, quickBankNames: selected.map(function(s) { return s.bank; })
   };
   document.getElementById('quizSetup').style.display = 'none';
   document.getElementById('quizResult').style.display = 'none';
@@ -6130,6 +6239,7 @@ function startSearchTempQuiz() {
     userAnswers: new Array(selected.length).fill(null),
     drawMode: drawMode,
     isTempQuiz: true,
+    _sessionSwitches: 0,
     combo: 0,
     maxCombo: 0,
     fastestMs: null,
@@ -6206,6 +6316,7 @@ function startQuiz() {
       userAnswers: new Array(questions.length).fill(null),
       drawMode: drawMode,
       isTempQuiz: true,
+      _sessionSwitches: 0,
       combo: 0, maxCombo: 0, fastestMs: null,
       startTime: Date.now(), questionStartTime: Date.now(),
     };
@@ -6328,6 +6439,7 @@ function startQuiz() {
     userAnswers: new Array(selected.length).fill(null),
     drawMode: drawMode,
     _actualStartPos: _actualStartPos,
+    _sessionSwitches: 0,
     combo: 0,
     maxCombo: 0,
     fastestMs: null,
@@ -7390,6 +7502,10 @@ function showResult() {
   var todayStr = getTodayStr();
   if (!appData.dailyHistory) appData.dailyHistory = {};
   appData.dailyHistory[todayStr] = dd.count;
+  if (!appData.dailyStudyHistory) appData.dailyStudyHistory = {};
+  appData.dailyStudyHistory[todayStr] = dd.studySeconds || 0;
+  if (!appData.dailySwitchHistory) appData.dailySwitchHistory = {};
+  appData.dailySwitchHistory[todayStr] = dd.switches || 0;
   saveData(appData);
 
   // 间隔重复：对所有答过的题更新SR
@@ -7430,6 +7546,16 @@ function showResult() {
   else if (rate >= 70) attrLabel.textContent = '稳扎稳打，继续保持！';
   else if (rate >= 50) attrLabel.textContent = '每次努力都在积累！';
   else attrLabel.textContent = '发现漏洞就是进步！';
+
+  // 本次切屏（¥3+）
+  var ssEl = document.getElementById('resultSessionSwitches');
+  if (ssEl) {
+    var sessSw = quizState._sessionSwitches || 0;
+    if (sessSw > 0 && !isTierLocked('smartFeedback')) {
+      ssEl.style.display = '';
+      ssEl.innerHTML = '📱 本次切屏：<b>' + sessSw + '</b> 次';
+    } else { ssEl.style.display = 'none'; }
+  }
 
   // Peak-End 情绪化总结（¥3+）
   var peakEndEl = document.getElementById('resultPeakEnd');
@@ -7842,25 +7968,35 @@ function quickReviewWrongs() {
 
 function showWeeklySummary() {
   var d = getDailyData();
-  var history = appData.dailyHistory || {};
-  // Build summary from recent 7 days
-  var totalWeek = 0;
-  var daysActive = 0;
+  var qHistory = appData.dailyHistory || {};
+  var sHistory = appData.dailyStudyHistory || {};
+  var swHistory = appData.dailySwitchHistory || {};
+  // Build summary from recent 7 days (Mon-Sun week)
+  var now = new Date();
+  var dayOfWeek = now.getDay(); // 0=Sun, 1=Mon, ...
+  var mondayOffset = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Days since Monday
+  var weekTotalQ = 0, weekTotalSec = 0, weekTotalSw = 0;
   for (var i = 0; i < 7; i++) {
     var date = new Date(Date.now() - i*86400000);
     var ds = date.getFullYear() + '-' + String(date.getMonth()+1).padStart(2,'0') + '-' + String(date.getDate()).padStart(2,'0');
-    if (history[ds]) { totalWeek += history[ds]; daysActive++; }
+    weekTotalQ += qHistory[ds] || 0;
+    weekTotalSec += sHistory[ds] || 0;
+    weekTotalSw += swHistory[ds] || 0;
   }
-  if (totalWeek === 0) return;
+  if (weekTotalQ === 0 && weekTotalSec === 0) return;
+  // Format time
+  var weekTimeStr = weekTotalSec >= 3600
+    ? Math.floor(weekTotalSec/3600) + 'h' + Math.floor((weekTotalSec%3600)/60) + 'm'
+    : Math.floor(weekTotalSec/60) + '分钟';
   var overlay = document.createElement('div');
   overlay.id = 'weeklySummaryOverlay';
   overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px';
-  overlay.innerHTML = '<div style="background:var(--card);border-radius:16px;padding:24px;text-align:center;max-width:320px;width:100%">' +
-    '<div style="font-size:40px;margin-bottom:10px">📊</div><h3 style="margin:0 0 12px;font-size:18px">本周小结</h3>' +
+  overlay.innerHTML = '<div style="background:var(--card);border-radius:16px;padding:24px;text-align:center;max-width:340px;width:100%">' +
+    '<div style="font-size:40px;margin-bottom:10px">📊</div><h3 style="margin:0 0 12px;font-size:18px">本周小结（周一~周日）</h3>' +
     '<div style="display:flex;gap:10px;margin-bottom:12px">' +
-      '<div style="flex:1;background:var(--bg-input);border-radius:10px;padding:10px"><div style="font-size:22px;font-weight:700;color:var(--primary)">' + totalWeek + '</div><div style="font-size:11px;color:var(--text-tertiary)">做题</div></div>' +
-      '<div style="flex:1;background:var(--bg-input);border-radius:10px;padding:10px"><div style="font-size:22px;font-weight:700;color:#22c55e">' + daysActive + '</div><div style="font-size:11px;color:var(--text-tertiary)">天活跃</div></div>' +
-      '<div style="flex:1;background:var(--bg-input);border-radius:10px;padding:10px"><div style="font-size:22px;font-weight:700;color:#e67e22">🔥' + (d.streak||0) + '</div><div style="font-size:11px;color:var(--text-tertiary)">连续</div></div>' +
+      '<div style="flex:1;background:var(--bg-input);border-radius:10px;padding:10px"><div style="font-size:22px;font-weight:700;color:var(--primary)">' + weekTotalQ + '</div><div style="font-size:11px;color:var(--text-tertiary)">做题</div></div>' +
+      '<div style="flex:1;background:var(--bg-input);border-radius:10px;padding:10px"><div style="font-size:20px;font-weight:700;color:#22c55e">' + weekTimeStr + '</div><div style="font-size:11px;color:var(--text-tertiary)">周累计时间</div></div>' +
+      '<div style="flex:1;background:var(--bg-input);border-radius:10px;padding:10px"><div style="font-size:22px;font-weight:700;color:#e67e22">' + weekTotalSw + '</div><div style="font-size:11px;color:var(--text-tertiary)">周切屏</div></div>' +
     '</div>' +
     '<button class="btn btn-primary" style="width:100%;min-height:44px" onclick="(function(){var o=document.getElementById(\'weeklySummaryOverlay\');if(o)o.remove()})()">知道了</button></div>';
   document.body.appendChild(overlay);
@@ -8171,6 +8307,7 @@ function browseAllWrongs() {
     userAnswers: new Array(qs.length).fill(null),
     drawMode: 'random-repeat',
     isTempQuiz: true,
+    _sessionSwitches: 0,
     combo: 0,
     maxCombo: 0,
     fastestMs: null,
@@ -9695,6 +9832,7 @@ function renderSettings() {
   if (s.safetyMode === undefined) s.safetyMode = false;
   if (!s.examDate) s.examDate = '';
   if (s.difficultyRating === undefined) s.difficultyRating = false;
+  if (s.showAvatar === undefined) s.showAvatar = false;
 
   var colorNames = { teal: '青绿', purple: '浅紫', blue: '浅蓝', pink: '粉色', yellow: '浅黄', bw: '黑白', cream: '护眼·米黄', sage: '护眼·豆沙绿', stone: '岩灰', iris: '鸢尾', seasalt: '海盐', candy: '彩虹糖', lavlemon: '薰衣草柠檬', twilightpurple: '暮山紫', glaze: '琉璃', lightdream: '浅梦', autumnwater: '秋水', aurora: '极光', amber: '琥珀', mistblue: '雾蓝', moonwhite: '月白', beanpaste: '豆沙', cloudwhite: '云白', sakuramist: '樱雾', clearsky: '晴蓝', mintdew: '薄荷露', lilac: '丁香', peachbloom: '桃夭', frostcyan: '霜青', sandalwood: '檀色', inkblue: '黛蓝', inkgreen: '墨绿', sodaorange: '汽水橙', neonberry: '霓虹莓' };
   var allColors = ['teal', 'purple', 'blue', 'pink', 'yellow', 'bw', 'cream', 'sage', 'stone', 'iris', 'seasalt', 'candy', 'lavlemon', 'twilightpurple', 'glaze', 'lightdream', 'autumnwater', 'aurora', 'amber', 'mistblue', 'moonwhite', 'beanpaste', 'cloudwhite', 'sakuramist', 'clearsky', 'mintdew', 'lilac', 'peachbloom', 'frostcyan', 'sandalwood', 'inkblue', 'inkgreen', 'sodaorange', 'neonberry'];
@@ -9804,8 +9942,9 @@ function renderSettings() {
             var fv = (JSON.stringify(appData.favorites || {}).length + JSON.stringify(appData.superFavs || {}).length) * 2;
             var pg = (JSON.stringify(appData.stats || {}).length + JSON.stringify(appData.quizHistory || {}).length + JSON.stringify(appData.daily || {}).length) * 2;
             var st = (JSON.stringify(appData.settings || {}).length + JSON.stringify(appData.achievements || {}).length) * 2;
+            var av = ((appData.settings && appData.settings.avatarData) || '').length * 2;
             var fmt = function(b) { return b < 1024 ? b + ' B' : (b/1024).toFixed(1) + ' KB'; };
-            return '<div style="font-size:11px;color:var(--text-tertiary);margin-top:4px;text-align:center">错题本 ' + fmt(wb) + ' · 收藏 ' + fmt(fv) + ' · 进度 ' + fmt(pg) + ' · 设置 ' + fmt(st) + '</div>';
+            return '<div style="font-size:11px;color:var(--text-tertiary);margin-top:4px;text-align:center">错题本 ' + fmt(wb) + ' · 收藏 ' + fmt(fv) + ' · 进度 ' + fmt(pg) + ' · 设置 ' + fmt(st) + (av > 0 ? ' · 头像 ' + fmt(av) : '') + '</div>';
           })() +
         '</div></div></div>';
     })() +
@@ -9960,11 +10099,20 @@ function renderSettings() {
         '</div></div>' +
       '<div class="setting-item"><div><div class="setting-label">字体大小</div><div class="setting-desc" id="fontVal">' + s.fontSize + 'px</div></div>' +
         '<div style="display:flex;align-items:center;gap:6px;min-width:120px;flex:1;max-width:180px"><span style="font-size:12px;flex-shrink:0">A</span><input type="range" min="14" max="24" value="' + s.fontSize + '" step="1" oninput="updateFontSize(parseInt(this.value))" onchange="updateFontSize(parseInt(this.value))" style="flex:1;min-width:0"><span style="font-size:16px;font-weight:700;flex-shrink:0">A</span></div></div>' +
+      // 头像（¥9.9 Pro）
+      (function() {
+        if (isTierLocked('avatar')) {
+          return '<div class="setting-item" style="opacity:0.5"><div><div class="setting-label">🧑 个人头像</div><div class="setting-desc">上传自定义头像显示在设置页 🔒 智能全能版</div></div>' +
+            '<label class="toggle"><input type="checkbox" disabled><span class="slider"></span></label></div>';
+        }
+        return '<div class="setting-item"><div><div class="setting-label">🧑 个人头像</div><div class="setting-desc">' + ((s.showAvatar && s.avatarData) ? '已设置头像，点击右上角头像可更换' : '上传自定义头像显示在设置页') + '</div></div>' +
+          '<label class="toggle"><input type="checkbox" id="avatarToggle"' + (s.showAvatar ? ' checked' : '') + ' onchange="saveSetting(\'showAvatar\', this.checked);updateAvatarDisplay()"><span class="slider"></span></label></div>';
+      })() +
       '</div></div>' +
 
     '<div class="section"><div class="section-title" id="aboutSectionTitle" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;min-height:44px" onclick="var c=document.getElementById(\'aboutSectionContent\');var a=document.getElementById(\'aboutSectionArrow\');if(c.style.display===\'none\'){c.style.display=\'\';a.textContent=\'▼\'}else{c.style.display=\'none\';a.textContent=\'▶\'}">ℹ️ 关于 <span id="aboutSectionArrow" style="font-size:11px">▼</span></div>' +
       '<div id="aboutSectionContent"><div class="setting-item" style="cursor:pointer" onclick="showManualMenu()"><div><div class="setting-label">📖 使用说明</div><div class="setting-desc">查看使用指南</div></div><div style="display:flex;align-items:center">→</div></div>' +
-      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">' + TIER_EMOJI[getTier()] + ' ' + TIER_NAMES[getTier()] + ' · 纯前端离线可用 · <span id="appVersion">v231</span></div></div></div>' +
+      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">' + TIER_EMOJI[getTier()] + ' ' + TIER_NAMES[getTier()] + ' · 纯前端离线可用 · <span id="appVersion">v232</span></div></div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="showDataOffsetTool()"><div><div class="setting-label">🔧 数据批量偏移</div><div class="setting-desc">修复答案/解析的错位问题（支持前移后移）</div></div><div style="display:flex;align-items:center">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="clearAllData()"><div><div class="setting-label" style="color:var(--danger)">🗑️ 删除所有数据</div><div class="setting-desc">清空全部题库和设置，不可恢复</div></div><div style="display:flex;align-items:center;color:var(--danger)">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="checkUpdate()"><div><div class="setting-label">🔄 检查更新</div><div class="setting-desc">点击清除缓存并刷新，获取最新版本</div></div><div style="display:flex;align-items:center">→</div></div>' +
@@ -9994,16 +10142,20 @@ function getTomorrowReviewCount() {
   return '<b style="color:var(--primary)">' + count + '</b> 题需要复习';
 }
 function getWeeklySummaryText() {
-  var d = getDailyData();
-  var history = appData.dailyHistory || {};
-  var totalWeek = 0, daysActive = 0;
+  var qHistory = appData.dailyHistory || {};
+  var sHistory = appData.dailyStudyHistory || {};
+  var totalWeek = 0, weekSec = 0;
   for (var i = 0; i < 7; i++) {
     var date = new Date(Date.now() - i*86400000);
     var ds = date.getFullYear() + '-' + String(date.getMonth()+1).padStart(2,'0') + '-' + String(date.getDate()).padStart(2,'0');
-    if (history[ds]) { totalWeek += history[ds]; daysActive++; }
+    totalWeek += qHistory[ds] || 0;
+    weekSec += sHistory[ds] || 0;
   }
-  if (totalWeek === 0) return '本周还没有刷题，快来开始吧';
-  return '本周 ' + totalWeek + ' 题 · ' + daysActive + ' 天活跃 · 🔥连续' + ((d.streak)||0) + '天';
+  var weekTimeStr = weekSec >= 3600
+    ? Math.floor(weekSec/3600) + 'h' + Math.floor((weekSec%3600)/60) + 'm'
+    : Math.floor(weekSec/60) + '分钟';
+  if (totalWeek === 0 && weekSec === 0) return '本周还没有刷题，快来开始吧';
+  return '本周 ' + totalWeek + ' 题 · 累计' + weekTimeStr;
 }
 function getAchievementSummary() {
   var achievements = appData.achievements || {};
@@ -10330,7 +10482,7 @@ function showDataOffsetTool() {
 
 function clearAllData() {
   if (!confirm('此操作不可撤销！将删除所有题库、设置和进度。确定继续吗？')) return;
-  appData = { banks: {}, stats: {}, wrongBooks: {}, quizHistory: {}, dailyHistory: {}, bankMeta: {}, settings: { color: 'pastel', darkMode: false, fontSize: 16 }, totalStudySeconds: 0, totalEliminated: 0, achievements: {}, activation: { tier: 'free', codeHash: '', activatedAt: null, expires: null } };
+  appData = { banks: {}, stats: {}, wrongBooks: {}, quizHistory: {}, dailyHistory: {}, dailyStudyHistory: {}, dailySwitchHistory: {}, bankMeta: {}, settings: { color: 'pastel', darkMode: false, fontSize: 16, showAvatar: false }, totalStudySeconds: 0, totalEliminated: 0, achievements: {}, activation: { tier: 'free', codeHash: '', activatedAt: null, expires: null } };
   saveData(appData);
   toast('已全部删除');
   switchPage('banks', document.querySelector('[data-page="banks"]'));
