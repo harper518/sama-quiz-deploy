@@ -9,6 +9,7 @@
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-title" content="刷题助手">
 <meta name="mobile-web-app-capable" content="yes">
+<link rel="icon" type="image/svg+xml" href="icon.svg">
 <link rel="apple-touch-icon" href="icon.svg">
 <title>教资刷题助手</title>
 <style>
@@ -1951,18 +1952,13 @@ function getDailyInsight() {
 }
 function nextInsight() {
   var idx = Math.floor(Math.random() * INSIGHTS.length);
+  if (!appData.settings) appData.settings = {};
   appData.settings._insightIndex = idx;
   saveData(appData);
   // Update popup text if open
   var popupText = document.getElementById('insightPopupText');
   if (popupText) {
     popupText.textContent = INSIGHTS[idx];
-  }
-  // Legacy: update inline card if present
-  var el = document.getElementById('insightCard');
-  if (el) {
-    var txt = el.querySelector('.insight-text');
-    if (txt) txt.textContent = INSIGHTS[idx];
   }
 }
 
@@ -2056,17 +2052,18 @@ let appData = loadData();
     return;
   }
   // 运行时每分钟检测一次到期
-  setInterval(function() {
+  window._trialExpiryTimer = setInterval(function() {
     if (appData.activation && appData.activation._isTrial && appData.activation._trialExpires && Date.now() >= appData.activation._trialExpires) {
       appData.activation.tier = 'free';
       appData.activation._isTrial = false;
       saveData(appData);
       toast('⏰ 试用已结束，已恢复免费版。喜欢请购买激活码～');
+      _clearTrialTimers();
     }
   }, 60000);
   // 每30秒刷新倒计时显示
-  setInterval(function() {
-    if (!appData.activation || !appData.activation._isTrial || !appData.activation._trialExpires) return;
+  window._trialCountdownTimer = setInterval(function() {
+    if (!appData.activation || !appData.activation._isTrial || !appData.activation._trialExpires) { _clearTrialTimers(); return; }
     var remaining = Math.max(0, Math.floor((appData.activation._trialExpires - Date.now()) / 1000));
     var min = Math.floor(remaining / 60);
     var sec = remaining % 60;
@@ -2074,6 +2071,11 @@ let appData = loadData();
     if (cd) { cd.textContent = '⏱ 试用剩余 ' + min + ' 分 ' + sec + ' 秒 · ' + (TIER_NAMES[appData.activation.tier] || ''); }
   }, 30000);
 })();
+
+function _clearTrialTimers() {
+  if (window._trialExpiryTimer) { clearInterval(window._trialExpiryTimer); window._trialExpiryTimer = null; }
+  if (window._trialCountdownTimer) { clearInterval(window._trialCountdownTimer); window._trialCountdownTimer = null; }
+}
 
 let quizState = null;
 let browseState = null;
@@ -2197,6 +2199,7 @@ function activateCode(input) {
       var adminTier = ADMIN_HASHES[hash];
       appData.activation = { tier: adminTier, codeHash: hash, activatedAt: null, expires: null, _trialUsedBasic: appData.activation._trialUsedBasic, _trialUsedPro: appData.activation._trialUsedPro, _isTrial: false, _trialExpires: null, _trialStarted: null };
       saveData(appData);
+      _clearTrialTimers();
       showActivationSuccess(TIER_NAMES[adminTier], null);
       return;
     }
@@ -2211,6 +2214,7 @@ function activateCode(input) {
         var expires = now + 370 * 86400000;
         appData.activation = { tier: entry.tier, codeHash: hash, activatedAt: now, expires: expires, _trialUsedBasic: appData.activation._trialUsedBasic, _trialUsedPro: appData.activation._trialUsedPro, _isTrial: false, _trialExpires: null, _trialStarted: null };
         saveData(appData);
+        _clearTrialTimers();
         showActivationSuccess(TIER_NAMES[entry.tier], expires);
       })
       .catch(function() { toast('❌ 验证服务暂时不可用，请确保网络连接正常'); });
@@ -2231,7 +2235,8 @@ function showActivationSuccess(tierName, expires) {
   document.body.appendChild(ov);
 }
 function startTrial(tier) {
-  var act = appData.activation || {};
+  if (!appData.activation) appData.activation = { tier: 'free', codeHash: '', activatedAt: null, expires: null, _trialUsedBasic: false, _trialUsedPro: false, _isTrial: false, _trialExpires: null, _trialStarted: null };
+  var act = appData.activation;
   var usedKey = tier === 'pro' ? '_trialUsedPro' : '_trialUsedBasic';
   if (act[usedKey]) {
     toast('该版本已试用过，每版本仅可试用一次');
@@ -2266,7 +2271,7 @@ function checkActivationExpiry() {
       var remaining = Math.ceil((act.expires + 3*86400000 - Date.now()) / 86400000);
       // 不锁定，只提醒
     } else {
-      appData.activation = { tier: 'free', codeHash: '', activatedAt: null, expires: null };
+      appData.activation = { tier: 'free', codeHash: '', activatedAt: null, expires: null, _trialUsedBasic: act._trialUsedBasic || false, _trialUsedPro: act._trialUsedPro || false, _isTrial: false, _trialExpires: null, _trialStarted: null };
       saveData(appData);
       toast('⏰ 你的版本已到期，已退回免费版。数据保留，重新激活即可恢复');
     }
@@ -2694,8 +2699,20 @@ function renderBanks() {
   if (!container) { console.error('renderBanks: bankList element not found'); return; }
   const banks = appData.banks;
   const names = getSortedBankNames();
+  // 试用倒计时横幅（题库为空时也显示）
+  var trialBannerHtml = '';
+  var trialAct2 = appData.activation || {};
+  if (trialAct2._isTrial && trialAct2._trialExpires) {
+    var trialRemain2 = Math.max(0, Math.floor((trialAct2._trialExpires - Date.now()) / 1000));
+    var trialMin3 = Math.floor(trialRemain2 / 60);
+    var trialSec3 = trialRemain2 % 60;
+    var trialTierName2 = TIER_NAMES[trialAct2.tier] || '';
+    var isDark2 = appData.settings && appData.settings.darkMode;
+    trialBannerHtml = '<div style="margin-bottom:12px;padding:8px 14px;background:' + (isDark2 ? '#3d2e0a' : '#fef3c7') + ';border:1px solid ' + (isDark2 ? '#92400e' : '#f59e0b') + ';border-radius:10px;text-align:center;font-size:13px;font-weight:600;color:' + (isDark2 ? '#fcd34d' : '#b45309') + '">⏱ 试用' + trialTierName2 + ' · 剩余 ' + trialMin3 + ' 分 ' + trialSec3 + ' 秒 · <a href="javascript:void(0)" onclick="switchPage(\'settings\',document.querySelector(\'[data-page=settings]\'))" style="color:' + (isDark2 ? '#a78bfa' : '#7C3AED') + ';text-decoration:underline">去激活 →</a></div>';
+  }
+
   if (names.length === 0) {
-    container.innerHTML = '<div class="empty"><div class="icon">📚</div><h3>还没有题库</h3><p>点击右上角「＋ 导入」粘贴文本或上传文件开始使用</p><button class="btn btn-primary" onclick="restorePresetBanks()" style="margin-top:16px;padding:10px 20px">🔄 恢复预设题库</button></div>';
+    container.innerHTML = trialBannerHtml + '<div class="empty"><div class="icon">📚</div><h3>还没有题库</h3><p>点击右上角「＋ 导入」粘贴文本或上传文件开始使用</p><button class="btn btn-primary" onclick="restorePresetBanks()" style="margin-top:16px;padding:10px 20px">🔄 恢复预设题库</button></div>';
     return;
   }
   var now = Date.now();
@@ -2714,15 +2731,8 @@ function renderBanks() {
   var totalWrongCount = allWrongs.length;
   var todaySw = (appData.daily && appData.daily.switches) || 0;
 
-  // 试用倒计时横幅
-  var trialAct = appData.activation || {};
-  if (trialAct._isTrial && trialAct._trialExpires) {
-    var trialRemain = Math.max(0, Math.floor((trialAct._trialExpires - Date.now()) / 1000));
-    var trialMin2 = Math.floor(trialRemain / 60);
-    var trialSec2 = trialRemain % 60;
-    var trialTierName = TIER_NAMES[trialAct.tier] || '';
-    statusBarHtml += '<div style="margin-bottom:12px;padding:8px 14px;background:#fef3c7;border:1px solid #f59e0b;border-radius:10px;text-align:center;font-size:13px;font-weight:600;color:#b45309">⏱ 试用' + trialTierName + ' · 剩余 ' + trialMin2 + ' 分 ' + trialSec2 + ' 秒 · <a href="javascript:void(0)" onclick="switchPage(\'settings\',document.querySelector(\'[data-page=settings]\'))" style="color:#7C3AED;text-decoration:underline">去激活 →</a></div>';
-  }
+  // 试用倒计时横幅（使用上方已生成的 trialBannerHtml）
+  statusBarHtml += trialBannerHtml;
 
   if (si.hadGoalSet || examDate || si.streak > 0 || stm.todayMin > 0 || todaySw > 0 || totalWrongCount > 0) {
     statusBarHtml += '<div style="margin-bottom:12px;padding:12px 14px;background:var(--card);border-radius:12px;border:1px solid var(--border)">';
@@ -2748,7 +2758,7 @@ function renderBanks() {
     if (si.streak > 0) {
       rightItems += (rightItems ? ' · ' : '') + '<span style="font-size:13px;font-weight:600;color:#e67e22">🔥 连续 <b>' + si.streak + '</b> 天' + (si.longest > si.streak ? ' <span style="font-size:11px;color:var(--text-tertiary);font-weight:400">（最长' + si.longest + '天）</span>' : '') + '</span>';
     }
-    statusBarHtml += '<span style="text-align:center;white-space:nowrap">' + (rightItems || '') + '</span>';
+    statusBarHtml += '<span style="text-align:center">' + (rightItems || '') + '</span>';
     // Right column: spacer for balance
     statusBarHtml += '<span style="flex:1;min-width:0"></span>';
     statusBarHtml += '</div>';
@@ -10402,7 +10412,8 @@ function renderSettings() {
         }
       }
       if (isTrial) {
-        trialHtml = '<div id="trialCountdown" style="margin-bottom:10px;padding:8px 12px;background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;text-align:center;font-size:13px;font-weight:600;color:#b45309">⏱ 试用剩余 ' + trialMin + ' 分 ' + trialSec + ' 秒 · ' + TIER_NAMES[tier] + '</div>';
+        var dm4 = s.darkMode;
+        trialHtml = '<div id="trialCountdown" style="margin-bottom:10px;padding:8px 12px;background:' + (dm4 ? '#3d2e0a' : '#fef3c7') + ';border:1px solid ' + (dm4 ? '#92400e' : '#f59e0b') + ';border-radius:8px;text-align:center;font-size:13px;font-weight:600;color:' + (dm4 ? '#fcd34d' : '#b45309') + '">⏱ 试用剩余 ' + trialMin + ' 分 ' + trialSec + ' 秒 · ' + TIER_NAMES[tier] + '</div>';
       }
       if (bothTrialsUsed && tier === 'free') {
         trialHtml = '<div style="margin-bottom:10px;padding:8px 12px;background:var(--bg-input);border-radius:8px;text-align:center;font-size:12px;color:var(--text-secondary)">两个版本均已试用 · 喜欢请购买激活码解锁</div>';
@@ -10557,7 +10568,7 @@ function renderSettings() {
 
     '<div class="section"><div class="section-title" id="aboutSectionTitle" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;min-height:44px" onclick="var c=document.getElementById(\'aboutSectionContent\');var a=document.getElementById(\'aboutSectionArrow\');if(c.style.display===\'none\'){c.style.display=\'\';a.textContent=\'▼\'}else{c.style.display=\'none\';a.textContent=\'▶\'}">ℹ️ 关于 <span id="aboutSectionArrow" style="font-size:11px">▼</span></div>' +
       '<div id="aboutSectionContent"><div class="setting-item" style="cursor:pointer" onclick="showManualMenu()"><div><div class="setting-label">📖 使用说明</div><div class="setting-desc">查看使用指南</div></div><div style="display:flex;align-items:center">→</div></div>' +
-      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">' + TIER_EMOJI[getTier()] + ' ' + TIER_NAMES[getTier()] + ' · 纯前端离线可用 · <span id="appVersion">v238</span></div></div></div>' +
+      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">' + TIER_EMOJI[getTier()] + ' ' + TIER_NAMES[getTier()] + ' · 纯前端离线可用 · <span id="appVersion">v239</span></div></div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="showDataOffsetTool()"><div><div class="setting-label">🔧 数据批量偏移</div><div class="setting-desc">修复答案/解析的错位问题（支持前移后移）</div></div><div style="display:flex;align-items:center">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="clearAllData()"><div><div class="setting-label" style="color:var(--danger)">🗑️ 删除所有数据</div><div class="setting-desc">清空全部题库和设置，不可恢复</div></div><div style="display:flex;align-items:center;color:var(--danger)">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="checkUpdate()"><div><div class="setting-label">🔄 检查更新</div><div class="setting-desc">点击清除缓存并刷新，获取最新版本</div></div><div style="display:flex;align-items:center">→</div></div>' +
@@ -10929,6 +10940,7 @@ function clearAllData() {
   if (!confirm('此操作不可撤销！将删除所有题库、设置和进度。确定继续吗？')) return;
   var savedTrial = appData.activation ? { _trialUsedBasic: appData.activation._trialUsedBasic, _trialUsedPro: appData.activation._trialUsedPro, _isTrial: appData.activation._isTrial, _trialExpires: appData.activation._trialExpires, _trialStarted: appData.activation._trialStarted } : {};
   appData = { banks: {}, stats: {}, wrongBooks: {}, quizHistory: {}, dailyHistory: {}, dailyStudyHistory: {}, dailySwitchHistory: {}, bankMeta: {}, settings: { color: 'pastel', darkMode: false, fontSize: 16, showAvatar: false }, totalStudySeconds: 0, totalEliminated: 0, achievements: {}, activation: { tier: 'free', codeHash: '', activatedAt: null, expires: null, _trialUsedBasic: savedTrial._trialUsedBasic || false, _trialUsedPro: savedTrial._trialUsedPro || false, _isTrial: savedTrial._isTrial || false, _trialExpires: savedTrial._trialExpires || null, _trialStarted: savedTrial._trialStarted || null } };
+  _clearTrialTimers();
   saveData(appData);
   toast('已全部删除');
   switchPage('banks', document.querySelector('[data-page="banks"]'));
