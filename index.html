@@ -5865,12 +5865,12 @@ function parseAnswersOnly(text) {
 
 // ====== 答案+解析文件解析（双文件合并用） ======
 function parseAnswerExplanationFormat(text) {
-  // 支持格式：X.【答案】Y【解析】Z / X.答案：Y / X.【答案】Y
-  // 支持分节：客观题1/客观题2/... 每节答案从1重新编号，自动累加偏移
+  // 支持格式：X.【参考答案】Y【解题思路】Z / X.【答案】Y【解析】Z / X.答案：Y
+  // 支持分节：客观题1/客观题2/... 或 第1章/第2章/... 每节答案从1重新编号，自动累加偏移
   text = normalizeText(text);
 
   // Step 0: 检测分节标题，按节累加偏移量
-  var sectionRegex = /\n客观题\s*(\d+)/g;
+  var sectionRegex = /\n(?:客观题\s*(\d+)|第\d+章)/g;
   var sectionPositions = [];
   var sm;
   while ((sm = sectionRegex.exec(text)) !== null) {
