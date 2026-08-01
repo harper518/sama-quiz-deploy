@@ -10059,6 +10059,7 @@ async function restoreFromPaste() {
 
     // 检测是否为完整数据备份（含 banks 字段 = 含题目）
     if (backup.banks) {
+      if (isTierLocked('backupRestore')) { toast('🔒 升级到科学备考版（¥3）即可导入完整备份 | 免费版可使用备份码恢复进度'); return; }
       if (!confirm('将用此备份<b>完全替换</b>当前所有数据（题库、进度、设置），确定继续吗？')) return;
       appData = backup;
       if (!appData.settings) appData.settings = { color: 'pastel', darkMode: false, fontSize: 16 };
@@ -10211,6 +10212,7 @@ async function restoreFromPaste() {
 function restoreFromJsonFile(input) {
   var file = input.files[0];
   if (!file) return;
+  if (isTierLocked('backupRestore')) { toast('🔒 升级到科学备考版（¥3）即可导入完整备份 | 免费版可使用备份码恢复进度'); input.value = ''; return; }
   var reader = new FileReader();
   reader.onload = function(e) {
     try {
@@ -10287,7 +10289,7 @@ function renderSettings() {
         '<div style="width:1px;background:var(--border);flex-shrink:0"></div>' +
         '<button class="btn btn-ghost" style="flex:1;border-radius:0;min-height:44px;font-size:14px" onclick="shareBackupCode()">📤 分享备份码</button>' +
       '</div>' +
-      '<button class="btn btn-outline btn-block" id="restoreToggleBtn" onclick="toggleRestoreSection()"' + (isTierLocked('backupRestore') ? ' disabled style="opacity:0.4;pointer-events:none"' : '') + '>📥 粘贴备份码恢复' + (isTierLocked('backupRestore') ? ' 🔒' : '') + '</button>' +
+      '<button class="btn btn-outline btn-block" id="restoreToggleBtn" onclick="toggleRestoreSection()">📥 粘贴备份码恢复</button>' +
       '<div id="restoreSection" style="display:none;margin-top:12px;padding:14px;background:var(--bg);border-radius:10px">' +
         '<textarea id="restoreTextarea" placeholder="在此粘贴备份码或完整JSON..." style="width:100%;min-height:100px;font-size:13px;padding:10px;border:2px solid var(--border);border-radius:8px;background:var(--card);color:var(--text)"></textarea>' +
         '<div style="display:flex;gap:8px;margin-top:12px">' +
@@ -10296,7 +10298,7 @@ function renderSettings() {
         '</div>' +
         '<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);text-align:center">' +
           '<span style="font-size:12px;color:var(--text-tertiary)">或直接上传备份文件</span>' +
-          '<label class="btn btn-outline btn-block" style="margin-top:6px;cursor:pointer;display:block;text-align:center;min-height:38px;line-height:38px;padding:0">📂 上传 JSON 备份文件<input type="file" accept=".json" onchange="restoreFromJsonFile(this)" style="display:none"></label>' +
+          '<label class="btn btn-outline btn-block" style="margin-top:6px;cursor:pointer;display:block;text-align:center;min-height:38px;line-height:38px;padding:0' + (isTierLocked('backupRestore') ? ';opacity:0.4;pointer-events:none' : '') + '">📂 上传 JSON 备份文件' + (isTierLocked('backupRestore') ? ' 🔒' : '') + '<input type="file" accept=".json" onchange="restoreFromJsonFile(this)" style="display:none"' + (isTierLocked('backupRestore') ? ' disabled' : '') + '></label>' +
         '</div>' +
       '</div>' +
       '<button class="btn btn-ghost btn-block" onclick="clearWrongBook()"' + (isTierLocked('clearWrongBook') ? ' disabled style="opacity:0.4;pointer-events:none"' : '') + '>🗑 清空错题本' + (isTierLocked('clearWrongBook') ? ' 🔒' : '') + '</button>' +
@@ -10590,7 +10592,7 @@ function renderSettings() {
 
     '<div class="section"><div class="section-title" id="aboutSectionTitle" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;min-height:44px" onclick="var c=document.getElementById(\'aboutSectionContent\');var a=document.getElementById(\'aboutSectionArrow\');if(c.style.display===\'none\'){c.style.display=\'\';a.textContent=\'▼\'}else{c.style.display=\'none\';a.textContent=\'▶\'}">ℹ️ 关于 <span id="aboutSectionArrow" style="font-size:11px">▼</span></div>' +
       '<div id="aboutSectionContent"><div class="setting-item" style="cursor:pointer" onclick="showManualMenu()"><div><div class="setting-label">📖 使用说明</div><div class="setting-desc">查看使用指南</div></div><div style="display:flex;align-items:center">→</div></div>' +
-      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">' + TIER_EMOJI[getTier()] + ' ' + TIER_NAMES[getTier()] + ' · 纯前端离线可用 · <span id="appVersion">v243</span></div></div></div>' +
+      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">' + TIER_EMOJI[getTier()] + ' ' + TIER_NAMES[getTier()] + ' · 纯前端离线可用 · <span id="appVersion">v244</span></div></div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="showDataOffsetTool()"><div><div class="setting-label">🔧 数据批量偏移</div><div class="setting-desc">修复答案/解析的错位问题（支持前移后移）</div></div><div style="display:flex;align-items:center">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="clearAllData()"><div><div class="setting-label" style="color:var(--danger)">🗑️ 删除所有数据</div><div class="setting-desc">清空全部题库和设置，不可恢复</div></div><div style="display:flex;align-items:center;color:var(--danger)">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="checkUpdate()"><div><div class="setting-label">🔄 检查更新</div><div class="setting-desc">点击清除缓存并刷新，获取最新版本</div></div><div style="display:flex;align-items:center">→</div></div>' +
