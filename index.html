@@ -7234,7 +7234,7 @@ function renderQuestion() {
 
   // 渲染选项
   var optsContainer = document.getElementById('qOptions');
-  var allDisabled = isInstant && effectiveAnswer !== null;
+  var allDisabled = (isInstant && effectiveAnswer !== null) || (isMulti && !isInstant && quizState._multiConfirmed && quizState._multiConfirmed[idx]);
 
   if (isMulti) {
     // === 多选题：可多选的选项 ===
@@ -7657,6 +7657,8 @@ function confirmMultiAnswer() {
     renderDifficultyRating(q, true);
   } else {
     // 总结模式：标记已答
+    if (!quizState._multiConfirmed) quizState._multiConfirmed = {};
+    quizState._multiConfirmed[idx] = true;
     renderQuestion(); // 重新渲染以更新状态
   }
 }
