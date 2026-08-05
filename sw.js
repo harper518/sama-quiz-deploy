@@ -1,7 +1,7 @@
 /* ====== 刷题助手 Service Worker ====== */
-var CACHE_NAME = 'sama-quiz-v4';
+var CACHE_NAME = 'sama-quiz-v5';
 
-// 仅缓存 CDN 静态资源（不缓存自己的 HTML，确保用户总是拿到最新版）
+// CDN 静态资源（缓存优先）
 var CDN_URLS = [
   'https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css',
   'https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js',
@@ -55,9 +55,15 @@ self.addEventListener('fetch', function(e) {
     return;
   }
 
-  // 自己的文件（HTML/manifest/icon）：网络优先，确保总是最新
+  // 自有文件：网络优先，成功后自动缓存，网络失败时回退缓存
   e.respondWith(
-    fetch(e.request).catch(function() {
+    fetch(e.request).then(function(response) {
+      if (response && response.status === 200) {
+        var cloned = response.clone();
+        caches.open(CACHE_NAME).then(function(c) { c.put(e.request, cloned); });
+      }
+      return response;
+    }).catch(function() {
       return caches.match(e.request).then(function(r) { return r || Response.error(); });
     })
   );
