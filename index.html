@@ -11520,7 +11520,8 @@ function renderBreakout(container) {
 
   function update() {
     if (!running) return;
-    var spd = (canvas && canvas._speedMul) || 1;
+    var cvs = document.getElementById(canvasId);
+    var spd = (cvs && cvs._speedMul) || 1;
     ballX += ballDX * spd;
     ballY += ballDY * spd;
     // 墙壁碰撞
