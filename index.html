@@ -911,7 +911,12 @@ function apiPost(path, data) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data || {})
-  }).then(function(r) { if (!r.ok) throw new Error('API error ' + r.status); return r.json(); });
+  }).then(function(r) {
+    return r.json().then(function(body) {
+      if (!r.ok) throw { status: r.status, error: body.error || ('HTTP ' + r.status), body: body };
+      return body;
+    });
+  });
 }
 function apiPut(path, data) {
   return fetch(API_BASE + path, {
@@ -2902,7 +2907,7 @@ function mdToTree(mdText) {
     if (!line.trim()) continue;
 
     var hMatch = line.match(/^(#{1,6})\s+(.+)/);
-    var liMatch = line.match(/^[\s]*[-*+]\s+(.+)/);
+    var liMatch = line.match(/^[\s]*[-*+•]\s+(.+)/);
     var numMatch = line.match(/^[\s]*(\d+)[\.\)、]\s+(.+)/);
 
     if (hMatch) {
@@ -3301,7 +3306,7 @@ function parseOutlineToMarkdown(text) {
     else { var sm = line.match(/^(  |    )+/); if (sm) { indent = sm[0].length / 2; trimmed = line.substring(sm[0].length); } }
     var cnMatch = trimmed.match(/^[（(]?[一二三四五六七八九十]+[）)]?\s*[、.]?\s*/);
     var numMatch = trimmed.match(/^(\d+)[.)、]\s*/);
-    var listMatch = trimmed.match(/^[-*]\s+/);
+    var listMatch = trimmed.match(/^[-*•]\s+/);
     if (indent === 0 && (cnMatch || numMatch)) {
       result.push('# ' + trimmed.replace(/^[（(]?[一二三四五六七八九十]+[）)]?\s*[、.]?\s*/, '').replace(/^\d+[.)、]\s*/, ''));
     } else if (indent <= 1 && (cnMatch || numMatch)) {
@@ -10756,8 +10761,8 @@ function showTomatoGarden(initialTab) {
     // 兑换码
     h += '<div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px">🎫 兑换码</div>';
     h += '<div style="background:var(--bg-input);border-radius:10px;padding:12px;margin-bottom:8px;display:flex;gap:8px;align-items:center">';
-    h += '<input id="redeemCodeInput" type="text" placeholder="输入兑换码" style="flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--bg-card);color:var(--text)" onkeydown="if(event.key===\'Enter\')redeemCode()">';
-    h += '<button onclick="event.stopPropagation();redeemCode()" style="padding:8px 16px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;min-height:36px;background:var(--warning);color:#fff;white-space:nowrap">兑换</button>';
+    h += '<input id="redeemCodeInput" type="text" placeholder="输入兑换码" style="flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--bg-card);color:var(--text)" onkeydown="if(event.key===\'Enter\')redeemCode(event)">';
+    h += '<button onclick="event.stopPropagation();redeemCode(event)" style="padding:8px 16px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;min-height:36px;background:var(--warning);color:#fff;white-space:nowrap">兑换</button>';
     h += '</div>';
     return h;
   }
@@ -10941,7 +10946,7 @@ function buyTheme(themeId) {
 }
 
 // ====== 兑换码 ======
-function redeemCode() {
+function redeemCode(e) {
   var input = document.getElementById('redeemCodeInput');
   if (!input) return;
   var code = (input.value || '').trim().toUpperCase();
@@ -10950,8 +10955,8 @@ function redeemCode() {
   // 本地防重复
   var redeemed = _tShopGet('redeemedCodes', []);
   if (redeemed.indexOf(code) >= 0) { showToast('此兑换码已使用过'); return; }
-  var btn = event.target;
-  if (btn.tagName !== 'BUTTON') btn = btn.closest('button');
+  var btn = document.querySelector('#redeemCodeInput + button');
+  if (!btn && e && e.target) { btn = e.target.tagName === 'BUTTON' ? e.target : e.target.closest('button'); }
   if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
   apiPost('/redeem', { codeHash: appData.activation.codeHash, redeemCode: code })
     .then(function(r) {
@@ -10968,8 +10973,9 @@ function redeemCode() {
       }
       if (btn) { btn.disabled = false; btn.textContent = '兑换'; }
     })
-    .catch(function(e) {
-      showToast('网络错误，请稍后重试');
+    .catch(function(err) {
+      var msg = (err && err.error) ? err.error : '网络错误，请稍后重试';
+      showToast('❌ ' + msg);
       if (btn) { btn.disabled = false; btn.textContent = '兑换'; }
     });
 }
