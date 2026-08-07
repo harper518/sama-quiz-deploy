@@ -1029,6 +1029,27 @@ function showTierCompare() {
     '<tr><td style="text-align:left;padding:6px">头像上传</td><td>❌</td><td>❌</td><td>✅</td></tr>' +
     '<tr><td style="text-align:left;padding:6px">备份/恢复</td><td>✅</td><td>✅</td><td>✅</td></tr>' +
     '<tr><td style="text-align:left;padding:6px">PWA离线安装</td><td>✅</td><td>✅</td><td>✅</td></tr>' +
+    '<tr style="border-top:2px solid var(--border)"><td colspan="4" style="text-align:left;padding:6px 6px 2px;font-weight:700;color:var(--primary)">🧠 资料笔记区</td></tr>' +
+    '<tr><td style="text-align:left;padding:6px">思维导图</td><td>❌</td><td>✅</td><td>✅</td></tr>' +
+    '<tr style="border-top:2px solid var(--border)"><td colspan="4" style="text-align:left;padding:6px 6px 2px;font-weight:700;color:var(--primary)">💬 社区互动</td></tr>' +
+    '<tr><td style="text-align:left;padding:6px">社区留言板</td><td>❌</td><td>✅ 可阅读</td><td>✅ 读写</td></tr>' +
+    '<tr><td style="text-align:left;padding:6px">反馈区</td><td>❌</td><td>❌</td><td>✅</td></tr>' +
+    '<tr style="border-top:2px solid var(--border)"><td colspan="4" style="text-align:left;padding:6px 6px 2px;font-weight:700;color:var(--primary)">🍅 番茄乐园（v98）</td></tr>' +
+    '<tr><td style="text-align:left;padding:6px">番茄钟</td><td>❌</td><td>❌</td><td>✅</td></tr>' +
+    '<tr><td style="text-align:left;padding:6px">番茄商店</td><td>❌</td><td>❌</td><td>✅</td></tr>' +
+    '<tr><td style="text-align:left;padding:6px">主题色解锁(番茄兑换)</td><td>❌</td><td>❌</td><td>✅</td></tr>' +
+    '<tr><td style="text-align:left;padding:6px">道具卡(双倍🍅/跳过)</td><td>❌</td><td>❌</td><td>✅</td></tr>' +
+    '<tr><td style="text-align:left;padding:6px">游戏时间购买</td><td>❌</td><td>❌</td><td>✅</td></tr>' +
+    '<tr><td style="text-align:left;padding:6px">心愿单</td><td>❌</td><td>❌</td><td>✅</td></tr>' +
+    '<tr><td style="text-align:left;padding:6px">兑换码</td><td>❌</td><td>✅</td><td>✅</td></tr>' +
+    '<tr><td style="text-align:left;padding:6px">消费记录</td><td>❌</td><td>❌</td><td>✅</td></tr>' +
+    '<tr><td style="text-align:left;padding:6px">置顶消息(社区)</td><td>❌</td><td>❌</td><td>✅</td></tr>' +
+    '<tr style="border-top:2px solid var(--border)"><td colspan="4" style="text-align:left;padding:6px 6px 2px;font-weight:700;color:var(--primary)">🎮 小游戏中心（v98）</td></tr>' +
+    '<tr><td style="text-align:left;padding:6px">舒尔特方格</td><td>❌</td><td>❌</td><td>✅</td></tr>' +
+    '<tr><td style="text-align:left;padding:6px">翻牌记忆</td><td>❌</td><td>❌</td><td>✅</td></tr>' +
+    '<tr><td style="text-align:left;padding:6px">2048</td><td>❌</td><td>❌</td><td>✅</td></tr>' +
+    '<tr><td style="text-align:left;padding:6px">弹球打砖块</td><td>❌</td><td>❌</td><td>✅</td></tr>' +
+    '<tr><td style="text-align:left;padding:6px">扫雷·跳跃鸟·打地鼠</td><td>❌</td><td>❌</td><td>✅</td></tr>' +
     '</tbody></table></div></div>';
   document.body.appendChild(ov);
 }
@@ -2901,12 +2922,17 @@ function mdToTree(mdText) {
       var text = cleanInline(liMatch[1]);
       var parent = stack[stack.length - 1].node;
       parent.children.push({ content: text, children: [] });
+    } else {
+      var text = line.trim();
+      var parent = stack[stack.length - 1].node;
+      parent.children.push({ content: text, children: [] });
     }
   }
 
   if (root.children.length === 1) return root.children[0];
   if (root.children.length === 0) {
-    return { content: mdText.trim().split('\n')[0] || '笔记', children: [] };
+    var summary = mdText.trim().split('\n').slice(0, 3).map(function(l) { return l.trim(); }).filter(Boolean).join(' / ');
+    return { content: summary || '空白笔记', children: [] };
   }
   return root;
 }
