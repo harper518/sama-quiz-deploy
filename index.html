@@ -7295,7 +7295,7 @@ function renderQuestion() {
       var cls = 'option-btn option-multi';
       if (allDisabled) cls += ' disabled';
       if (selected[l]) cls += ' multi-on';
-      if (allDisabled) {
+      if (allDisabled && isInstant) {
         var inAnswer = q.answer.indexOf(l) >= 0;
         var inSelected = !!selected[l];
         if (inAnswer && inSelected) cls += ' correct';
@@ -7656,16 +7656,6 @@ function confirmMultiAnswer() {
   btns.forEach(function(b) { b.classList.add('disabled'); });
   if (confirmBtn) confirmBtn.style.display = 'none';
 
-  // 标记对错
-  btns.forEach(function(b) {
-    var label = b.querySelector('.option-label').textContent;
-    var inAnswer = q.answer.indexOf(label) >= 0;
-    var inSelected = userAns.indexOf(label) >= 0;
-    if (inAnswer && inSelected) b.classList.add('correct');
-    else if (inAnswer && !inSelected) b.classList.add('reveal');
-    else if (!inAnswer && inSelected) b.classList.add('wrong');
-  });
-
   // 判断对错：多选必须完全匹配
   var correct = userAns === q.answer;
 
@@ -7676,6 +7666,16 @@ function confirmMultiAnswer() {
   else { quizState.combo = 0; }
 
   if (isInstant) {
+    // 标记对错颜色（仅即时模式）
+    btns.forEach(function(b) {
+      var label = b.querySelector('.option-label').textContent;
+      var inAnswer = q.answer.indexOf(label) >= 0;
+      var inSelected = userAns.indexOf(label) >= 0;
+      if (inAnswer && inSelected) b.classList.add('correct');
+      else if (inAnswer && !inSelected) b.classList.add('reveal');
+      else if (!inAnswer && inSelected) b.classList.add('wrong');
+    });
+
     var fb = document.getElementById('feedback');
     fb.className = 'feedback show ' + (correct ? 'correct' : 'wrong');
     fb.innerHTML = '<strong>' + (correct ? '✅ 回答正确！' : '❌ 回答错误，正确答案是 ' + q.answer) + '</strong>' +
@@ -7705,10 +7705,13 @@ function confirmMultiAnswer() {
     nextBtn.className = 'btn btn-primary btn-sm';
     renderDifficultyRating(q, true);
   } else {
-    // 总结模式：标记已答
+    // 总结模式：标记已答，不显示对错颜色
     if (!quizState._multiConfirmed) quizState._multiConfirmed = {};
     quizState._multiConfirmed[idx] = true;
     renderQuestion(); // 重新渲染以更新状态
+    // 防御：确保下一题按钮可见
+    var nextBtn2 = document.getElementById('nextBtn');
+    if (nextBtn2) nextBtn2.style.display = '';
   }
 }
 
@@ -10623,7 +10626,7 @@ function renderSettings() {
 
     '<div class="section"><div class="section-title" id="aboutSectionTitle" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;min-height:44px" onclick="var c=document.getElementById(\'aboutSectionContent\');var a=document.getElementById(\'aboutSectionArrow\');if(c.style.display===\'none\'){c.style.display=\'\';a.textContent=\'▼\'}else{c.style.display=\'none\';a.textContent=\'▶\'}">ℹ️ 关于 <span id="aboutSectionArrow" style="font-size:11px">▼</span></div>' +
       '<div id="aboutSectionContent"><div class="setting-item" style="cursor:pointer" onclick="showManualMenu()"><div><div class="setting-label">📖 使用说明</div><div class="setting-desc">查看使用指南</div></div><div style="display:flex;align-items:center">→</div></div>' +
-      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">' + TIER_EMOJI[getTier()] + ' ' + TIER_NAMES[getTier()] + ' · 纯前端离线可用 · <span id="appVersion">v254</span></div></div></div>' +
+      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">' + TIER_EMOJI[getTier()] + ' ' + TIER_NAMES[getTier()] + ' · 纯前端离线可用 · <span id="appVersion">v255</span></div></div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="showDataOffsetTool()"><div><div class="setting-label">🔧 数据批量偏移</div><div class="setting-desc">修复答案/解析的错位问题（支持前移后移）</div></div><div style="display:flex;align-items:center">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="clearAllData()"><div><div class="setting-label" style="color:var(--danger)">🗑️ 删除所有数据</div><div class="setting-desc">清空全部题库和设置，不可恢复</div></div><div style="display:flex;align-items:center;color:var(--danger)">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="checkUpdate()"><div><div class="setting-label">🔄 检查更新</div><div class="setting-desc">点击清除缓存并刷新，获取最新版本</div></div><div style="display:flex;align-items:center">→</div></div>' +
