@@ -5395,6 +5395,7 @@ function importFromPaste() {
   let questions = [];
   let stats = null;
   let originalText = '';
+  let autoMerged = false;
 
   if (content) {
     originalText = content;
@@ -5407,9 +5408,45 @@ function importFromPaste() {
       var excelResult = parseExcelPaste(content);
       questions = excelResult.questions;
     } else {
-      var result = parseWithFallback(content);
-      questions = result.questions;
-      stats = result.stats;
+      // 检测单文件合并格式：题目在前，答案（N.【答案】X）在后
+      var answerBlockMatch = content.match(/\n(\d+[.、．）)]\s*【答案】)/);
+      if (answerBlockMatch) {
+        autoMerged = true;
+        var splitIdx = answerBlockMatch.index;
+        var qTextOnly = content.substring(0, splitIdx).trim();
+        var aTextOnly = content.substring(splitIdx + 1).trim();
+        // 退回去找答案部分标题行（如"真题解析"），一并纳入答案文本
+        var titleMatch = qTextOnly.match(/([^\n]*解析[^\n]*)\n?$/);
+        if (titleMatch) {
+          qTextOnly = qTextOnly.substring(0, qTextOnly.length - titleMatch[0].length).trim();
+          aTextOnly = titleMatch[1] + '\n' + aTextOnly;
+        }
+        var qParsedSingle = parseQuestionsOnly(qTextOnly);
+        var ansParsedSingle = parseAnswerExplanationFormat(aTextOnly);
+        var qOnlyQuestions = [];
+        var blockResultsS = qParsedSingle.blockResults || [];
+        for (var bj = 0; bj < blockResultsS.length; bj++) {
+          var qS = blockResultsS[bj];
+          if (!qS) continue;
+          qOnlyQuestions.push({ id: qOnlyQuestions.length + 1, _origNum: qS._origNum, question: qS.question, A: qS.A, B: qS.B, C: qS.C, D: qS.D, E: qS.E, answer: '', type: 'single', explanation: '' });
+        }
+        var mergeResultS = mergeQuestionsWithAnswers(qOnlyQuestions, ansParsedSingle);
+        questions = qOnlyQuestions;
+        stats = qParsedSingle.stats;
+        if (!stats) stats = { totalBlocks: 0, noOptions: 0, noQuestion: 0, missingOpts: 0, noAnswer: 0, multiSelect: 0, imported: 0, skipped: [] };
+        stats.imported = questions.length;
+        if (mergeResultS.extra > 0) {
+          if (!stats.answerMismatch) stats.answerMismatch = '';
+          stats.answerMismatch = '答案条目数(' + ansParsedSingle.length + ')多于题目数(' + questions.length + ')，末尾' + mergeResultS.extra + '条答案未使用';
+        }
+        if (mergeResultS.unmatched > 0) {
+          stats.noAnswer = mergeResultS.unmatched;
+        }
+      } else {
+        var result = parseWithFallback(content);
+        questions = result.questions;
+        stats = result.stats;
+      }
     }
   } else if (qText) {
     originalText = qText + '\n' + aText;
@@ -5473,8 +5510,8 @@ function importFromPaste() {
     }
   }
 
-  // 尝试从文本末尾提取答案块（如 1-5: ABCAD）并匹配
-  if (originalText && questions.length > 0) questions = applyBulkAnswers(questions, originalText);
+  // 尝试从文本末尾提取答案块（如 1-5: ABCAD）并匹配（单文件自动合并已处理时跳过）
+  if (!autoMerged && originalText && questions.length > 0) questions = applyBulkAnswers(questions, originalText);
 
   // 即使0题也进预览，让用户看到诊断信息
   showImportPreview(name, questions, stats, originalText);
@@ -10724,7 +10761,7 @@ function renderSettings() {
 
     '<div class="section"><div class="section-title" id="aboutSectionTitle" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;min-height:44px" onclick="var c=document.getElementById(\'aboutSectionContent\');var a=document.getElementById(\'aboutSectionArrow\');if(c.style.display===\'none\'){c.style.display=\'\';a.textContent=\'▼\'}else{c.style.display=\'none\';a.textContent=\'▶\'}">ℹ️ 关于 <span id="aboutSectionArrow" style="font-size:11px">▼</span></div>' +
       '<div id="aboutSectionContent"><div class="setting-item" style="cursor:pointer" onclick="showManualMenu()"><div><div class="setting-label">📖 使用说明</div><div class="setting-desc">查看使用指南</div></div><div style="display:flex;align-items:center">→</div></div>' +
-      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">' + TIER_EMOJI[getTier()] + ' ' + TIER_NAMES[getTier()] + ' · 纯前端离线可用 · <span id="appVersion">v260</span></div></div></div>' +
+      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">' + TIER_EMOJI[getTier()] + ' ' + TIER_NAMES[getTier()] + ' · 纯前端离线可用 · <span id="appVersion">v261</span></div></div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="showDataOffsetTool()"><div><div class="setting-label">🔧 数据批量偏移</div><div class="setting-desc">修复答案/解析的错位问题（支持前移后移）</div></div><div style="display:flex;align-items:center">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="clearAllData()"><div><div class="setting-label" style="color:var(--danger)">🗑️ 删除所有数据</div><div class="setting-desc">清空全部题库和设置，不可恢复</div></div><div style="display:flex;align-items:center;color:var(--danger)">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="checkUpdate()"><div><div class="setting-label">🔄 检查更新</div><div class="setting-desc">点击清除缓存并刷新，获取最新版本</div></div><div style="display:flex;align-items:center">→</div></div>' +
