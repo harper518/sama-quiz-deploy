@@ -4557,8 +4557,8 @@ function _doRenderSkippedItems() {
   var hh = "";
   if (_dismissedStack && _dismissedStack.length > 0) {
     hh += '<div class="card mb-8" style="padding:10px 14px;background:var(--warning-light,#fef3c7);border-left:3px solid var(--warning);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">';
-    hh += '<span style="font-size:12px;color:var(--warning-text,#92400e)">已忽略 ' + _dismissedStack.length + ' 条（最后忽略：#' + _dismissedStack[_dismissedStack.length-1].item.index + '）</span>';
-    hh += '<button class="btn btn-sm" style="background:var(--warning);color:#fff;border:none;font-size:12px;padding:6px 14px;min-height:36px;border-radius:6px;font-weight:600" onclick="undoDismiss()">↩️ 撤销忽略</button>';
+    hh += '<span style="font-size:12px;color:var(--warning-text,#92400e)">已删除 ' + _dismissedStack.length + ' 条（最后删除：#' + _dismissedStack[_dismissedStack.length-1].item.index + '）</span>';
+    hh += '<button class="btn btn-sm" style="background:var(--warning);color:#fff;border:none;font-size:12px;padding:6px 14px;min-height:36px;border-radius:6px;font-weight:600" onclick="undoDismiss()">↩️ 撤销删除</button>';
     hh += '</div>';
   }
   container.innerHTML = hh + skipped.map(function(item, i) {
@@ -4595,7 +4595,7 @@ function _doRenderSkippedItems() {
       if (item.reason === "missingOpts") h += '<button class="btn btn-sm" style="background:var(--success-light);border:none;font-size:11px;padding:4px 8px;min-height:36px;color:#065f46" onclick="autoFixSkipped(' + i + ',\'fillTemplate\')">📋 补全选项模板</button>';
       h += '<button class="btn btn-sm" style="background:var(--primary-light);border:none;font-size:11px;padding:4px 8px;min-height:36px;color:var(--primary)" onclick="toggleSkippedEdit(' + i + ')">✏️ 手动编辑</button>';
       if (item._prevText) h += '<button class="btn btn-sm" style="background:var(--warning-light,#fef3c7);border:1px solid var(--warning);font-size:11px;padding:4px 8px;min-height:36px;color:var(--warning-text,#92400e);font-weight:600" onclick="undoSkipFix(' + i + ')">↩️ 撤销</button>';
-      h += '<button class="btn btn-sm" style="background:transparent;border:1px solid var(--border);font-size:11px;padding:4px 8px;min-height:36px;color:var(--text-tertiary)" onclick="dismissSkippedItem(' + i + ')">🚫 忽略</button>';
+      h += '<button class="btn btn-sm" style="background:transparent;border:1px solid var(--border);font-size:11px;padding:4px 8px;min-height:36px;color:var(--text-tertiary)" onclick="dismissSkippedItem(' + i + ')">🗑️ 删除</button>';
       h += '</div>';
     }
     h += '</div>';
@@ -4784,16 +4784,16 @@ function dismissSkippedItem(idx) {
   if (cont && cont.style.display !== "none") {
     var undoBar = cont.querySelector('[style*="fef3c7"]');
     if (_dismissedStack.length > 0) {
-      var barHtml = '<div class="card mb-8" style="padding:10px 14px;background:var(--warning-light,#fef3c7);border-left:3px solid var(--warning);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px"><span style="font-size:12px;color:var(--warning-text,#92400e)">已忽略 ' + _dismissedStack.length + ' 条（最后忽略：#' + _dismissedStack[_dismissedStack.length-1].item.index + '）</span><button class="btn btn-sm" style="background:var(--warning);color:#fff;border:none;font-size:12px;padding:6px 14px;min-height:36px;border-radius:6px;font-weight:600" onclick="undoDismiss()">↩️ 撤销忽略</button></div>';
+      var barHtml = '<div class="card mb-8" style="padding:10px 14px;background:var(--warning-light,#fef3c7);border-left:3px solid var(--warning);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px"><span style="font-size:12px;color:var(--warning-text,#92400e)">已删除 ' + _dismissedStack.length + ' 条（最后删除：#' + _dismissedStack[_dismissedStack.length-1].item.index + '）</span><button class="btn btn-sm" style="background:var(--warning);color:#fff;border:none;font-size:12px;padding:6px 14px;min-height:36px;border-radius:6px;font-weight:600" onclick="undoDismiss()">↩️ 撤销删除</button></div>';
       if (undoBar) undoBar.outerHTML = barHtml;
       else { var first = cont.firstChild; if (first) first.insertAdjacentHTML("beforebegin", barHtml); else cont.innerHTML = barHtml; }
     } else if (undoBar) undoBar.remove();
   }
-  toast("已忽略 - 可点击下方撤销");
+  toast("已删除 - 可点击下方撤销");
 }
 
 function undoDismiss() {
-  if (!_dismissedStack.length) { toast("没有可撤销的忽略操作"); return; }
+  if (!_dismissedStack.length) { toast("没有可撤销的删除操作"); return; }
   if (!previewImportData || !previewImportData.skipped) { previewImportData = { name: "", questions: [], skipped: [] }; }
   var last = _dismissedStack.pop();
   previewImportData.skipped.splice(last.idx, 0, last.item);
@@ -4810,7 +4810,7 @@ function undoDismiss() {
   renderSkippedItems(); updateStatsPanel();
   var btn = document.getElementById("toggleSkippedBtn");
   if (btn) { btn.parentElement.style.display = "block"; btn.innerHTML = "📋 收起跳过内容 ▾"; }
-  toast("↩️ 已撤销忽略 #" + last.item.index);
+  toast("↩️ 已撤销删除 #" + last.item.index);
 }
 
 // Build HTML for a single skipped item (used by direct DOM insert)
@@ -4833,7 +4833,7 @@ function _buildSkippedItemHtml(item, idx) {
     '<button class="btn btn-sm" style="background:var(--bg-input);border:none;font-size:11px;padding:4px 8px;min-height:36px" onclick="autoFixSkipped(' + idx + ',\'mergeLines\')">↔️ 合并断行</button>' +
     (item.reason === "missingOpts" ? '<button class="btn btn-sm" style="background:var(--success-light);border:none;font-size:11px;padding:4px 8px;min-height:36px;color:#065f46" onclick="autoFixSkipped(' + idx + ',\'fillTemplate\')">📋 补全选项模板</button>' : '') +
     '<button class="btn btn-sm" style="background:var(--primary-light);border:none;font-size:11px;padding:4px 8px;min-height:36px;color:var(--primary)" onclick="toggleSkippedEdit(' + idx + ')">✏️ 手动编辑</button>' +
-    '<button class="btn btn-sm" style="background:transparent;border:1px solid var(--border);font-size:11px;padding:4px 8px;min-height:36px;color:var(--text-tertiary)" onclick="dismissSkippedItem(' + idx + ')">🚫 忽略</button>' +
+    '<button class="btn btn-sm" style="background:transparent;border:1px solid var(--border);font-size:11px;padding:4px 8px;min-height:36px;color:var(--text-tertiary)" onclick="dismissSkippedItem(' + idx + ')">🗑️ 删除</button>' +
     '</div></div>';
 }
 
@@ -4957,6 +4957,7 @@ function renderImportPreviewCards() {
       h += '</div>';
       h += '</div>';
       h += '<button class="edit-expand-btn" data-action="edit" data-idx="' + i + '" style="flex-shrink:0">✏️</button>';
+      h += '<button class="edit-expand-btn" data-action="delete-question" data-idx="' + i + '" style="flex-shrink:0;color:var(--danger,#e74c3c)">🗑️</button>';
       h += '</div>';
     }
     h += '</div>';
@@ -4974,6 +4975,8 @@ function renderImportPreviewCards() {
           togglePreviewEdit(idx);
         } else if (action === 'save-edit') {
           savePreviewEdit(idx);
+        } else if (action === 'delete-question') {
+          deletePreviewQuestion(idx);
         }
       });
     })(btns[b]);
@@ -5009,6 +5012,35 @@ function savePreviewEdit(idx) {
   q._editing = false;
   renderImportPreviewCards();
   toast('✅ 第 ' + (idx + 1) + ' 题已更新');
+}
+
+function deletePreviewQuestion(idx) {
+  if (!previewImportData || !previewImportData.questions) return;
+  var q = previewImportData.questions[idx];
+  if (!previewImportData._deletedStack) previewImportData._deletedStack = [];
+  previewImportData._deletedStack.push({ idx: idx, question: q });
+  previewImportData.questions.splice(idx, 1);
+  previewImportData.stats.imported = previewImportData.questions.length;
+  renderImportPreviewCards();
+  // 显示撤销 toast
+  var toastEl = document.createElement('div');
+  toastEl.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 20px;box-shadow:0 4px 20px rgba(0,0,0,0.15);z-index:10001;font-size:14px;display:flex;align-items:center;gap:12px';
+  toastEl.innerHTML = '<span>已删除第' + (idx + 1) + '题</span><button style="background:var(--primary);color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:13px;min-height:36px">撤销</button>';
+  document.body.appendChild(toastEl);
+  toastEl.querySelector('button').addEventListener('click', function() {
+    undoDeleteQuestion();
+    if (toastEl.parentNode) toastEl.remove();
+  });
+  setTimeout(function() { if (toastEl.parentNode) toastEl.remove(); }, 5000);
+}
+
+function undoDeleteQuestion() {
+  if (!previewImportData || !previewImportData._deletedStack || !previewImportData._deletedStack.length) return;
+  var item = previewImportData._deletedStack.pop();
+  previewImportData.questions.splice(item.idx, 0, item.question);
+  previewImportData.stats.imported = previewImportData.questions.length;
+  renderImportPreviewCards();
+  toast('已恢复第' + (item.idx + 1) + '题');
 }
 
 function scrollPreviewToTop() {
@@ -10626,7 +10658,7 @@ function renderSettings() {
 
     '<div class="section"><div class="section-title" id="aboutSectionTitle" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;min-height:44px" onclick="var c=document.getElementById(\'aboutSectionContent\');var a=document.getElementById(\'aboutSectionArrow\');if(c.style.display===\'none\'){c.style.display=\'\';a.textContent=\'▼\'}else{c.style.display=\'none\';a.textContent=\'▶\'}">ℹ️ 关于 <span id="aboutSectionArrow" style="font-size:11px">▼</span></div>' +
       '<div id="aboutSectionContent"><div class="setting-item" style="cursor:pointer" onclick="showManualMenu()"><div><div class="setting-label">📖 使用说明</div><div class="setting-desc">查看使用指南</div></div><div style="display:flex;align-items:center">→</div></div>' +
-      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">' + TIER_EMOJI[getTier()] + ' ' + TIER_NAMES[getTier()] + ' · 纯前端离线可用 · <span id="appVersion">v255</span></div></div></div>' +
+      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">' + TIER_EMOJI[getTier()] + ' ' + TIER_NAMES[getTier()] + ' · 纯前端离线可用 · <span id="appVersion">v256</span></div></div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="showDataOffsetTool()"><div><div class="setting-label">🔧 数据批量偏移</div><div class="setting-desc">修复答案/解析的错位问题（支持前移后移）</div></div><div style="display:flex;align-items:center">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="clearAllData()"><div><div class="setting-label" style="color:var(--danger)">🗑️ 删除所有数据</div><div class="setting-desc">清空全部题库和设置，不可恢复</div></div><div style="display:flex;align-items:center;color:var(--danger)">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="checkUpdate()"><div><div class="setting-label">🔄 检查更新</div><div class="setting-desc">点击清除缓存并刷新，获取最新版本</div></div><div style="display:flex;align-items:center">→</div></div>' +
