@@ -1496,7 +1496,7 @@ if (!Element.prototype.closest) {
 // ====== Polyfill END ======
 
 // ====== PWA：Service Worker 注册 + 安装引导 ======
-var APP_VERSION = 265;
+var APP_VERSION = 266;
 var _pendingUpdate = null; // {v, changes, date}
 (function() {
   // 注册 Service Worker（离线缓存）
@@ -1641,11 +1641,32 @@ function loadData() {
     if (data.activation._trialStarted === undefined) data.activation._trialStarted = null;
     return data;
   }
-  catch(e) { return { banks: {}, stats: {}, wrongBooks: {}, quizHistory: {}, dailyHistory: {}, dailyStudyHistory: {}, dailySwitchHistory: {}, bankMeta: {}, settings: { color: 'pastel', darkMode: false, fontSize: 16, showAvatar: false }, totalStudySeconds: 0, totalEliminated: 0, achievements: {}, activation: { tier: 'free', codeHash: '', activatedAt: null, expires: null, _trialUsedBasic: false, _trialUsedPro: false, _isTrial: false, _trialExpires: null, _trialStarted: null } }; }
+  catch(e) {
+    // 数据损坏时不静默重置，提示用户恢复备份
+    var rawBackup = '';
+    try { rawBackup = localStorage.getItem(STORAGE_KEY) || ''; } catch(e2) {}
+    console.error('loadData 失败:', e.message, '原始数据长度:', rawBackup.length);
+    setTimeout(function() {
+      if (rawBackup && rawBackup.length > 10) {
+        toast('⚠️ 数据读取异常！请立即去设置 → 导出数据备份，然后联系修复', 8000);
+      }
+    }, 2000);
+    return { banks: {}, stats: {}, wrongBooks: {}, quizHistory: {}, dailyHistory: {}, dailyStudyHistory: {}, dailySwitchHistory: {}, bankMeta: {}, settings: { color: 'pastel', darkMode: false, fontSize: 16, showAvatar: false }, totalStudySeconds: 0, totalEliminated: 0, achievements: {}, activation: { tier: 'free', codeHash: '', activatedAt: null, expires: null, _trialUsedBasic: false, _trialUsedPro: false, _isTrial: false, _trialExpires: null, _trialStarted: null }, _loadFailed: true, _rawDump: rawBackup };
+  }
 }
 function saveData(data) {
+  if (data._loadFailed) {
+    toast('⚠️ 数据异常，保存已锁定。请先导出备份再刷新页面。');
+    return false;
+  }
   try {
-    var json = JSON.stringify(data);
+    // 清理内部字段再保存
+    var clean = {};
+    for (var k in data) {
+      if (k === '_loadFailed' || k === '_rawDump') continue;
+      clean[k] = data[k];
+    }
+    var json = JSON.stringify(clean);
     localStorage.setItem(STORAGE_KEY, json);
     return true;
   } catch(e) {
@@ -2896,7 +2917,10 @@ function renameBankPrompt(el, name) {
   el.innerHTML = '';
   el.appendChild(input);
   input.focus(); input.select();
+  var _saving = false;
   var save = function() {
+    if (_saving) return;
+    _saving = true;
     var v = input.value.trim() || oldName;
     if (v !== oldName) {
       // 防护：旧名已不存在（DOM 未刷新导致 onclick 传了旧名），拒绝操作
@@ -10800,7 +10824,7 @@ function renderSettings() {
 
     '<div class="section"><div class="section-title" id="aboutSectionTitle" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;min-height:44px" onclick="var c=document.getElementById(\'aboutSectionContent\');var a=document.getElementById(\'aboutSectionArrow\');if(c.style.display===\'none\'){c.style.display=\'\';a.textContent=\'▼\'}else{c.style.display=\'none\';a.textContent=\'▶\'}">ℹ️ 关于 <span id="aboutSectionArrow" style="font-size:11px">▼</span></div>' +
       '<div id="aboutSectionContent"><div class="setting-item" style="cursor:pointer" onclick="showManualMenu()"><div><div class="setting-label">📖 使用说明</div><div class="setting-desc">查看使用指南</div></div><div style="display:flex;align-items:center">→</div></div>' +
-      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">' + TIER_EMOJI[getTier()] + ' ' + TIER_NAMES[getTier()] + ' · 纯前端离线可用 · <span id="appVersion">v265</span></div></div></div>' +
+      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">' + TIER_EMOJI[getTier()] + ' ' + TIER_NAMES[getTier()] + ' · 纯前端离线可用 · <span id="appVersion">v266</span></div></div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="showDataOffsetTool()"><div><div class="setting-label">🔧 数据批量偏移</div><div class="setting-desc">修复答案/解析的错位问题（支持前移后移）</div></div><div style="display:flex;align-items:center">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="clearAllData()"><div><div class="setting-label" style="color:var(--danger)">🗑️ 删除所有数据</div><div class="setting-desc">清空全部题库和设置，不可恢复</div></div><div style="display:flex;align-items:center;color:var(--danger)">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="checkUpdate()" id="updateCheckItem"><div><div class="setting-label">🔄 检查更新 <span id="updateRedDot" style="display:none;width:8px;height:8px;background:#e74c3c;border-radius:50%;vertical-align:middle;margin-left:4px"></span></div><div class="setting-desc" id="updateCheckDesc">点击检查并获取最新版本</div></div><div style="display:flex;align-items:center">→</div></div>' +
