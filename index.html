@@ -3807,24 +3807,82 @@ function showMergeModal() {
   var names = getSortedBankNames();
   if (names.length < 2) { toast('至少需要两个题库才能合并'); return; }
   var ov = document.createElement('div'); ov.className = 'modal-overlay';
-  ov.innerHTML = '<div class="modal" style="animation:none;max-width:360px;margin:auto;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);padding:20px 18px;border-radius:var(--radius)"><h3 style="margin-bottom:16px;font-size:17px">🔀 合并题库</h3><div style="margin-bottom:12px"><div style="font-size:13px;color:var(--text-secondary);margin-bottom:4px">将 A 题库合并到 B 题库</div><div style="font-size:12px;color:var(--text-tertiary);margin-bottom:8px">A 的所有题目会移入 B，A 将被删除（可勾选下方保留）</div><div style="margin-bottom:8px"><label style="font-size:13px;font-weight:600">A（源题库）</label><input type="hidden" id="mergeSrc" value="' + escHtml(names[0]) + '"><button class="btn btn-ghost btn-sm" id="mergeSrcBtn" onclick="showMergeBankPicker(\'src\')" style="width:100%;padding:8px;margin-top:4px;text-align:left;font-size:13px">' + escHtml(names[0]) + ' （' + appData.banks[names[0]].length + '题） ▾</button></div><div style="margin-bottom:12px"><label style="font-size:13px;font-weight:600">B（目标题库）</label><input type="hidden" id="mergeDst" value="' + escHtml(names[1] || names[0]) + '"><button class="btn btn-ghost btn-sm" id="mergeDstBtn" onclick="showMergeBankPicker(\'dst\')" style="width:100%;padding:8px;margin-top:4px;text-align:left;font-size:13px">' + escHtml(names[1] || names[0]) + ' （' + (appData.banks[names[1] || names[0]] || []).length + '题） ▾</button></div><label style="display:flex;align-items:center;gap:8px;margin-bottom:12px;font-size:13px;cursor:pointer"><input type="checkbox" id="mergeKeepSrc" style="width:16px;height:16px"><span>保留原题库（合并后不删除 A）</span></label></div><div style="display:flex;gap:10px"><button class="btn btn-ghost flex-1" style="flex:1" id="mergeCancel">取消</button><button class="btn btn-primary flex-1" style="flex:1" id="mergeConfirm">确认合并</button></div></div>';
+
+  function renderSrcList(dstName) {
+    var listEl = ov.querySelector('#mergeSrcList');
+    if (!listEl) return;
+    var h = '';
+    for (var i = 0; i < names.length; i++) {
+      var n = names[i];
+      if (n === dstName) continue;
+      var qs = appData.banks[n];
+      h += '<label style="display:flex;align-items:center;gap:8px;padding:8px 10px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border)"><input type="checkbox" class="merge-src-cb" value="' + escHtml(n) + '" style="min-width:16px;min-height:16px"><span>' + escHtml(n) + '</span><span style="color:var(--text-tertiary);font-size:11px;margin-left:auto">' + qs.length + ' 题</span></label>';
+    }
+    if (!h) h = '<div style="padding:12px;text-align:center;color:var(--text-tertiary);font-size:13px">没有可选源题库（只有一个题库）</div>';
+    listEl.innerHTML = h;
+  }
+
+  function getSelectedSrcs() {
+    var cbs = ov.querySelectorAll('.merge-src-cb:checked');
+    var arr = [];
+    for (var i = 0; i < cbs.length; i++) { arr.push(cbs[i].value); }
+    return arr;
+  }
+
+  function updateConfirmBtn() {
+    var btn = ov.querySelector('#mergeConfirm');
+    var sel = getSelectedSrcs();
+    if (btn) btn.textContent = sel.length > 0 ? '合并 ' + sel.length + ' 个题库 →' : '确认合并';
+  }
+
+  ov.innerHTML = '<div class="modal" style="animation:none;max-width:380px;margin:auto;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);padding:20px 18px;border-radius:var(--radius)"><h3 style="margin-bottom:16px;font-size:17px">🔀 合并题库</h3>' +
+    '<div style="margin-bottom:12px"><label style="font-size:13px;font-weight:600">目标题库（合并到这里）</label>' +
+    '<input type="hidden" id="mergeDst" value="' + escHtml(names[0]) + '">' +
+    '<button class="btn btn-ghost btn-sm" id="mergeDstBtn" style="width:100%;padding:8px;margin-top:4px;text-align:left;font-size:13px">' + escHtml(names[0]) + ' （' + (appData.banks[names[0]] || []).length + '题） ▾</button></div>' +
+    '<div style="margin-bottom:12px"><div style="font-size:13px;font-weight:600;margin-bottom:6px">源题库（可多选）</div>' +
+    '<div id="mergeSrcList" style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:8px"></div></div>' +
+    '<label style="display:flex;align-items:center;gap:8px;margin-bottom:12px;font-size:13px;cursor:pointer"><input type="checkbox" id="mergeKeepSrc" style="width:16px;height:16px"><span>保留原题库（合并后不删除）</span></label>' +
+    '<div style="display:flex;gap:10px"><button class="btn btn-ghost flex-1" style="flex:1" id="mergeCancel">取消</button><button class="btn btn-primary flex-1" style="flex:1" id="mergeConfirm">确认合并</button></div></div>';
   document.body.appendChild(ov);
+
+  // 初始渲染源列表
+  renderSrcList(names[0]);
+
+  // 源列表复选框变化时更新按钮
+  ov.querySelector('#mergeSrcList').addEventListener('change', function(e) {
+    if (e.target.classList.contains('merge-src-cb')) updateConfirmBtn();
+  });
+
+  // 目标切换按钮
+  ov.querySelector('#mergeDstBtn').onclick = function() {
+    showMergeBankPicker('dst', function(selectedName) {
+      renderSrcList(selectedName);
+      updateConfirmBtn();
+    });
+  };
+
   ov.querySelector('#mergeCancel').onclick = function() { ov.remove(); };
   ov.addEventListener('click', function(e) { if (e.target === ov) ov.remove(); });
+
   ov.querySelector('#mergeConfirm').onclick = function() {
-    var srcName = ov.querySelector('#mergeSrc').value;
     var dstName = ov.querySelector('#mergeDst').value;
-    if (!srcName || !dstName) { toast('请选择两个题库'); return; }
-    if (srcName === dstName) { toast('不能合并到同一个题库'); return; }
+    var srcNames = getSelectedSrcs();
+    if (!srcNames.length) { toast('请至少选择一个源题库'); return; }
+    if (!dstName) { toast('请选择目标题库'); return; }
+    if (srcNames.indexOf(dstName) >= 0) { toast('源题库不能与目标题库相同'); return; }
     var keepSrc = ov.querySelector('#mergeKeepSrc').checked;
-    executeMerge(srcName, dstName, keepSrc);
     ov.remove();
+    var totalCount = 0;
+    for (var si = 0; si < srcNames.length; si++) {
+      totalCount += executeMerge(srcNames[si], dstName, keepSrc);
+    }
+    toast('✅ 已合并！' + totalCount + ' 题从 ' + srcNames.length + ' 个源题库 →「' + dstName + '」' + (keepSrc ? '（原题库已保留）' : ''));
   };
 }
-function showMergeBankPicker(which) {
+function showMergeBankPicker(which, onSelect) {
   var selId = which === 'src' ? 'mergeSrc' : 'mergeDst';
   var btnId = which === 'src' ? 'mergeSrcBtn' : 'mergeDstBtn';
-  var currentVal = document.getElementById(selId).value;
+  var currentVal = document.getElementById(selId); currentVal = currentVal ? currentVal.value : '';
   var names = getSortedBankNames();
   var ov = document.createElement('div'); ov.className = 'modal-overlay'; ov.style.animation = 'none';
   var title = which === 'src' ? '源' : '目标';
@@ -3850,6 +3908,7 @@ function showMergeBankPicker(which) {
       var btn = document.getElementById(targetBtnId);
       if (btn) btn.textContent = bankName + ' （' + bankCount + '题） ▾';
       ov.remove();
+      if (onSelect) onSelect(bankName);
       return;
     }
     if (e.target === ov) ov.remove();
@@ -3922,8 +3981,8 @@ function executeMerge(srcName, dstName, keepSource) {
   }
   getBankMeta(dstName).updatedAt = Date.now();
   saveData(appData);
-  toast('✅ 已合并！' + count + ' 题从「' + srcName + '」→「' + dstName + '」' + (keepSource ? '（原题库已保留）' : ''));
   renderBanks();
+  return count;
 }
 // ====== Category Filter ======
 var categoryFilter = null;
@@ -10665,7 +10724,7 @@ function renderSettings() {
 
     '<div class="section"><div class="section-title" id="aboutSectionTitle" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;min-height:44px" onclick="var c=document.getElementById(\'aboutSectionContent\');var a=document.getElementById(\'aboutSectionArrow\');if(c.style.display===\'none\'){c.style.display=\'\';a.textContent=\'▼\'}else{c.style.display=\'none\';a.textContent=\'▶\'}">ℹ️ 关于 <span id="aboutSectionArrow" style="font-size:11px">▼</span></div>' +
       '<div id="aboutSectionContent"><div class="setting-item" style="cursor:pointer" onclick="showManualMenu()"><div><div class="setting-label">📖 使用说明</div><div class="setting-desc">查看使用指南</div></div><div style="display:flex;align-items:center">→</div></div>' +
-      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">' + TIER_EMOJI[getTier()] + ' ' + TIER_NAMES[getTier()] + ' · 纯前端离线可用 · <span id="appVersion">v259</span></div></div></div>' +
+      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">' + TIER_EMOJI[getTier()] + ' ' + TIER_NAMES[getTier()] + ' · 纯前端离线可用 · <span id="appVersion">v260</span></div></div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="showDataOffsetTool()"><div><div class="setting-label">🔧 数据批量偏移</div><div class="setting-desc">修复答案/解析的错位问题（支持前移后移）</div></div><div style="display:flex;align-items:center">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="clearAllData()"><div><div class="setting-label" style="color:var(--danger)">🗑️ 删除所有数据</div><div class="setting-desc">清空全部题库和设置，不可恢复</div></div><div style="display:flex;align-items:center;color:var(--danger)">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="checkUpdate()"><div><div class="setting-label">🔄 检查更新</div><div class="setting-desc">点击清除缓存并刷新，获取最新版本</div></div><div style="display:flex;align-items:center">→</div></div>' +
