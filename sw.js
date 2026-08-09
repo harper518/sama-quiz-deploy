@@ -1,5 +1,5 @@
 /* ====== 刷题助手 Service Worker ====== */
-var CACHE_NAME = 'sama-quiz-v6';
+var CACHE_NAME = 'sama-quiz-v7';
 
 // CDN 静态资源（缓存优先）
 var CDN_URLS = [
@@ -8,7 +8,7 @@ var CDN_URLS = [
   'https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js'
 ];
 
-// 安装：预缓存 KaTeX CDN 资源
+// 安装：预缓存 KaTeX CDN 资源（不再自动 skipWaiting，由用户手动触发更新）
 self.addEventListener('install', function(e) {
   e.waitUntil(
     caches.open(CACHE_NAME).then(function(cache) {
@@ -19,7 +19,6 @@ self.addEventListener('install', function(e) {
       );
     })
   );
-  self.skipWaiting();
 });
 
 // 激活：清理旧缓存
