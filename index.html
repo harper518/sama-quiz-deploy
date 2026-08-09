@@ -1496,7 +1496,7 @@ if (!Element.prototype.closest) {
 // ====== Polyfill END ======
 
 // ====== PWA：Service Worker 注册 + 安装引导 ======
-var APP_VERSION = 266;
+var APP_VERSION = 267;
 var _pendingUpdate = null; // {v, changes, date}
 (function() {
   // 注册 Service Worker（离线缓存）
@@ -3839,7 +3839,7 @@ function showSearchModal() {
       return;
     }
     var allResults = [];
-    var names = Object.keys(appData.banks).filter(function(n) { return appData.banks[n].length > 0; });
+    var names = Object.keys(appData.banks).filter(function(n) { return appData.banks[n] && appData.banks[n].length > 0; });
     names.forEach(function(bankName) {
       var qs = appData.banks[bankName];
       qs.forEach(function(q, qi) {
@@ -6564,7 +6564,7 @@ function renderQuizSetup() {
   const names = getSortedBankNames();
   select.innerHTML = names.length === 0
     ? '<option value="">-- 请先导入题库 --</option>'
-    : names.map(n => `<option value="${escHtml(n)}">${escHtml(n)} (${appData.banks[n].length}题)</option>`).join('');
+    : names.map(n => '<option value="' + escHtml(n) + '">' + escHtml(n) + ' (' + (appData.banks[n] ? appData.banks[n].length : 0) + '题)</option>').join('');
   // 恢复之前的选择（如果那个题库还存在）
   if (prevValue && names.indexOf(prevValue) >= 0) {
     select.value = prevValue;
@@ -8273,7 +8273,7 @@ function showResult() {
         if (!appData.seqProgress) appData.seqProgress = {};
         var savePos = (quizState._actualStartPos != null ? quizState._actualStartPos : getSeqProgress(bn)) + total;
         appData.seqProgress[bn] = savePos;
-        if (appData.seqProgress[bn] > appData.banks[bn].length) appData.seqProgress[bn] = appData.banks[bn].length;
+        if (appData.banks[bn] && appData.seqProgress[bn] > appData.banks[bn].length) appData.seqProgress[bn] = appData.banks[bn].length;
       }
       // 随机不重复：标记已做
       if (quizState.drawMode === 'random-norepeat') {
@@ -10824,7 +10824,7 @@ function renderSettings() {
 
     '<div class="section"><div class="section-title" id="aboutSectionTitle" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;min-height:44px" onclick="var c=document.getElementById(\'aboutSectionContent\');var a=document.getElementById(\'aboutSectionArrow\');if(c.style.display===\'none\'){c.style.display=\'\';a.textContent=\'▼\'}else{c.style.display=\'none\';a.textContent=\'▶\'}">ℹ️ 关于 <span id="aboutSectionArrow" style="font-size:11px">▼</span></div>' +
       '<div id="aboutSectionContent"><div class="setting-item" style="cursor:pointer" onclick="showManualMenu()"><div><div class="setting-label">📖 使用说明</div><div class="setting-desc">查看使用指南</div></div><div style="display:flex;align-items:center">→</div></div>' +
-      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">' + TIER_EMOJI[getTier()] + ' ' + TIER_NAMES[getTier()] + ' · 纯前端离线可用 · <span id="appVersion">v266</span></div></div></div>' +
+      '<div class="setting-item"><div><div class="setting-label">选择题刷题工具（小阮出品）</div><div class="setting-desc">' + TIER_EMOJI[getTier()] + ' ' + TIER_NAMES[getTier()] + ' · 纯前端离线可用 · <span id="appVersion">v267</span></div></div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="showDataOffsetTool()"><div><div class="setting-label">🔧 数据批量偏移</div><div class="setting-desc">修复答案/解析的错位问题（支持前移后移）</div></div><div style="display:flex;align-items:center">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="clearAllData()"><div><div class="setting-label" style="color:var(--danger)">🗑️ 删除所有数据</div><div class="setting-desc">清空全部题库和设置，不可恢复</div></div><div style="display:flex;align-items:center;color:var(--danger)">→</div></div>' +
       '<div class="setting-item" style="cursor:pointer" onclick="checkUpdate()" id="updateCheckItem"><div><div class="setting-label">🔄 检查更新 <span id="updateRedDot" style="display:none;width:8px;height:8px;background:#e74c3c;border-radius:50%;vertical-align:middle;margin-left:4px"></span></div><div class="setting-desc" id="updateCheckDesc">点击检查并获取最新版本</div></div><div style="display:flex;align-items:center">→</div></div>' +
