@@ -3,7 +3,7 @@
    打开时优先用本地已缓存的版本，不会自动变成新版；
    只有用户点「直接更新」时前端清缓存+刷新，才切换到新版。
    数据（题库/错题/激活状态）存在 localStorage，与文件缓存无关，不受影响。 */
-var CACHE_NAME = 'sama-quiz-v8';
+var CACHE_NAME = 'sama-quiz-v11';
 
 // CDN 静态资源（缓存优先）
 var CDN_URLS = [

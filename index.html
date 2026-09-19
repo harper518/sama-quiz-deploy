@@ -47,6 +47,39 @@
   --safe-bottom: env(safe-area-inset-bottom, 16px);
 }
 
+/* 🧠 记忆复习 / 🔁 复习页（2026-09-20 第二批）——
+   ⚠️ 这几条是从**挖空背诵那边原样搬过来**的（用户原话「复习 那边按钮啊 底层设计啊 可以参考挖空背诵」
+      「感觉没有挖空那么美观」）。只改了一处：挖空叫 --bg-card，本工具叫 --card。 */
+.mem-sw { display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:var(--primary); padding:8px 2px; }
+.mem-sw i { width:38px; height:22px; border-radius:11px; background:var(--primary); position:relative; display:inline-block; transition:background .2s; }
+.mem-sw i::after { content:""; position:absolute; top:2px; left:18px; width:18px; height:18px; border-radius:50%; background:#fff; transition:left .2s; }
+.mem-sw.off { color:var(--text-tertiary); }
+.mem-sw.off i { background:#cfd8d7; }
+.mem-sw.off i::after { left:2px; }
+/* ⚠️ min-width:0 不能删：弹性子项默认 min-width:auto，题库名一长就把右边那颗 ⚙️ 顶出屏幕 */
+.mem-bankbtn { border:1px solid var(--border); background:var(--card); border-radius:12px; padding:10px 12px; font-size:13.5px; font-weight:700; color:var(--text); cursor:pointer; min-width:0; }
+.mem-row { display:flex; align-items:center; gap:9px; padding:11px 4px; border-bottom:1px solid var(--border); font-size:15px; cursor:pointer; }
+.mem-row:last-child { border-bottom:0; }
+.mem-row .em { width:20px; text-align:center; }
+.mem-row .nm { flex:1; font-weight:600; }
+.mem-row .ct { font-size:13px; color:var(--text-secondary); font-weight:700; }
+.mem-row .go { color:var(--text-tertiary); }
+.mem-row.hot .nm, .mem-row.hot .ct { color:var(--danger); }
+.mem-row.dim .nm { color:var(--text-secondary); font-weight:500; }
+.mem-mini { border:1px solid var(--border); background:var(--card); border-radius:9px; font-size:12.5px; font-weight:700; color:var(--primary); padding:8px 12px; min-height:44px; cursor:pointer; }
+.mem-mini.gray { color:var(--text-secondary); }
+.mem-pill { display:inline-block; font-size:11px; font-weight:700; padding:2px 8px; border-radius:20px; }
+.mem-seg { display:flex; background:var(--card); border:1px solid var(--border); border-radius:12px; padding:3px; }
+.mem-seg span { flex:1; text-align:center; font-size:13px; font-weight:700; padding:7px 0; border-radius:9px; color:var(--text-secondary); cursor:pointer; }
+.mem-seg span.on { background:var(--primary-light); color:var(--primary); }
+/* 题库卡片上的进度条（第二批 · 甲方案。用户原话「进度条用甲 但是手机也要适合」） */
+.bank-pbar { height:6px; border-radius:3px; background:var(--bg-input); overflow:hidden; margin-top:9px; }
+.bank-pbar > i { display:block; height:100%; border-radius:3px; background:linear-gradient(90deg,#a78bfa,var(--primary)); transition:width .3s; }
+.bank-pbar.done > i { background:linear-gradient(90deg,#34d399,var(--success)); }
+.bank-prow { display:flex; justify-content:space-between; gap:8px; font-size:11.5px; color:var(--text-secondary); margin-top:5px; }
+.bank-prow b { color:var(--primary); font-weight:800; }
+.bank-prow .fin { color:var(--success); font-weight:800; }
+
 /* ====== 主题颜色 ====== */
 [data-color="purple"] {
   --bg: #faf5ff; --card: #fff; --bg-input: #faf5ff;
@@ -1290,6 +1323,9 @@ textarea { min-height: 180px; resize: vertical; line-height: 1.8; }
         <div style="display:flex;align-items:center;gap:6px">
           <div style="font-size:13px;color:var(--text-secondary)" id="qNumBadge"></div>
           <button id="editQuizBtn" style="background:none;border:none;font-size:13px;cursor:pointer;padding:2px 6px;color:var(--text-tertiary);opacity:0.4;min-height:32px" onclick="editCurrentQuizQuestion()" title="编辑此题">✏️</button>
+          <!-- 🆕 2026-09-20（用户原话「做题页少了删除题目的按钮 放在✏️的右边吧」）
+               删到哪一步＝用户拍板「只从当前题库拿掉，错题记录留着」 -->
+          <button id="delQuizBtn" style="background:none;border:none;font-size:13px;cursor:pointer;padding:2px 6px;color:var(--text-tertiary);opacity:0.4;min-height:32px" onclick="deleteCurrentQuizQuestion()" title="从题库里删掉这题">🗑️</button>
         </div>
         <div style="display:flex;align-items:center;gap:2px">
           <button id="superFavBtn" style="background:none;border:none;font-size:18px;cursor:pointer;padding:0;line-height:1;color:#8B5CF6;display:none;width:44px;height:44px;align-items:center;justify-content:center;touch-action:manipulation;-webkit-tap-highlight-color:transparent;border-radius:8px;position:relative;z-index:91" onpointerdown="toggleSuperFav()" title="重点标记">𓈒𓏸𓇼</button>
@@ -1372,6 +1408,13 @@ textarea { min-height: 180px; resize: vertical; line-height: 1.8; }
 
 
 <!-- ====== Page 5: 设置 ====== -->
+<div class="page" id="page-review">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <h1 style="font-size:24px;font-weight:800;letter-spacing:-.02em;margin:0">🔁 复习</h1>
+  </div>
+  <div id="memContainer"></div>
+</div>
+
 <div class="page" id="page-settings">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
     <h1 style="font-size:24px;font-weight:800;letter-spacing:-.02em;margin:0">⚙️ 设置</h1>
@@ -1386,6 +1429,9 @@ textarea { min-height: 180px; resize: vertical; line-height: 1.8; }
 <div class="tab-bar">
   <button class="tab-btn active" data-page="banks" onclick="switchPage('banks', this)"><span class="icon">📚</span>题库</button>
   <button class="tab-btn" data-page="quiz" onclick="switchPage('quiz', this)"><span class="icon">📝</span>刷题</button>
+  <!-- 🆕 2026-09-20 第二批（用户原话「加一个 复习 的按钮」「底部第 5 个 tab」）：
+       红点数字 = **今天该复习几题**，不用点进去就知道有没有活干 -->
+  <button class="tab-btn" data-page="review" onclick="switchPage('review', this)"><span class="icon">🔁</span>复习<span class="badge-count" id="memBadge" style="display:none">0</span></button>
   <button class="tab-btn" data-page="wrong" onclick="switchPage('wrong', this)"><span class="icon">❌</span>错题<span class="badge-count" id="wrongBadge" style="display:none">0</span></button>
     <button class="tab-btn" data-page="settings" onclick="switchPage('settings', this)"><span class="icon">⚙️</span>设置</button>
 </div>
@@ -1496,7 +1542,7 @@ if (!Element.prototype.closest) {
 // ====== Polyfill END ======
 
 // ====== PWA：Service Worker 注册 + 安装引导 ======
-var APP_VERSION = 272;
+var APP_VERSION = 275;
 var _pendingUpdate = null; // {v, changes, date}
 (function() {
   // 注册 Service Worker（离线缓存）
@@ -2440,8 +2486,68 @@ function selectMode(mode, el) {
   }
 }
 
+// 🆕 2026-09-20：把「随机不重复」那颗 chip 按档位灰掉。
+//   光靠 click 时弹提示不够（用户得先点一下才知道），灰掉才能一眼看出它现在用不了。
+//   ⚠️ 写法**照本文件 renderQuizSetup 里 mockChip 的先例** —— opacity + pointer-events:none，
+//      这个工具自己就是用这两句表达「这颗 chip 现在用不了」的。
+// 🆕 2026-09-20：混合刷题模式下，「顺序出题」这颗 chip **根本不生效**
+//   （混合那段抽题代码 `var shuffled = [].concat(allQs).sort(...)` 没有 drawMode 分支，永远乱序），
+//   可界面上还给用户选、说明还写着「按题号顺序分批推进，进度自动保存」 ——
+//   典型「说了做不到」。这里跟「随机不重复」一起按状态灰掉。
+function _syncSeqChipForMixed() {
+  var chip = document.querySelector('#drawModeGroup .chip[data-draw="sequential"]');
+  if (!chip) return;
+  var off = !!_quizMixedMode;
+  chip.style.opacity = off ? "0.4" : "";
+  chip.style.pointerEvents = off ? "none" : "";
+  chip.title = off ? "混合刷题模式下按随机出题，顺序出题不生效" : "";
+}
+
+// 🆕 2026-09-20：把混合模式相关的几处 UI 一次性复位（切单题库 / 返回设置页都要调）
+//   ⚠️ 原来 `_quizMixedMode` 只在 switchQuizMode 里改，`_doBackToSetup()` **不清** →
+//      从题库页点某个题库进来时页面还停在混合模式，用户看不到自己刚点的那个题库。
+function _resetMixedModeUI() {
+  _quizMixedMode = false;
+  var sgb = document.getElementById("singleBankGroup");
+  var mgb = document.getElementById("mixedBankGroup");
+  if (sgb) sgb.style.display = "";
+  if (mgb) mgb.style.display = "none";
+  var defChip = document.querySelector('#quizSetup .chip[data-mix="0"]');
+  var mixChips = document.querySelectorAll("#quizSetup .chip[data-mix]");
+  for (var i = 0; i < mixChips.length; i++) mixChips[i].classList.remove("active");
+  if (defChip) defChip.classList.add("active");
+  _syncSeqChipForMixed();
+}
+
+function syncDrawModeLockUI() {
+  var chip = document.querySelector('#drawModeGroup .chip[data-draw="random-norepeat"]');
+  if (!chip) return;
+  var locked = isTierLocked("randomNorepeat");
+  chip.style.opacity = locked ? "0.4" : "";
+  chip.style.pointerEvents = locked ? "none" : "";
+  chip.title = locked ? "科学备考版（¥3）功能" : "";
+  var lockEl = chip.querySelector(".chip-lock");
+  if (locked && !lockEl) {
+    var sp = document.createElement("span");
+    sp.className = "chip-lock";
+    sp.textContent = " 🔒";
+    sp.style.fontSize = "10px";
+    chip.appendChild(sp);
+  } else if (!locked && lockEl) { lockEl.remove(); }
+  _syncSeqChipForMixed();   // 🆕 2026-09-20：混合模式下「顺序出题」也不生效，一起同步
+}
+
 function selectDrawMode(mode, el) {
-  if (mode === 'random-norepeat' && isTierLocked('randomNorepeat')) return;
+  // 🐞 2026-09-20（用户原话「随机不重复点了还是会出现重复的题目」）：
+  //   **根因 A** —— 这里原来是**光秃秃一句 return**：不报错、不提示、连 🔒 都没有。
+  //   用户点了以为选上了，实际还在「随机重复」，所以题照样重复。
+  //   （对照条：本文件别处都有提示或灰化 —— 备份/还原/清空错题会 toast，mockChip 做了 opacity+pointer-events。）
+  if (mode === 'random-norepeat' && isTierLocked('randomNorepeat')) {
+    // ⚠️ chip 已经被 syncDrawModeLockUI() 设成 pointer-events:none，正常点不到这儿；
+    //    这句是**保险**：万一有别的代码路径直接调 selectDrawMode，也不至于一声不吭。
+    toast('🔒「随机不重复」是科学备考版（¥3）功能，升级后就能用');
+    return;
+  }
   drawMode = mode;
   if (window._track) window._track('modePick');
   document.querySelectorAll('#drawModeGroup .chip').forEach(c => c.classList.remove('active'));
@@ -2492,7 +2598,11 @@ function updateSeqProgressUI() {
   var bankName = document.getElementById('bankSelect').value;
   if (!bankName) return;
   var pos = getSeqProgress(bankName);
-  document.getElementById('seqPos').textContent = pos + 1;
+  // 🐞 2026-09-20：`pos + 1` 会越界 —— 20 题的库做完了显示「第 21 题开始」。
+  //   封顶在题库长度，并顺手把「已经刷完一轮」说清楚。
+  var _bk = appData.banks[bankName];
+  var _total = _bk ? _bk.length : 0;
+  document.getElementById('seqPos').textContent = (_total && pos >= _total) ? _total : (pos + 1);
 }
 function resetSeqProgress() {
   var bankName = document.getElementById('bankSelect').value;
@@ -2699,6 +2809,7 @@ function switchPage(page, btn) {
     document.getElementById('sideTapRight').classList.remove('active');
   }
   if (page === 'banks') renderBanks();
+  if (page === 'review') renderMemPage();   // 🆕 2026-09-20 第二批
   if (page === 'quiz') {
     if (quizState) {
       // 正在刷题中，保持进度
@@ -2897,6 +3008,18 @@ function renderBanks() {
         '<div class="name" onclick="event.stopPropagation();renameBankPrompt(this,\'' + escQ(name) + '\')" title="点击修改名称" style="cursor:pointer">' + escHtml(name) + '</div>' +
         '<div class="meta">' + total + ' 题 | 正 ' + (stats.answered > 0 ? Math.round(stats.correct / stats.answered * 100) : 0) + '% | 错题 ' + wrongCount + dueHtml + ' <span style="margin-left:4px">' + fmtDate(meta.createdAt) + '</span>' +
         '</div>' +
+        // 🆕 2026-09-20 第二批（用户原话「一个题库的进度可以显示吗 显示在哪里比较好呢」→「进度条用甲 但是手机也要适合」）：
+        //   进度条**占满整行放在 meta 下面** —— 不跟右边那排小按钮抢地方；数字加粗 + 主题色，扫一眼就看见。
+        //   ⚠️ 「刷过」用的是 q.doneAt（**答过就写**，跟「记忆复习」那个开关无关）——
+        //      不能拿 sr* 字段算，因为记忆复习**默认是关的**，关着的话进度永远是 0。
+        (function() {
+          var doneN = 0;
+          for (var di = 0; di < qs.length; di++) { if (qs[di].doneAt) doneN++; }
+          var pct = total > 0 ? Math.round(doneN / total * 100) : 0;
+          return '<div class="bank-pbar' + (doneN >= total && total > 0 ? ' done' : '') + '"><i style="width:' + pct + '%"></i></div>' +
+            '<div class="bank-prow"><span>已刷 <b>' + doneN + '</b> / ' + total + ' 题</span>' +
+            '<span' + (doneN >= total && total > 0 ? ' class="fin"' : '') + '>' + (doneN >= total && total > 0 ? '✅ 全部刷过' : pct + '%') + '</span></div>';
+        })() +
       '</div>' +
       '<div class="actions">' +
         '<button type="button" class="btn-sort" onclick="moveBankUp(\'' + escQ(name) + '\')"' + (isFirst ? ' disabled' : '') + ' title="上移">↑</button>' +
@@ -4247,24 +4370,680 @@ function getFilteredCards(bank) {
 }
 
 // ====== Spaced Repetition ======
-function applySR(bankName, qId, wasCorrect) {
-  if (appData.settings && appData.settings.srEnabled === false) return;
+// ==================== 🧠 记忆曲线（遗忘曲线）====================
+// 🆕 2026-09-20 第二批：**照挖空背诵那套搬过来**（用户点名要参考 `新建文件夹/记忆曲线-借鉴参考.md`），
+//   按选择题做了个性化改动。用户原话：
+//     「针对选择题的艾斯浩宾记忆曲线你有什么想法 可以参考一下挖空背诵的那个记忆曲线…但是要适合选择题来修改」
+//     「能用户自己决定的就用户自己决定 一千个用户就有一千个想法 我们可以制作的灵活一点」
+//
+// ⚠️⚠️ 两个**不能照抄挖空**的地方（选择题独有）：
+//   ① 挖空是 `appData.banks[id] = { id, name, cards: [...] }`；
+//      **选择题是 `appData.banks[题库名] = 直接就是一个数组`** → 所有 `bank.cards` 都要写成 `appData.banks[bn]`
+//   ② 挖空的题目 id 是全局唯一的；**选择题的 id 是「每个题库从 1 重排」的整数**
+//      → 任何跨库的池子**必须带题库名**，只存 id 会串库
+//
+// ⚠️ 时间口径**一律按本地日历零点**（挖空踩过坑：用 UTC 的话晚上 8 点后「明天」会变「后天」）
+
+// ── 档位表：答对之后隔多久再来 ──
+var MEM_PACES = {
+  easy: { name: "轻松", days: [1, 3, 7, 15] },
+  std:  { name: "标准", days: [1, 2, 4, 7, 15, 30] },
+  hard: { name: "加强", days: [1, 2, 3, 5, 8, 12, 20, 30] }
+};
+var MEM_MAX_CUSTOM = 8;
+var _memBucketView = null;   // 点开了哪一档（null = 还在总览）
+
+// ── 八个档（按「下次复习日 − 今天」的差来分）──
+var MEM_BUCKETS = [
+  { key: "over",     emoji: "🔴", name: "该复习了" },
+  { key: "today",    emoji: "🟡", name: "今天" },
+  { key: "tomorrow", emoji: "⚪", name: "明天" },
+  { key: "d3",       emoji: "⚪", name: "3 天后" },
+  { key: "d7",       emoji: "⚪", name: "7 天后" },
+  { key: "later",    emoji: "⚪", name: "更久" },
+  { key: "mastered", emoji: "✅", name: "已掌握" },
+  { key: "none",     emoji: "○", name: "还没排上" }
+];
+
+// ── 设置读写（**没设过就给默认值、但不主动写盘** —— 免得没用过的用户被塞一堆键）──
+var MEM_SETTING_DEFAULTS = {
+  on: false,            // 总开关（**默认关**：关着一个字段都不写，用户原话「关闭着做 就没有记录」）
+  pace: "std",          // 节奏（默认「标准」＝用户 2026-09-20 拍板「挖空的默认」）
+  customDays: [],       // 自定义天数
+  banks: null,          // 哪些题库参加记录（null = 全部）
+  wrongAction: "reset", // 答错怎么算：reset 退回第1天 / back 只退一档 / keep 档位不动
+  dailyCap: 30,         // 每天最多安排几题（0 = 不限）
+  fastMs: 3000,         // 🔤 选择题独有：「蒙对」判据 —— 几毫秒内答对算「秒选、可疑」（0 = 不判）
+  collapsed: false      // 折叠状态
+};
+function memS(key, val) {
+  if (!appData.settings) appData.settings = {};
+  if (!appData.settings.mem) appData.settings.mem = {};
+  var m = appData.settings.mem;
+  if (val !== undefined) { m[key] = val; saveData(appData); }
+  return m[key] === undefined ? MEM_SETTING_DEFAULTS[key] : m[key];
+}
+
+// ── 当前用的档位表（天数数组）──
+function memLadder() {
+  var p = memS("pace");
+  if (p === "custom") {
+    var d = (memS("customDays") || []).filter(function(x) { return x > 0; }).slice(0, MEM_MAX_CUSTOM);
+    return d.length ? d : MEM_PACES.std.days;   // 一个都没填 → 退回标准
+  }
+  return (MEM_PACES[p] || MEM_PACES.std).days;
+}
+
+// ── 权限门（**一处包装、处处调用** —— 别再犯「裸判据」那个病）──
+function memCanUse() { return !isTierLocked("srEnabled"); }
+// 某个题库参不参加记录
+function memBankOn(bn) {
+  var list = memS("banks");
+  if (!list || !list.length) return true;      // 没设过 = 全部参加
+  return list.indexOf(bn) >= 0;
+}
+// 三合一：能用 && 开着 && 这个题库参加 —— **只有三个都满足才落盘**
+function memActive(bn) { return memCanUse() && !!memS("on") && memBankOn(bn); }
+
+// ── 时间口径：**一律本地日历零点** ──
+function memDayStart(ts) { var d = new Date(ts || Date.now()); d.setHours(0, 0, 0, 0); return d.getTime(); }
+function memDaysLeft(ts) { return Math.round((memDayStart(ts) - memDayStart()) / 86400000); }
+function memTomorrow9() { return memDayStart() + 86400000 + 9 * 3600000; }   // 「明天再练」= 次日早上 9 点
+
+// ── 这道题属于哪个档 ──
+function memBucketOf(card) {
+  if (!card) return "none";
+  if (card.srMastered) return "mastered";
+  if (!card.srNextReview) return "none";
+  var d = memDaysLeft(card.srNextReview);
+  if (d < 0) return "over";
+  if (d === 0) return "today";
+  if (d === 1) return "tomorrow";
+  if (d <= 3) return "d3";
+  if (d <= 7) return "d7";
+  return "later";
+}
+
+// ── 核心：答对/答错怎么推进（**唯一入口**，别再在别处另写一套）──
+//   答对 → 进下一档；超过最后一档 → 已掌握（用独立的 srMastered，**不是**把档位归 0）
+//   答错 → **三种算法让用户自己选**（用户 2026-09-20 拍板「跟挖空一样三选一」）
+//   从没排过的题答对也进梯子（第 1 档）—— 不然一次都没错的题永远进不了复习
+// ── 手动干预（很重要 —— 纯算法会让用户觉得被绑架）──
+//   ✅ 我记住了 → 直接标已掌握；⏰ 明天再练 → 拉回明天、档位不涨不降；🗑 拿掉 → 只清记录、题目不动
+function memMasterNow(node) {
+  var card = memFindCard(node);
+  if (!card) return;
+  card.srMastered = true;
+  card.srStage = memLadder().length;
+  card.srNextReview = null;
+  // 🆕 B8（2026-09-20 拍板「合并一套」）：手动标「我记住了」＝ 学会了 ＝ **同时从错题本移出**。
+  //   跟自动毕业走同一个函数，口径才不会分家。
+  if (node && node.bn) memElimFromWrongBook(node.bn, card.id);
+  saveData(appData);
+  toast("✅ 已标为掌握，不再排复习");
+}
+function memTomorrow(node) {
+  var card = memFindCard(node);
+  if (!card) return;
+  card.srMastered = false;
+  if (!card.srStage) card.srStage = 1;
+  card.srNextReview = memTomorrow9();
+  saveData(appData);
+  toast("⏰ 明天早上再练这道");
+}
+function memRemove(node) {
+  var card = memFindCard(node);
+  if (!card) return;
+  // ⚠️ 用户拍板「只是记忆复习移除」—— **题目还在题库里**，做题照样遇到
+  card.srStage = 0;
+  card.srMastered = false;
+  card.srNextReview = null;
+  card.srLastOk = null;
+  saveData(appData);
+  toast("🗑 已从记忆复习里拿掉（题目还在题库里）");
+}
+function memFindCard(node) {
+  if (!node || !node.bn) return null;
+  var bank = appData.banks[node.bn];
+  if (!bank) return null;
+  for (var i = 0; i < bank.length; i++) { if (bank[i].id === node.qid) return bank[i]; }
+  return null;
+}
+
+// ==================== 🔁 复习页（UI）====================
+// 🆕 2026-09-20 第二批。结构**照挖空背诵的 memBlockHtml()** ——
+//   用户原话：「复习 那边按钮啊 底层设计啊 可以参考挖空背诵」「感觉没有挖空那么美观」。
+//   ⚠️ 样式类 `.mem-*` 是从挖空那边**原样搬过来的**（那 22 条 CSS 规则已经加进本文件的样式表）。
+//   ⚠️ 取值路径是**选择题的**：`appData.banks[题库名]` 直接是数组（挖空是 `bank.cards`）。
+
+// 看哪几个题库（跟「哪些题库参加记录」是**两个独立的设置**，别混）
+function memViewBanks() { var v = memS("viewBanks"); return (v && v.length) ? v : null; }
+function memViewNames() {
+  var v = memViewBanks();
+  var all = Object.keys(appData.banks || {});
+  return (v && v.length ? v : all).filter(function(n) { return !!appData.banks[n]; });
+}
+
+// 按档统计。⚠️ 每个元素带 bn —— **选择题的题目 id 是「每库从 1 重排」的，不带题库名会串库**
+function memStats() {
+  var st = {};
+  MEM_BUCKETS.forEach(function(b) { st[b.key] = []; });
+  memViewNames().forEach(function(bn) {
+    var bank = appData.banks[bn] || [];
+    for (var i = 0; i < bank.length; i++) {
+      st[memBucketOf(bank[i])].push({ bn: bn, qid: bank[i].id, card: bank[i] });
+    }
+  });
+  return st;
+}
+
+function renderMemPage() {
+  var c = document.getElementById("memContainer");
+  if (!c) return;
+  c.innerHTML = _memBucketView ? renderMemBucketView() : memBlockHtml();
+  _bindMemActions();
+  updateMemBadge();
+}
+
+// ⚠️ 事件**事后绑**，不往 onclick 里拼题库名（引号嵌套会写崩，题库名带引号也会坏）
+function _bindMemActions() {
+  var c = document.getElementById("memContainer");
+  if (!c) return;
+  var wraps = c.querySelectorAll("[data-act-wrap]");
+  for (var i = 0; i < wraps.length; i++) {
+    (function(wrap) {
+      var bn = wrap.getAttribute("data-bn");
+      var qid = Number(wrap.getAttribute("data-qid"));
+      var btns = wrap.querySelectorAll("[data-act]");
+      for (var j = 0; j < btns.length; j++) {
+        (function(btn) { btn.onclick = function() { memAct(bn, qid, btn.getAttribute("data-act")); }; })(btns[j]);
+      }
+    })(wraps[i]);
+  }
+}
+
+// 底部那颗红点（今天该复习几题）
+function updateMemBadge() {
+  var el = document.getElementById("memBadge");
+  if (!el) return;
+  var n = 0;
+  if (memCanUse() && memS("on")) {
+    memViewNames().forEach(function(bn) {
+      var bank = appData.banks[bn] || [];
+      for (var i = 0; i < bank.length; i++) {
+        var b = memBucketOf(bank[i]);
+        if (b === "over" || b === "today") n++;
+      }
+    });
+  }
+  el.textContent = n > 99 ? "99+" : String(n);
+  el.style.display = n > 0 ? "" : "none";
+}
+
+function memBlockHtml() {
+  // 权限不给时**不整块藏起来** —— 给一张说明卡（这是卖点，藏着可惜）
+  if (!memCanUse()) {
+    return '<div class="card" style="margin-bottom:16px">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">' +
+        '<div style="font-size:19px;font-weight:800;letter-spacing:-.02em">🧠 记忆复习</div>' +
+        '<span class="mem-pill" style="background:var(--bg-input);color:var(--text-tertiary)">科学备考版</span></div>' +
+      '<div style="font-size:13px;color:var(--text-secondary);margin-top:8px;line-height:1.8">按遗忘规律自动排复习：该复习的排前面，答对拉长间隔、答错退回重来，还能按题库分别看。</div>' +
+      '<div style="font-size:13px;color:var(--primary);font-weight:700;margin-top:8px;cursor:pointer" onclick="showTierCompare()">→ 了解科学备考版</div></div>';
+  }
+  var on = !!memS("on");
+  var collapsed = !!memS("collapsed");
+  var stats = on ? memStats() : null;
+  var dueN = on ? (stats.over.length + stats.today.length) : 0;
+  var h = '<div class="card" style="margin-bottom:16px">';
+  h += '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer" onclick="memToggleCollapse()">' +
+    '<div style="font-size:19px;font-weight:800;letter-spacing:-.02em">🧠 记忆复习</div>' +
+    '<div style="display:flex;align-items:center;gap:8px">' +
+      (collapsed && dueN > 0 ? '<span class="mem-pill" style="background:var(--danger-light);color:var(--danger)">' + dueN + ' 题该复习</span>' : '') +
+      '<span class="mem-sw' + (on ? '' : ' off') + '" onclick="event.stopPropagation();memToggleOn()">' + (on ? '开' : '关') + '<i></i></span>' +
+      '<span style="color:var(--text-tertiary);font-size:13px">' + (collapsed ? '▸' : '▾') + '</span>' +
+    '</div></div>';
+  if (collapsed) return h + '</div>';
+  if (!on) {
+    h += '<div style="font-size:13px;color:var(--text-secondary);margin-top:8px;line-height:1.8">关着的时候<b>不做任何记录</b>。想用了再打开，从打开那一刻开始记。</div>';
+    h += '<button class="mem-mini" style="margin-top:12px;width:100%" onclick="memToggleOn()">打开记忆复习</button>';
+    return h + '</div>';
+  }
+  var names = memViewNames();
+  var allNames = Object.keys(appData.banks || {});
+  var total = 0;
+  MEM_BUCKETS.forEach(function(b) { total += stats[b.key].length; });
+  var titleTxt = (names.length === allNames.length) ? "📚 全部题库" : ("📚 " + names.length + " 个题库");
+  h += '<div style="display:flex;gap:8px;margin-top:10px;align-items:stretch">' +
+    '<div class="mem-bankbtn" style="flex:1" onclick="showMemBankPicker()">' +
+      '<div style="display:flex;justify-content:space-between;gap:8px"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0">' + titleTxt + '</span>' +
+      '<span style="color:var(--text-secondary);font-weight:600;white-space:nowrap">' + total + ' 题 ▾</span></div>' +
+      '<div style="font-size:11px;color:var(--text-tertiary);font-weight:400;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(names.join("、") || "还没有题库") + '</div>' +
+    '</div>' +
+    '<button class="mem-mini" style="min-width:44px" onclick="showMemSettings()" title="记忆复习设置">⚙️</button></div>';
+  h += '<div style="margin-top:8px">';
+  MEM_BUCKETS.forEach(function(b) {
+    var n = stats[b.key].length;
+    var cls = b.key === "over" && n > 0 ? " hot" : (b.key === "none" ? " dim" : "");
+    h += '<div data-bucket="' + b.key + '" class="mem-row' + cls + '">' +
+      '<span class="em">' + b.emoji + '</span><span class="nm">' + b.name + '</span>' +
+      '<span class="ct">' + n + ' 题</span><span class="go">›</span></div>';
+  });
+  h += '</div></div>';
+  return h;
+}
+
+function memToggleCollapse() { memS("collapsed", !memS("collapsed")); renderMemPage(); }
+function memToggleOn() {
+  var next = !memS("on");
+  memS("on", next);
+  toast(next ? "🧠 记忆复习已打开，从现在开始记录" : "记忆复习已关闭（关着不做任何记录，已有进度保留）");
+  renderMemPage();
+  updateMemBadge();
+}
+
+// 点开某一档 → 列出这一档**全部**题目（⚠️「该复习了」那档不截断，用户拍板「全列出来」）
+function openMemBucket(key) { _memBucketView = key; renderMemPage(); }
+function memBackFromBucket() { _memBucketView = null; renderMemPage(); }
+
+function renderMemBucketView() {
+  var b = null;
+  MEM_BUCKETS.forEach(function(x) { if (x.key === _memBucketView) b = x; });
+  if (!b) return memBlockHtml();
+  var list = memStats()[_memBucketView];
+  var h = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">' +
+    '<button class="btn btn-ghost btn-sm" style="min-height:40px" onclick="memBackFromBucket()">‹ 返回</button>' +
+    '<div style="font-size:17px;font-weight:800">' + b.emoji + " " + b.name + " · " + list.length + ' 题</div></div>';
+  if (!list.length) return h + '<div class="card" style="text-align:center;color:var(--text-tertiary);padding:30px 0">这一档现在没有题</div>';
+  if (b.key === "none") {
+    h += '<button class="btn btn-primary btn-block" style="min-height:46px;font-weight:700;margin-bottom:12px" onclick="memScheduleAll()">📅 一键全部排上（从明天开始）</button>';
+  } else if (b.key !== "mastered") {
+    h += '<button class="btn btn-primary btn-block" style="min-height:46px;font-weight:700;margin-bottom:12px" data-start="' + b.key + '">▶ 开练这一档（' + list.length + ' 题）</button>';
+  }
+  h += '<div class="card">';
+  list.forEach(function(it) {
+    var q = it.card;
+    var okMark = q.srLastOk === true ? "✅" : (q.srLastOk === false ? "❌" : "");
+    h += '<div style="padding:11px 2px;border-bottom:1px solid var(--border)">' +
+      '<div style="display:flex;gap:8px;align-items:flex-start">' +
+        '<div style="flex:1;min-width:0;font-size:14px;line-height:1.6;word-break:break-word">' + escHtml(String(q.question || "").slice(0, 60)) + (String(q.question || "").length > 60 ? "…" : "") + '</div>' +
+        '<div style="flex-shrink:0;font-size:12px;color:var(--text-tertiary)">' + okMark + " " + escHtml(it.bn.slice(0, 6)) + '</div></div>' +
+      '<div style="display:flex;gap:6px;margin-top:8px" data-act-wrap="1" data-bn="' + escHtml(it.bn) + '" data-qid="' + it.qid + '">' +
+        '<button class="mem-mini" data-act="master">✅ 我记住了</button>' +
+        '<button class="mem-mini gray" data-act="tomorrow">⏰ 明天再练</button>' +
+        '<button class="mem-mini gray" data-act="remove" title="只从记忆复习里拿掉，题目还在题库里">🗑</button>' +
+      '</div></div>';
+  });
+  h += '</div>';
+  return h;
+}
+
+function memAct(bn, qid, what) {
+  var node = { bn: bn, qid: qid };
+  if (what === "master") memMasterNow(node);
+  else if (what === "tomorrow") memTomorrow(node);
+  else if (what === "remove") memRemove(node);
+  renderMemPage();
+  updateBadges();
+}
+
+function memScheduleAll() {
+  var list = memStats().none;
+  if (!list.length) { toast("没有「还没排上」的题"); return; }
+  list.forEach(function(it) {
+    var card = it.card;
+    card.srStage = 1;
+    card.srMastered = false;
+    card.srNextReview = memTomorrow9();
+  });
+  saveData(appData);
+  toast("📅 已把 " + list.length + " 题排上（明天开始）");
+  renderMemPage();
+}
+
+// ▶ 开练这一档：**只传定位信息（题库 + id）**，题目本体现取 ——
+//   中间用户改了题不会刷到旧内容（照参考件第六节那条）
+function startMemoryPractice(key) {
+  if (!memCanUse()) { toast("记忆复习是科学备考版功能"); return; }
+  var list = memStats()[key] || [];
+  if (!list.length) { toast("这一档没有题"); return; }
+  var cap = Number(memS("dailyCap")) || 0;
+  var items = cap > 0 ? list.slice(0, cap) : list;
+  if (cap > 0 && list.length > cap) toast("今天先练 " + cap + " 题，剩下的顺延到明天");
+  var picked = [];
+  items.forEach(function(it) {
+    var bank = appData.banks[it.bn] || [];
+    for (var i = 0; i < bank.length; i++) { if (bank[i].id === it.qid) { picked.push({ bn: it.bn, q: bank[i] }); break; } }
+  });
+  if (!picked.length) { toast("这些题已经不在了"); return; }
+  _memBucketView = null;
+  _startPickedQuiz(picked, "🔁 复习");
+}
+
+// 把「给定的一批题」交给做题流程（用现成的 quizState 那套，**不再问一遍设置**）
+//   ⚠️ 题可能来自多个题库 → bankName 用 "_mixed"，每道题属于哪个库记在 quickBankNames 里
+//      （那条路径的 applySR 会带上正确的题库名 —— 主流程里本来就有）
+function _startPickedQuiz(picked, label) {
+  var qs = picked.map(function(x) { return x.q; });
+  var sameBank = picked.length && picked.every(function(x) { return x.bn === picked[0].bn; });
+  quizState = {
+    bankName: sameBank ? picked[0].bn : "_mixed",
+    questions: qs,
+    currentIndex: 0, correct: 0, wrong: 0, wrongIds: [],
+    total: qs.length, answered: false, mode: "instant",
+    userAnswers: new Array(qs.length).fill(null),
+    drawMode: "random-repeat", _sessionSwitches: 0,
+    isTempQuiz: !sameBank,
+    quickBankNames: picked.map(function(x) { return x.bn; })
+  };
+  switchPage("quiz", document.querySelector('[data-page="quiz"]'));
+  document.getElementById("quizSetup").style.display = "none";
+  document.getElementById("quizResult").style.display = "none";
+  document.getElementById("quizActive").style.display = "block";
+  document.getElementById("sideTapLeft").classList.add("active");
+  document.getElementById("sideTapRight").classList.add("active");
+  var lbl = document.getElementById("bankNameLabel"); if (lbl) lbl.textContent = label;
+  document.getElementById("modeHint").textContent = "🔁 复习 · " + qs.length + " 题";
+  stopTimer(); renderQuestion(); applyFocusMode(); applyPomodoro();
+}
+
+// ── ⚙️ 记忆复习设置 ──
+function _memModal(innerHtml) {
+  var ov = document.createElement("div"); ov.className = "modal-overlay"; ov.style.animation = "none";
+  ov.innerHTML = '<div class="modal" style="animation:none;max-width:420px;margin:auto;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);padding:0;border-radius:var(--radius);max-height:88vh;max-height:88dvh;display:flex;flex-direction:column;overflow:hidden">' + innerHtml + '</div>';
+  document.body.appendChild(ov);
+  ov.addEventListener("click", function(e) { if (e.target === ov) ov.remove(); });
+  var card = ov.firstElementChild;
+  var x = document.createElement("button");
+  x.textContent = "✕"; x.setAttribute("aria-label", "关闭");
+  x.style.cssText = "position:absolute;top:8px;right:10px;background:transparent;border:none;font-size:20px;line-height:1;color:var(--text-tertiary);cursor:pointer;min-width:40px;min-height:40px";
+  x.onclick = function() { ov.remove(); };
+  card.style.position = "relative"; card.appendChild(x);
+  return ov;
+}
+function _memModalHead(t) {
+  return '<div style="padding:16px 18px 12px;border-bottom:1px solid var(--border);flex-shrink:0"><h3 style="margin:0;font-size:17px">' + t + '</h3></div>';
+}
+
+function showMemSettings() {
+  var ov = _memModal(_memModalHead("⚙️ 记忆复习设置") + '<div id="memSetBody" style="padding:14px 18px 22px;overflow-y:auto;flex:1;min-height:0"></div>');
+  renderMemSetBody(ov);
+}
+
+function _memSeg(cur, opts, handler) {
+  var h = '<div class="mem-seg" style="margin-bottom:10px">';
+  opts.forEach(function(o) {
+    h += '<span class="' + (cur === o[0] ? "on" : "") + '" data-seg="' + o[0] + '">' + o[1] + '</span>';
+  });
+  h += '</div>';
+  return h;
+}
+
+function renderMemSetBody(ov) {
+  var body = ov.querySelector("#memSetBody");
+  if (!body) return;
+  var pace = memS("pace");
+  var cd = (memS("customDays") || []).join(",");
+  var wa = memS("wrongAction");
+  var cap = Number(memS("dailyCap")) || 0;
+  var fast = Number(memS("fastMs"));
+  if (isNaN(fast)) fast = 3000;
+  var h = "";
+
+  // ① 学习节奏
+  h += '<div class="sync-label" style="font-size:13px;font-weight:700;margin-bottom:6px">📅 学习节奏</div>';
+  h += _memSeg(pace, [["easy", "轻松"], ["std", "标准"], ["hard", "加强"], ["custom", "自定义"]], null);
+  h += '<div style="font-size:11.5px;color:var(--text-tertiary);margin:-4px 0 10px;line-height:1.7">' +
+    '轻松 1→3→7→15 天｜<b>标准 1→2→4→7→15→30 天</b>｜加强 1→2→3→5→8→12→20→30 天<br>' +
+    '走完最后一档才算「已掌握」。</div>';
+  if (pace === "custom") {
+    h += '<div style="margin-bottom:10px"><input id="memCustomDays" value="' + escHtml(cd) + '" placeholder="自己填天数，逗号隔开，最多 8 个。例：1,3,7,15" style="width:100%;padding:10px 12px;border:2px solid var(--border);border-radius:10px;background:var(--bg-input);color:var(--text);font-size:13px"></div>';
+  }
+
+  // ② 答错怎么算（用户拍板「三选一让用户自己设」）
+  h += '<div style="font-size:13px;font-weight:700;margin:12px 0 6px">↩️ 答错怎么算</div>';
+  h += _memSeg(wa, [["reset", "退回第1天"], ["back", "只退一档"], ["keep", "档位不动"]], null);
+  h += '<div style="font-size:11.5px;color:var(--text-tertiary);margin:-4px 0 10px">答错一律会取消「已掌握」，重新开始排。</div>';
+
+  // ③ 每天最多安排几题
+  h += '<div style="font-size:13px;font-weight:700;margin:12px 0 6px">📦 每天最多安排几题</div>';
+  h += _memSeg(String(cap), [["10", "10"], ["20", "20"], ["30", "30"], ["50", "50"], ["0", "不限"]], null);
+  h += '<div style="font-size:11.5px;color:var(--text-tertiary);margin:-4px 0 10px">只限制「开练」那一步，超出的顺延到明天。列表里照样全列出来。</div>';
+
+  // ④ 蒙对判据（选择题独有）
+  h += '<div style="font-size:13px;font-weight:700;margin:12px 0 6px">⚡ 秒选判据（防蒙对）</div>';
+  h += '<div style="margin-bottom:6px"><input id="memFastMs" type="number" min="0" max="60000" step="500" value="' + fast + '" style="width:110px;padding:9px 12px;border:2px solid var(--border);border-radius:10px;background:var(--bg-input);color:var(--text);font-size:13px"> <span style="font-size:13px">毫秒内答对 = 算「秒选」</span></div>';
+  h += '<div style="font-size:11.5px;color:var(--text-tertiary);margin-bottom:10px;line-height:1.7">选择题能蒙对，填空题不能 —— 这是本工具独有的。<br>判成「秒选」的题<b>这次不往上走档</b>，明天再来一次（档位不涨不跌）。填 0 = 不判。</div>';
+
+  // ⑤ 两块谁排上面（本工具只有「记忆复习」一块，但「复习清单」可以指错题本）—— 用「进复习页默认看哪档」代替，更实用
+  h += '<div style="font-size:13px;font-weight:700;margin:12px 0 6px">👀 看哪几个题库</div>';
+  h += '<button class="mem-mini" style="width:100%" id="memPickViewBtn">选题库（现在是：' + escHtml(memViewNames().length + " 个") + '）</button>';
+  h += '<div style="font-size:11.5px;color:var(--text-tertiary);margin:6px 0 10px">这只影响「复习页看什么」。哪些题库<b>参加记录</b>是另一个设置，在下面。</div>';
+
+  // ⑥ 哪些题库参加记录
+  h += '<div style="font-size:13px;font-weight:700;margin:12px 0 6px">✅ 哪些题库要记录</div>';
+  var onList = memS("banks");
+  var allNames = Object.keys(appData.banks || {});
+  h += '<div style="max-height:180px;overflow-y:auto;border:1px solid var(--border);border-radius:10px;padding:4px 10px">';
+  if (!allNames.length) h += '<div style="font-size:12px;color:var(--text-tertiary);padding:10px 0">还没有题库</div>';
+  allNames.forEach(function(n) {
+    var checked = (!onList || !onList.length) ? true : (onList.indexOf(n) >= 0);
+    h += '<label style="display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px;cursor:pointer">' +
+      '<input type="checkbox" class="mem-bankchk" value="' + escHtml(n) + '"' + (checked ? " checked" : "") + ' style="width:18px;height:18px">' +
+      '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(n) + '</span></label>';
+  });
+  h += '</div>';
+  h += '<div style="font-size:11.5px;color:var(--text-tertiary);margin:6px 0 10px">不勾的题库<b>一个字段都不写</b>。</div>';
+
+  // ⑦ 危险操作
+  h += '<div style="border-top:1px solid var(--border);padding-top:12px;margin-top:6px">' +
+    '<button class="mem-mini gray" style="width:100%;color:var(--danger)" id="memClearBtn">🗑 清空全部复习记录</button>' +
+    '<div style="font-size:11.5px;color:var(--text-tertiary);margin-top:6px">只清复习进度，<b>题库和错题本一个字都不动</b>。</div></div>';
+
+  body.innerHTML = h;
+
+  // ── 事件（事后绑）──
+  var segs = body.querySelectorAll("[data-seg]");
+  for (var i = 0; i < segs.length; i++) {
+    (function(el) {
+      el.onclick = function() {
+        var v = el.getAttribute("data-seg");
+        var grp = el.parentElement;
+        var all = grp.querySelectorAll("[data-seg]");
+        for (var k = 0; k < all.length; k++) all[k].classList.remove("on");
+        el.classList.add("on");
+        // 判断这是哪一组：靠下标区间（前 4 个是节奏、接着 3 个是答错、再 5 个是每天上限）
+        var idx = Array.prototype.indexOf.call(body.querySelectorAll("[data-seg]"), el);
+        if (idx < 4) {
+          memS("pace", v);
+          if (v === "custom") { renderMemSetBody(ov); return; }
+        } else if (idx < 7) memS("wrongAction", v);
+        else memS("dailyCap", Number(v));
+      };
+    })(segs[i]);
+  }
+  var cdEl = body.querySelector("#memCustomDays");
+  if (cdEl) cdEl.onchange = function() {
+    var arr = String(this.value || "").split(/[,，\s]+/).map(function(x) { return parseInt(x, 10); })
+      .filter(function(x) { return x > 0; }).slice(0, MEM_MAX_CUSTOM);
+    memS("customDays", arr);
+    toast("自定义节奏：每 " + arr.join("/") + " 天");
+  };
+  var fmEl = body.querySelector("#memFastMs");
+  if (fmEl) fmEl.onchange = function() { memS("fastMs", Math.max(0, Number(this.value) || 0)); toast("秒选判据已保存"); };
+  var pvEl = body.querySelector("#memPickViewBtn");
+  if (pvEl) pvEl.onclick = function() { showMemBankPicker(); };
+  var chks = body.querySelectorAll(".mem-bankchk");
+  for (var j = 0; j < chks.length; j++) {
+    (function(el) {
+      el.onchange = function() {
+        var picked = [];
+        for (var k = 0; k < chks.length; k++) if (chks[k].checked) picked.push(chks[k].value);
+        memS("banks", picked.length === chks.length ? null : picked);
+      };
+    })(chks[j]);
+  }
+  var clEl = body.querySelector("#memClearBtn");
+  if (clEl) clEl.onclick = function() { memClearConfirm(); };
+}
+
+// 🗑 清空复习记录 —— **问两遍**（跟挖空那边一致：这是不可恢复的）
+function memClearConfirm() {
+  var ov = _memModal(_memModalHead("🗑 清空全部复习记录") +
+    '<div style="padding:16px 18px 22px">' +
+    '<p style="font-size:14px;line-height:1.75;color:var(--text-secondary);margin-bottom:16px">会把<b>所有题目的复习进度</b>清掉（第几档、下次哪天、「已掌握」全部归零）。<br><br><b>题库和错题本一个字都不动。</b></p>' +
+    '<div style="display:flex;gap:10px"><button class="btn btn-ghost" style="flex:1" id="memClrNo">取消</button>' +
+    '<button class="btn" style="flex:1;background:var(--danger);color:#fff;border:none" id="memClrYes">继续</button></div></div>');
+  ov.querySelector("#memClrNo").onclick = function() { ov.remove(); };
+  ov.querySelector("#memClrYes").onclick = function() {
+    ov.remove();
+    memClearConfirm2();
+  };
+}
+function memClearConfirm2() {
+  var ov = _memModal(_memModalHead("⚠️ 最后确认一遍") +
+    '<div style="padding:16px 18px 22px">' +
+    '<p style="font-size:14px;line-height:1.75;color:var(--danger);margin-bottom:16px"><b>真的清空吗？清完找不回来。</b></p>' +
+    '<div style="display:flex;gap:10px"><button class="btn btn-ghost" style="flex:1" id="memClr2No">我再想想</button>' +
+    '<button class="btn" style="flex:1;background:var(--danger);color:#fff;border:none" id="memClr2Yes">确认清空</button></div></div>');
+  ov.querySelector("#memClr2No").onclick = function() { ov.remove(); };
+  ov.querySelector("#memClr2Yes").onclick = function() {
+    ov.remove();
+    Object.keys(appData.banks || {}).forEach(function(bn) {
+      (appData.banks[bn] || []).forEach(function(c) {
+        c.srStage = 0; c.srMastered = false; c.srNextReview = null; c.srLastOk = null; c.srLastMs = undefined;
+      });
+    });
+    saveData(appData);
+    toast("🗑 复习记录已清空（题库和错题本没动）");
+    renderMemPage();
+  };
+}
+
+// ── 看哪几个题库（多选）──
+function showMemBankPicker() {
+  var allNames = Object.keys(appData.banks || {});
+  var cur = memViewBanks();
+  var h = '<div style="max-height:300px;overflow-y:auto;border:1px solid var(--border);border-radius:10px;padding:4px 10px">';
+  if (!allNames.length) h += '<div style="font-size:12px;color:var(--text-tertiary);padding:10px 0">还没有题库</div>';
+  allNames.forEach(function(n) {
+    var checked = (!cur || !cur.length) ? true : (cur.indexOf(n) >= 0);
+    h += '<label style="display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px;cursor:pointer">' +
+      '<input type="checkbox" class="mem-viewchk" value="' + escHtml(n) + '"' + (checked ? " checked" : "") + ' style="width:18px;height:18px">' +
+      '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(n) + '</span></label>';
+  });
+  h += '</div>';
+  var ov = _memModal(_memModalHead("👀 看哪几个题库") +
+    '<div style="padding:14px 18px 20px">' + h +
+    '<div style="display:flex;gap:10px;margin-top:14px"><button class="btn btn-ghost" style="flex:1" id="memViewNo">取消</button>' +
+    '<button class="btn btn-primary" style="flex:1" id="memViewYes">确定</button></div></div>');
+  ov.querySelector("#memViewNo").onclick = function() { ov.remove(); };
+  ov.querySelector("#memViewYes").onclick = function() {
+    var picked = [];
+    var chks = ov.querySelectorAll(".mem-viewchk");
+    for (var k = 0; k < chks.length; k++) if (chks[k].checked) picked.push(chks[k].value);
+    memS("viewBanks", picked.length === chks.length ? null : picked);
+    ov.remove();
+    _memBucketView = null;
+    renderMemPage();
+    updateMemBadge();
+  };
+}
+
+function memApplyAnswer(card, wasCorrect) {
+  if (!card) return;
+  var ladder = memLadder();
+  if (!wasCorrect) {
+    var act = memS("wrongAction");
+    var st = card.srStage || 1;
+    if (act === "reset") st = 1;
+    else if (act === "back") st = Math.max(1, st - 1);
+    // keep：档位不动
+    if (st > ladder.length) st = ladder.length;
+    card.srStage = st;
+    card.srMastered = false;              // 答错一律取消「已掌握」
+    card.srLastOk = false;
+    card.srNextReview = memDayStart() + ladder[st - 1] * 86400000;
+  } else {
+    if (card.srMastered) return;           // 已掌握的不再自动排
+    var st2 = (card.srStage || 0) + 1;
+    if (st2 > ladder.length) {
+      card.srStage = ladder.length;
+      card.srMastered = true;
+      card.srNextReview = null;
+    } else {
+      card.srStage = st2;
+      card.srMastered = false;
+      card.srNextReview = memDayStart() + ladder[st2 - 1] * 86400000;
+    }
+    card.srLastOk = true;
+  }
+}
+
+// ── 兼容老入口：原来到处调 applySR(bankName, qId, wasCorrect) ──
+//   ⚠️ 判据全部改走 memActive()（**原来读的是裸的 appData.settings.srEnabled，档位门根本没接线**）
+//   ⚠️ 顺手记一个「上次做的时间」和「这次用了多久」（`_ms` 给"蒙对判据"用）
+// 🆕 2026-09-20 第二批：**「这题刷过没有」跟「记忆复习开没开」是两件事** ——
+//   进度条要的是前者。所以单独记一个 `doneAt`，**答过就写**（不管记忆复习开没开）。
+//   ⚠️ 不能拿 sr* 字段算进度：记忆复习**默认是关的**，关着的话 sr* 一个都不写、进度永远是 0。
+function markAnswered(bankName, qId) {
   var bank = appData.banks[bankName];
   if (!bank) return;
+  for (var i = 0; i < bank.length; i++) {
+    if (bank[i].id === qId) { bank[i].doneAt = Date.now(); bank[i].doneCount = (bank[i].doneCount || 0) + 1; return; }
+  }
+}
+
+function applySR(bankName, qId, wasCorrect, elapsedMs, noFastCheck) {
+  if (!memCanUse()) return;                                // 档位门（v273 已接线，这里再兜一道）
+  if (!memS("on")) return;                                 // 总开关**默认关**：关着一个字段都不写
+  if (!memBankOn(bankName)) return;                        // 这个题库不参加
+  var bank = appData.banks[bankName];
+  if (!bank) return;                                       // ⚠️ 选择题这里**直接就是数组**
   var card = null;
   for (var i = 0; i < bank.length; i++) { if (bank[i].id === qId) { card = bank[i]; break; } }
   if (!card) return;
-  if (!wasCorrect) {
-    card.srStage = card.srStage || 1;
-    card.srNextReview = Date.now() + 86400000;
-  } else if (card.srStage && card.srStage > 0) {
-    var intervals = [0, 86400000, 259200000, 604800000, 1296000000, 2592000000];
-    card.srStage = Math.min(6, card.srStage + 1);
-    if (card.srStage >= 6) { card.srNextReview = null; card.srStage = 0; /* 毕业自动移出错题本 */ if (appData.wrongBooks && appData.wrongBooks[bankName]) { var wb = appData.wrongBooks[bankName]; for (var wi = 0; wi < wb.length; wi++) { if (wb[wi].id === qId) { wb.splice(wi, 1); break; } } if (wb.length === 0) delete appData.wrongBooks[bankName]; } }
-    else card.srNextReview = Date.now() + intervals[card.srStage];
+  // 🆕 逐题用时：给「蒙对」判据用（秒选就对的题算可疑）
+  if (elapsedMs && elapsedMs > 0) card.srLastMs = Math.round(elapsedMs);
+  // 🆕 「蒙对」判据（选择题独有 —— 四选一能蒙，填空不能）
+  //   规则：**答对、但快到不像是真会** → 这次不往上升档，保持原地（明天再来）
+  var fastMs = Number(memS("fastMs"));
+  if (isNaN(fastMs) || fastMs <= 0) fastMs = 3000;          // 默认：3 秒内答对算「秒选」
+  // ⚠️ `noFastCheck`：浏览模式答题**不判秒选**（那边没有可靠的逐题计时，传 0 会把上次的
+  //   旧用时误当成本次的 → 5-1 变异就是拿这个抓出来的）。
+  var suspicious = !noFastCheck && wasCorrect && card.srLastMs && card.srLastMs < fastMs;
+  var _wasMastered = !!card.srMastered;                     // 🆕 B8：记下「这一次之前是不是已经掌握」
+  if (suspicious) {
+    card.srLastOk = true;
+    card.srNextReview = memDayStart() + 86400000;           // 明天再来一次，档位不涨
+  } else {
+    memApplyAnswer(card, wasCorrect);
   }
+  // 🆕 B8（2026-09-20 用户拍板「合并一套」）：**这一刻毕业** → 顺手从错题本移出 ＋ 计入「已消灭」。
+  //   `_wasMastered` 保证只在「没掌握 → 刚掌握」这一跳触发，已掌握的不会反复计数。
+  if (!_wasMastered && card.srMastered) memElimFromWrongBook(bankName, qId);
+  card.lastPracticed = Date.now();
   saveData(appData);
 }
+
+// 🆕 B8（2026-09-20 用户拍板「合并一套」）：**「学会了」只有一套 —— 毕业 ＝ 从错题本移出 ＋ 计入「已消灭」。**
+//   背景：原来错题本自己有一套「连对 7 次消灭」（做题交卷 ＋ 浏览模式共 3 处），
+//   记忆曲线「毕业」又是另一套，两个「学会了」的定义不一样 → 用户拍板**合并成一套**。
+//   规则（甲方案，用户点头）：
+//     · 记忆复习**开着** → 消灭只由「毕业」触发；那 3 处自己那套**不再跑**（各自调用点加门）。
+//     · 记忆复习**关着**（出厂默认）→ 3 处那套**原样保留**，一个字节都不变。
+//   ⚠️ 只在**真的从错题本删掉了一条**时才 +1 —— 一道从没错过的题毕业，不该算「消灭」。
+function memElimFromWrongBook(bn, qid) {
+  if (!bn || !appData.wrongBooks || !appData.wrongBooks[bn]) return;   // 本来就不在错题本里
+  var arr = appData.wrongBooks[bn];
+  var before = arr.length;
+  var kept = arr.filter(function(w) { return w.id !== qid; });
+  if (kept.length === before) return;                                  // 没这条 → 不计数
+  if (kept.length === 0) delete appData.wrongBooks[bn];
+  else appData.wrongBooks[bn] = kept;
+  appData.totalEliminated = (appData.totalEliminated || 0) + 1;
+  saveData(appData);
+}
+
 
 // ====== Restore Preset ======
 function restorePresetBanks() {
@@ -6657,6 +7436,7 @@ function escHtmlWithMath(text) {
 
 // ====== Quiz Setup ======
 function renderQuizSetup() {
+  syncDrawModeLockUI();   // 🆕 2026-09-20：档位会变，每次渲染都同步一次「随机不重复」的锁定状态
   // TODO: 模拟考试暂不开放，全版本锁定
   var mockChip = document.getElementById('mockExamChip');
   if (mockChip) { mockChip.style.opacity = '0.3'; mockChip.style.pointerEvents = 'none'; }
@@ -6877,7 +7657,10 @@ function startSearchTempQuiz() {
   var lbl = document.getElementById('bankNameLabel');
   if (lbl) lbl.textContent = _searchTempName + ' · ' + questions.length + '题';
   var hintText = quizMode === 'memorize' ? '📖 背题模式' : quizMode === 'instant' ? '⚡ 即时反馈' : '📋 做完总结';
-  if (drawMode === 'sequential') hintText += ' · 顺序';
+  // 🐞 2026-09-20（用户原话「按顺序出题…当前进度 有时候到哪一题了没有显示出来」）：
+  //   这条入口（搜索临时题库）原来只写「· 顺序」，**没有「第 N 题起」** ——
+  //   单题库那条入口是有的（见 renderQuizSetup 里那行）。三个入口说法不一致，用户就说「有时候有、有时候没有」。
+  if (drawMode === 'sequential') hintText += ' · 顺序 · 第' + (getSeqProgress(bankName) + 1) + '题起';
   else hintText += ' · 随机';
   document.getElementById('modeHint').textContent = hintText;
 
@@ -6951,7 +7734,9 @@ function startQuiz() {
     var lbl = document.getElementById('bankNameLabel');
     if (lbl) lbl.textContent = '🔀 混合刷题 · ' + mixedBanks.length + '个题库 · ' + questions.length + '题';
     var hintText = quizMode === 'memorize' ? '📖 背题模式' : quizMode === 'instant' ? '⚡ 即时反馈' : '📋 做完总结';
-    if (drawMode === 'sequential') hintText += ' · 顺序'; else hintText += ' · 随机';
+    // 🐞 2026-09-20：同上一处 —— 而且**混合模式实际是按随机出题的**（那段没有 drawMode 分支），
+    //   所以这里不能再写「顺序」，否则用户按「第 N 题起」的进度去对，永远对不上。
+    if (drawMode === 'sequential') hintText += ' · 顺序（混合模式实际按随机出题）'; else hintText += ' · 随机';
     document.getElementById('modeHint').textContent = hintText;
     stopTimer();
     if (quizMode === 'memorize' || timerMode === 'off') {
@@ -7536,7 +8321,12 @@ function renderQuestion() {
   document.getElementById('progressText').textContent = '第 ' + (idx + 1) + '/' + quizState.total + ' 题';
   if (isMulti) document.getElementById('progressText').textContent += ' 【多选】';
   document.getElementById('progressFill').style.width = ((idx / quizState.total) * 100) + '%';
-  document.getElementById('qNumBadge').textContent = '题目 #' + (q.id || (idx + 1));
+  // 🐞 2026-09-20（用户原话「铅笔左边的题目序号和顺序刷题的题目序号不一致」）：
+  //   原来这里写的是 「题目 #」+ q.id —— 那是**这题在题库里排第几号**；
+  //   而顶上那条是**本轮第几题**，两个数根本不是一回事。
+  //   q.id 是导入时按位置排的（导入那段的 questions.forEach((q,i)=>q.id=i+1)），
+  //   起始题号不是 1、或题库删过题（id 会断号）时必然对不上 → 改成跟顶部同一个口径。
+  document.getElementById('qNumBadge').textContent = '第 ' + (idx + 1) + '/' + quizState.total + ' 题';
   var favs = getFavorites(quizState.bankName);
   updateFavButtons();
 
@@ -7706,6 +8496,58 @@ function toggleQuestionBlur() {
 }
 
 // ====== 刷题中编辑题目 ======
+// 🆕 2026-09-20（用户原话「做题页少了删除题目的按钮 放在✏️的右边吧」）
+//   **删到哪一步 = 用户拍板「只从当前题库拿掉，错题记录留着」** ——
+//   所以这里**只 splice 题库数组**，绝不碰 wrongBooks / 收藏 / 统计。
+//   ⚠️ 二次确认照本文件 deleteBankConfirm() 那套**自绘弹窗**写（这个工具不用原生 confirm）。
+//   ⚠️ 本轮里也把它移掉（连 userAnswers 那一格一起 splice），否则这一轮还会再撞见它。
+function deleteCurrentQuizQuestion() {
+  if (!quizState || !quizState.questions) return;
+  var idx = quizState.currentIndex;
+  var q = quizState.questions[idx];
+  if (!q) return;
+  var bn = quizState.bankName;
+  var bank = appData.banks[bn];
+  var pos = -1;
+  if (bank) { for (var i = 0; i < bank.length; i++) { if (bank[i].id === q.id) { pos = i; break; } } }
+  if (pos < 0) { toast("这道题不在题库里（可能是搜索或错题的临时练习）"); return; }
+  var ov = document.createElement("div"); ov.className = "modal-overlay"; ov.style.animation = "none";
+  ov.innerHTML = '<div class="modal" style="animation:none;max-width:360px;margin:auto;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);padding:20px;border-radius:var(--radius);text-align:center">' +
+    '<h3 style="margin-bottom:10px">🗑️ 从题库里删掉这题</h3>' +
+    '<p style="color:var(--text-secondary);margin-bottom:8px;font-size:14px;line-height:1.7">只从「' + escHtml(bn) + '」里拿掉，<b>错题记录和收藏都会留着</b>。</p>' +
+    '<p style="color:var(--text-tertiary);margin-bottom:16px;font-size:12px;line-height:1.6">' + escHtml(String(q.question || "").slice(0, 60)) + '…</p>' +
+    '<div style="display:flex;gap:10px"><button class="btn btn-ghost" style="flex:1" onclick="this.closest(\'.modal-overlay\').remove()">取消</button>' +
+    '<button class="btn" style="flex:1;background:var(--danger);color:#fff;border:none" id="confirmDelQBtn">确认删除</button></div></div>';
+  document.body.appendChild(ov);
+  ov.querySelector("#confirmDelQBtn").onclick = function() { ov.remove(); _doDeleteQuizQuestion(bn, q.id); };
+  ov.addEventListener("click", function(e) { if (e.target === ov) ov.remove(); });
+}
+
+function _doDeleteQuizQuestion(bn, qid) {
+  var bank = appData.banks[bn];
+  if (!bank) { toast("题库已经不在了"); return; }
+  var pos = -1;
+  for (var i = 0; i < bank.length; i++) { if (bank[i].id === qid) { pos = i; break; } }
+  if (pos < 0) { toast("这道题已经不在了"); return; }
+  bank.splice(pos, 1);
+  // ⚠️⚠️ **只从题库拿掉** —— 错题本(wrongBooks) / 收藏 / 统计 **一个字都不动**（用户 2026-09-20 拍板）。
+  saveData(appData);
+  if (quizState && quizState.questions) {
+    var ri = -1;
+    for (var j = 0; j < quizState.questions.length; j++) { if (quizState.questions[j].id === qid) { ri = j; break; } }
+    if (ri >= 0) {
+      quizState.questions.splice(ri, 1);
+      if (Array.isArray(quizState.userAnswers)) quizState.userAnswers.splice(ri, 1);
+      quizState.total = quizState.questions.length;
+      if (quizState.currentIndex > ri) quizState.currentIndex--;
+    }
+  }
+  renderBanks();
+  toast("🗑️ 已从题库里删掉");
+  // renderQuestion() 开头自己会判「index 越界 → showResult()」，所以直接调它就行
+  if (quizState) renderQuestion();
+}
+
 function editCurrentQuizQuestion() {
   _editingQuizQ = true;
   renderQuestion();
@@ -7903,7 +8745,8 @@ function selectAnswer(letter) {
       }
     }
     else { quizState.wrong++; quizState.wrongIds.push(q.id); }
-    applySR(quizState.bankName, q.id, correct);
+    markAnswered(quizState.bankName, q.id);   // 🆕 2026-09-20：记账（跟记忆复习开关无关）
+    applySR(quizState.bankName, q.id, correct, quizState.questionStartTime ? (Date.now() - quizState.questionStartTime) : 0);
 
     document.getElementById('prevBtn').style.display = idx > 0 ? '' : 'none';
     var nextBtn = document.getElementById('nextBtn');
@@ -7995,7 +8838,8 @@ function confirmMultiAnswer() {
       }
     }
     else { quizState.wrong++; quizState.wrongIds.push(q.id); }
-    applySR(quizState.bankName, q.id, correct);
+    markAnswered(quizState.bankName, q.id);   // 🆕 2026-09-20：记账（跟记忆复习开关无关）
+    applySR(quizState.bankName, q.id, correct, quizState.questionStartTime ? (Date.now() - quizState.questionStartTime) : 0);
 
     document.getElementById('prevBtn').style.display = idx > 0 ? '' : 'none';
     var nextBtn = document.getElementById('nextBtn');
@@ -8039,6 +8883,42 @@ function prevQuestion() {
   renderQuestion();
 }
 
+// 🆕 2026-09-20（用户原话「题目会重复出现 明明已经刷过了 但是还是会重复出现」）
+//   **根因 B**：这两笔账（随机不重复的 doneSet / 顺序模式的 seqProgress）原来**只在「一轮做完」的那一刻记一次**
+//   —— 写入点全文件各只有一处，都在 showResult() 里。
+//   于是：做 3 题就点「← 返回」/ 切页 / 刷新 → **那 3 题一个字都没记** → 下次又原样出现。
+//   ✅ 现在改成**边做边记**：翻页那一刻就记一次（nextQuestion 里调），
+//      返回设置页时再补一次（_doBackToSetup 里调，只补「答过的」）。
+//   ⚠️ showResult() 里原来那两段**保留不动** —— 它们是幂等的（doneSet 用 includes 防重、seqProgress 取较大值），
+//      等价于「最后再兜一遍」。
+function _recordRoundProgress(uptoIdx, onlyAnswered) {
+  if (!quizState || !quizState.questions) return;
+  if (quizState.isTempQuiz || quizState.isQuickQuiz) return;   // 跟 showResult 里那段的判断保持一致
+  var bn = quizState.bankName;
+  if (!bn || !appData.banks[bn]) return;
+  var end = (uptoIdx == null) ? quizState.currentIndex : uptoIdx;
+  var changed = false;
+  if (quizState.drawMode === "random-norepeat") {
+    var doneSet = getDoneSet(bn);
+    for (var i = 0; i <= end && i < quizState.questions.length; i++) {
+      var a = quizState.userAnswers ? quizState.userAnswers[i] : null;
+      // 只记「答过的」：null（没做）和 "?"（跳过 / 超时）都不算刷过 —— 跳过的那题下次还该出现
+      if (onlyAnswered && (a === null || a === undefined || a === "?")) continue;
+      var q = quizState.questions[i];
+      if (q && !doneSet.includes(q.id)) { doneSet.push(q.id); changed = true; }
+    }
+  } else if (quizState.drawMode === "sequential") {
+    // 顺序：进度推进到「已经翻过去的那一题」的下一个（封顶在题库长度，别越界）
+    if (!appData.seqProgress) appData.seqProgress = {};
+    var base = (quizState._actualStartPos != null) ? quizState._actualStartPos : 0;
+    var want = base + end + 1;
+    var cap = appData.banks[bn] ? appData.banks[bn].length : want;
+    var cur = appData.seqProgress[bn] || 0;
+    if (want > cur) { appData.seqProgress[bn] = Math.min(want, cap); changed = true; }
+  }
+  if (changed) saveData(appData);
+}
+
 function nextQuestion() {
   if (!quizState) return;
   // 背题模式：直接翻页，跳过作答检查
@@ -8078,6 +8958,8 @@ function nextQuestion() {
   var allAnswered = quizState.userAnswers.every(function(a) { return a !== null; });
   if (!isInstant && allAnswered) { showResult(); return; }
   if (isInstant && idx >= quizState.total - 1) { showResult(); return; }
+  // 🆕 2026-09-20：**翻页这一刻就把账记了** —— 这样中途退出/切页/刷新都不会白做
+  _recordRoundProgress();
   quizState.currentIndex++;
   // 每题限时模式：重置计时器
   if (timerMode === 'perQuestion') {
@@ -8137,21 +9019,28 @@ function showResult() {
   saveData(appData);
 
   // 间隔重复：对所有答过的题更新SR
-  if (!quizState.isTempQuiz) {
+  // 🐞 2026-09-20（B3）：**即时模式下这一段要跳过** ——
+  //   即时模式在「作答那一刻」就已经记过了（selectAnswer / confirmMultiAnswer 里各有一处），
+  //   这里原来又**把整轮再过一遍** → 同一次作答被记两次 → 说明写「连对 6 次毕业」实际快一倍。
+  //   ⚠️ 总结模式还是要走这里（那种模式只在交卷时才知道对错）。
+  // 🐞 2026-09-20（B5）：`!== null` 之外还要排除 `"?"` —— 那是「跳过 / 超时」的标记，
+  //   原来它满足 `!== null`，于是**没做的题被当成答错**记进复习计划了。
+  if (!quizState.isTempQuiz && !isInstant) {
     for (var si = 0; si < quizState.questions.length; si++) {
       var sq = quizState.questions[si];
       var sAns = quizState.userAnswers[si];
-      if (sAns !== null) {
-        applySR(quizState.bankName, sq.id, isMultiSelect(sq) ? sAns === sq.answer : sAns === sq.answer);
+      if (sAns !== null && sAns !== "?") {
+        markAnswered(quizState.bankName, sq.id);
       }
     }
-  } else if (quizState.quickBankNames) {
+  } else if (!isInstant && quizState.quickBankNames) {
     // Quick quiz / daily challenge: apply SR to source bank questions
     for (var qi = 0; qi < quizState.questions.length; qi++) {
       var qAns = quizState.userAnswers[qi];
-      if (qAns !== null) {
+      if (qAns !== null && qAns !== "?") {   // 🐞 B5：跳过/超时不算答错
         var qBn = quizState.quickBankNames[qi];
         var qId = quizState.questions[qi].id;
+        markAnswered(qBn, qId);
         applySR(qBn, qId, isMultiSelect(quizState.questions[qi]) ? qAns === quizState.questions[qi].answer : qAns === quizState.questions[qi].answer);
       }
     }
@@ -8389,6 +9278,10 @@ function showResult() {
     quizState.questions.forEach(function(q, i) {
       var qBankName = (quizState.quickBankNames && quizState.quickBankNames[i]) || quizState.bankName;
       if (!qBankName || !appData.wrongBooks || !appData.wrongBooks[qBankName]) return;
+      // 🆕 B8（2026-09-20 用户拍板「合并一套」）：记忆复习**开着** → 「消灭」交给「毕业」那一步
+      //   （applySR 里 memElimFromWrongBook），这套 7 次**不再单独跑** —— 否则两个机制抢着动同一个数组。
+      //   关着（出厂默认）→ 原样往下走，一个字节都不变。
+      if (memActive(qBankName)) return;
       var wbEntry = appData.wrongBooks[qBankName].find(function(w) { return w.id === q.id; });
       if (!wbEntry) return;
       var userAns = quizState.userAnswers[i];
@@ -8415,7 +9308,12 @@ function showResult() {
   }
   // Random surprise (~10% chance)
   if (Math.random() < 0.1) {
-    setTimeout(function() { showRandomSurprise(correct, total, quizState); }, 800);
+    // 🐞 2026-09-20：这里原来传的是 **quizState 这个变量本身**，而这个 setTimeout 要等 800ms。
+    //   用户在这 0.8 秒内点「返回」→ `_doBackToSetup()` 把 quizState 置 null →
+    //   回调里读 `qState.maxCombo` 直接抛未捕获的 TypeError（已实测复现）。
+    //   ✅ 改成**先把要用的两个值拷出来**，跟 quizState 之后怎么变没关系。
+    var _rsSnap = { maxCombo: quizState.maxCombo, fastestMs: quizState.fastestMs };
+    setTimeout(function() { showRandomSurprise(correct, total, _rsSnap); }, 800);
   }
   // Check achievements
   setTimeout(function() {
@@ -8785,7 +9683,14 @@ function backToSetup() {
 }
 function _doBackToSetup() {
   stopTimer(); stopPomodoro();
+  // 🆕 2026-09-20：**走之前先把账记了**（只补「答过的」那些）——
+  //   原来这一句都没有，所以「做 3 题就返回」等于白做，下次那 3 题原样再来（用户报的「明明刷过了还重复」）。
+  //   ⚠️ 必须在 `quizState = null` **之前**调，之后就取不到本轮数据了。
+  if (quizState) _recordRoundProgress(quizState.currentIndex, true);
   quizState = null; // 清掉旧进度
+  // 🆕 2026-09-20：顺手把混合模式标记也清掉 —— 原来它不会清，
+  //   于是从题库页点某个题库进来、页面却还停在混合模式，用户看不到自己刚点的那个题库。
+  _resetMixedModeUI();
   _searchTempQuestions = null; // 清除搜索临时题库
   _searchTempName = '';
   var slEl = document.getElementById('sideTapLeft'); if (slEl) slEl.classList.remove('active');
@@ -9588,7 +10493,8 @@ function selectBrowseAnswer(letter) {
     saveData(appData);
   }
   // 答对了检查连续正确计数
-  if (letter === q.answer && browseState.name && appData.wrongBooks && appData.wrongBooks[browseState.name]) {
+  // 🆕 B8（2026-09-20 用户拍板「合并一套」）：记忆复习**开着**时这套 7 次不再跑 —— 交给记忆曲线接管。
+  if (letter === q.answer && browseState.name && appData.wrongBooks && appData.wrongBooks[browseState.name] && !memActive(browseState.name)) {
     var wbEntry2 = appData.wrongBooks[browseState.name].find(function(w) { return w.id === q.id; });
     if (wbEntry2) {
       wbEntry2.consecutiveCorrect = (wbEntry2.consecutiveCorrect || 0) + 1;
@@ -9600,6 +10506,10 @@ function selectBrowseAnswer(letter) {
       saveData(appData);
     }
   }
+  // 🆕 B8：浏览模式**也推进记忆曲线**（本工具的浏览模式**能答题**、跟做题页一样；
+  //   挖空的浏览页是**纯浏览、不能答题**，所以那边只在做题页推 —— 两边不一样是正常的）。
+  //   ⚠️ 第 5 个参数 true ＝ **不判秒选**（这里没有可靠的逐题计时，传 0 会把上次的旧用时误当成本次的）。
+  if (browseState.name) applySR(browseState.name, q.id, letter === q.answer, 0, true);
 
   renderBrowseQuestion();
 }
@@ -9634,7 +10544,8 @@ function confirmBrowseAnswer() {
     saveData(appData);
   }
   // 答对了检查连续正确计数
-  if (answerStr === q.answer && browseState.name && appData.wrongBooks && appData.wrongBooks[browseState.name]) {
+  // 🆕 B8（2026-09-20 用户拍板「合并一套」）：记忆复习**开着**时这套 7 次不再跑 —— 交给记忆曲线接管。
+  if (answerStr === q.answer && browseState.name && appData.wrongBooks && appData.wrongBooks[browseState.name] && !memActive(browseState.name)) {
     var wbEntry3 = appData.wrongBooks[browseState.name].find(function(w) { return w.id === q.id; });
     if (wbEntry3) {
       wbEntry3.consecutiveCorrect = (wbEntry3.consecutiveCorrect || 0) + 1;
@@ -9646,6 +10557,8 @@ function confirmBrowseAnswer() {
       saveData(appData);
     }
   }
+  // 🆕 B8：浏览模式多选**也推进记忆曲线**（同上面单选那处，理由一样）。
+  if (browseState.name) applySR(browseState.name, q.id, answerStr === q.answer, 0, true);
 
   renderBrowseQuestion();
 }
@@ -9798,7 +10711,13 @@ function saveBrowseEdit() {
       var bank = appData.banks[bankName];
       for (var i = 0; i < bank.length; i++) {
         if (bank[i].id === q.id) {
-          Object.keys(q).forEach(function(k) { bank[i][k] = q[k]; });
+          // 🐞 2026-09-20（B7）：**别把 sr* 字段写回去！**
+          //   编辑的是「错题本里的副本」，那份 `srStage` / `srNextReview` 是当初进错题本那一刻的**快照**，
+          //   之后再没刷新过 → 一编辑就**把旧档位覆盖回题库**，复习进度被静默回退。
+          Object.keys(q).forEach(function(k) {
+            if (k === "id" || k.indexOf("sr") === 0) return;
+            bank[i][k] = q[k];
+          });
           break;
         }
       }
@@ -11640,7 +12559,7 @@ function showManualMenu() {
         '<h4 style="font-size:16px;margin:0 0 10px;color:var(--primary)">❌ 错题复习</h4>' +
         '<div style="background:var(--bg-input);border-radius:10px;padding:14px 16px">' +
           '<p style="margin:0 0 6px"><b>错题本</b> — 做错的题目自动进入对应题库的错题本，记录错题次数和最近答错时间。</p>' +
-          '<p style="margin:0 0 6px"><b>间隔复习</b> — 基于遗忘曲线，答对后自动安排复习。连续答对 5 次即可毕业，不再提醒：</p>' +
+          '<p style="margin:0 0 6px"><b>间隔复习</b> — 基于遗忘曲线，答对后自动安排复习。连续答对 6 次即可毕业，不再提醒：</p>' +   // 🐞 2026-09-20：原来写「5 次」，可同一段下面又写「第6次答对→毕业」，自相矛盾；代码是 6 次
           '<p style="margin:4px 0 6px 16px;font-size:13px;line-height:1.8">' +
             '第1次答对 → <b>1天</b>后复习<br>' +
             '第2次答对 → <b>3天</b>后复习<br>' +
@@ -11649,7 +12568,7 @@ function showManualMenu() {
             '第5次答对 → <b>30天</b>后复习<br>' +
             '第6次答对 → 🎓 <b>毕业</b>，不再提醒' +
           '</p>' +
-          '<p style="margin:0 0 6px">中间任何一次答错，<b>重置回第1天</b>重新开始。可在设置中关闭"📅 间隔复习"开关，关闭后不更新复习状态但保留已有进度。</p>' +
+          '<p style="margin:0 0 6px">中间任何一次答错，<b>重置回第1天</b>重新开始（这个以后可以在设置里改成「只退一档」或「档位不动」）。可在设置中关闭"📅 间隔复习"开关，关闭后不更新复习状态但保留已有进度。</p>' +   // 🐞 2026-09-20：这句以前跟代码不一致（代码答错根本不重置），已把代码改成跟它一致
           '<p style="margin:0 0 6px"><b>📅 待复习提醒</b> — 题库列表中显示 📅 到期复习数量，一目了然。</p>' +
           '<p style="margin:0 0 6px"><b>🔢 错题分级</b> — 错题页支持按错误次数筛选：全部错题 / 错 3 次以上（高频错题）/ 错 5 次以上（顽固错题）。可逐级清理或逐级练习。</p>' +
           '<p style="margin:0 0 6px"><b>逐题管理</b> — 每道错题可单独删除，也可按分级批量清除。</p>' +
